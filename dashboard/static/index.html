@@ -684,19 +684,37 @@
                 const dirColor = idea.direction === 'LONG' || idea.direction === 'BULLISH' ? '#22c55e'
                     : idea.direction === 'BEARISH' ? '#ef4444' : '#eab308';
                 const isEquity = idea.type === 'EQUITY_MOMENTUM';
-                const canOrder = isEquity && idea.action === 'BUY ON BREAKOUT';
-                const levels = isEquity ? `
+                const qty = idea.qty ?? idea.suggested_qty;
+                const hasLevels = idea.entry_price != null && idea.stop_loss != null && idea.target != null;
+                const instrLine = idea.instrument
+                    ? `<div class="mt-2 text-[11px] text-slate-400"><span class="text-slate-500">Instrument:</span> ${escapeHtml(idea.instrument)}</div>` : '';
+                const levels = hasLevels ? `
                     <div class="grid grid-cols-3 gap-2 mt-3 text-[11px] font-mono">
                         <div class="bg-slate-800/60 rounded-lg p-2"><div class="text-slate-500 text-[9px]">ENTRY</div>₹${idea.entry_price}</div>
                         <div class="bg-slate-800/60 rounded-lg p-2"><div class="text-slate-500 text-[9px]">STOP</div>₹${idea.stop_loss}</div>
                         <div class="bg-slate-800/60 rounded-lg p-2"><div class="text-slate-500 text-[9px]">TARGET</div>₹${idea.target}</div>
-                    </div>` : `
+                    </div>${qty ? `<div class="text-[10px] text-slate-500 mt-1">Suggested qty: ${qty}${idea.is_option ? ' (1 lot)' : ' shares'}</div>` : ''}${instrLine}` : `
                     <div class="mt-3 text-[11px] text-slate-300"><span class="text-slate-500">Instrument:</span> ${escapeHtml(idea.instrument || '')}<br><span class="text-slate-500">Entry:</span> ${escapeHtml(idea.entry_zone || '')}</div>`;
-                const orderBtn = canOrder ? `
-                    <button onclick='sendIdeaToOrder(${JSON.stringify({symbol: idea.symbol, price: idea.entry_price, sl: idea.stop_loss, qty: idea.suggested_qty})})'
-                        class="mt-3 w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold">
-                        <i class="fa-solid fa-paper-plane"></i> Send to Order Desk
-                    </button>` : '';
+
+                // One-click direct trade at the idea's price (no order-desk detour).
+                const tp = idea.tradeable && hasLevels ? {
+                    symbol: idea.symbol, qty: qty, price: idea.entry_price,
+                    sl: idea.stop_loss, target: idea.target,
+                    is_option: !!idea.is_option, product: idea.product || (idea.is_option ? 'NRML' : 'CNC'),
+                    tt: idea.transaction_type || 'BUY'
+                } : null;
+                const orderBtn = tp ? `
+                    <div class="mt-3 flex items-center gap-2">
+                        <button onclick='tradeIdeaNow(${JSON.stringify(tp)})'
+                            class="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold">
+                            <i class="fa-solid fa-bolt"></i> Trade Now — BUY ${qty} @ ₹${idea.entry_price}
+                        </button>
+                        <button onclick='sendIdeaToOrder(${JSON.stringify({symbol: idea.symbol, price: idea.entry_price, sl: idea.stop_loss, qty: qty, is_option: !!idea.is_option, product: idea.product || (idea.is_option ? 'NRML' : 'CNC')})})'
+                            title="Adjust in order desk before placing"
+                            class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-bold">
+                            <i class="fa-solid fa-sliders"></i>
+                        </button>
+                    </div>` : '';
                 return `<div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5" style="border-left:3px solid ${dirColor}">
                     <div class="flex items-start justify-between">
                         <div>
@@ -727,10 +745,63 @@
             document.getElementById('order-price').value = o.price;
             document.getElementById('order-sl').value = o.sl;
             document.getElementById('order-quantity').value = o.qty;
-            document.getElementById('order-is-option').value = "false";
+            document.getElementById('order-is-option').value = o.is_option ? "true" : "false";
             document.getElementById('order-transaction-type').value = "BUY";
-            document.getElementById('order-product').value = "CNC";
+            document.getElementById('order-product').value = o.product || (o.is_option ? "NRML" : "CNC");
             liveValidateOrder();
+        }
+
+        // Lightweight non-blocking toast (bottom-right)
+        function ideaToast(msg, isError) {
+            let t = document.getElementById('idea-toast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'idea-toast';
+                t.className = 'fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-xl text-xs font-semibold shadow-2xl whitespace-pre-line';
+                document.body.appendChild(t);
+            }
+            t.style.background = isError ? '#7f1d1d' : '#065f46';
+            t.style.color = '#fff';
+            t.style.border = `1px solid ${isError ? '#ef4444' : '#22c55e'}`;
+            t.textContent = msg;
+            t.style.opacity = '1';
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => { t.style.transition = 'opacity .4s'; t.style.opacity = '0'; }, 4500);
+        }
+
+        // One-click direct trade from a Trade Ideas card — places at the idea's price immediately.
+        async function tradeIdeaNow(p) {
+            const mode = document.getElementById('execution-mode-select').value;
+            if (mode === 'live' && !confirm(`LIVE ORDER\n\nBUY ${p.qty} ${p.symbol} @ ₹${p.price}\nSL ₹${p.sl} · Target ₹${p.target}\n\nPlace this order now?`)) return;
+            try {
+                const res = await fetch('/api/trade/place', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mode,
+                        symbol: p.symbol,
+                        quantity: p.qty,
+                        price: p.price,
+                        stop_loss_price: p.sl,
+                        target_price: p.target,
+                        is_option: p.is_option,
+                        product: p.product,
+                        order_type: 'LIMIT',
+                        transaction_type: p.tt || 'BUY',
+                        strategy_origin: 'Trend Trade Ideas',
+                        available_margin: 10000000
+                    })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    ideaToast(`✅ ${mode.toUpperCase()} order placed\nBUY ${p.qty} ${p.symbol} @ ₹${p.price}\nOrder ${d.order_id || ''}`);
+                    fetchPositions();
+                } else {
+                    ideaToast(`❌ Order rejected: ${d.message || 'validation failed'}` + (d.errors && d.errors.length ? '\n• ' + d.errors.join('\n• ') : ''), true);
+                }
+            } catch (e) {
+                ideaToast('❌ Network error placing order.', true);
+            }
         }
 
         async function liveValidateOrder() {

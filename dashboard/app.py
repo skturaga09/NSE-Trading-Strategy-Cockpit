@@ -420,6 +420,42 @@ def compute_market_bias(cockpit: Dict[str, Any]) -> Dict[str, Any]:
     return {"bias": label, "score": score, "drivers": drivers, "regime": regime}
 
 
+def _build_index_option_order(direction: str, cockpit: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Turn a directional index bias into a concrete, one-click-tradeable NIFTY option order.
+
+    Picks the ATM strike from the live Nifty level and prices the weekly premium with
+    Black-Scholes, so the Trade Ideas card can place the order directly (no re-quote step).
+    Returns None if pricing is unavailable.
+    """
+    nifty = cockpit.get("market_health", {}).get("nifty_last")
+    if not nifty or not BLACK_SCHOLES_AVAILABLE:
+        return None
+    opt = "CE" if direction == "BULLISH" else "PE"
+    opt_type = OptionType.CALL if direction == "BULLISH" else OptionType.PUT
+    atm = int(round(nifty / 50.0) * 50)
+    dte_days = 7.0
+    try:
+        premium = OptionPricer(
+            spot=float(nifty), strike=float(atm), time_to_expiry=dte_days / 365.0,
+            volatility=0.13, risk_free_rate=0.065,
+        ).price(opt_type)
+    except Exception:
+        return None
+    premium = round(max(1.0, premium), 1)
+    return {
+        "order_symbol": f"NIFTY{atm}{opt}",
+        "strike": atm,
+        "entry_price": premium,
+        "stop_loss": round(premium * 0.6, 1),
+        "target": round(premium * 1.7, 1),
+        "qty": 75,  # 1 NIFTY lot
+        "product": "NRML",
+        "transaction_type": "BUY",
+        "is_option": True,
+        "tradeable": True,
+    }
+
+
 def build_trade_recommendations(universe: str = "nifty200") -> Dict[str, Any]:
     """Synthesize the trend (bias) with screener setups into ranked, rationale-backed ideas."""
     cockpit = get_market_cockpit_data()
@@ -467,14 +503,10 @@ def build_trade_recommendations(universe: str = "nifty200") -> Dict[str, Any]:
             lead = " (leadership theme)" if theme_conv >= 4.0 else ""
             rationale.append(f"Sector: {theme}{lead}.")
 
-        # In a bearish tape, long breakouts are demoted, not surfaced as buys.
+        action = "BUY ON BREAKOUT" if actionable else "WATCH — BUILD ALERT"
+        # Regime caution lowers conviction and warns, but never removes the trade option.
         if bias_label == "BEARISH":
-            action = "AVOID / WAIT"
-            rationale.append("Long breakouts are low-probability while the tape is risk-off — stand aside.")
-        elif actionable:
-            action = "BUY ON BREAKOUT"
-        else:
-            action = "WATCH — BUILD ALERT"
+            rationale.append("⚠ Counter-trend: tape is risk-off — reduce size and tighten the stop.")
 
         ideas.append({
             "type": "EQUITY_MOMENTUM",
@@ -489,6 +521,9 @@ def build_trade_recommendations(universe: str = "nifty200") -> Dict[str, Any]:
             "risk_reward": "1 : 2",
             "suggested_qty": max(1, round(50000 / entry)),
             "is_option": False,
+            "product": "CNC",
+            "transaction_type": "BUY",
+            "tradeable": True,
             "theme": theme,
             "rationale": rationale,
         })
@@ -534,11 +569,23 @@ def build_trade_recommendations(universe: str = "nifty200") -> Dict[str, Any]:
             "instrument": "NIFTY weekly iron condor (range-bound)",
             "entry_zone": "Sell strikes outside the expected weekly range",
             "is_option": True,
+            "tradeable": False,  # multi-leg structure — not a single one-click order
             "rationale": [
                 f"NEUTRAL bias {bias_score}/100 — no clear edge for directional trades.",
                 "Prefer premium-selling / range strategies until the trend resolves.",
             ],
         }
+
+    # Make directional index ideas concrete & one-click tradeable (real ATM strike + premium).
+    if index_idea["direction"] in ("BULLISH", "BEARISH"):
+        order = _build_index_option_order(index_idea["direction"], cockpit)
+        if order:
+            index_idea.update(order)
+            index_idea["symbol"] = order["order_symbol"]
+            index_idea["instrument"] = (
+                f"{order['order_symbol']} weekly (ATM {order['strike']}), "
+                f"~₹{order['entry_price']} × {order['qty']} qty"
+            )
     ideas.append(index_idea)
 
     ideas.sort(key=lambda x: x["conviction"], reverse=True)
