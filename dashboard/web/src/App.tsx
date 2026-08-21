@@ -3,6 +3,9 @@ import { Header } from "./components/Header";
 import { TabNav, type TabId } from "./components/TabNav";
 import { TradeIdeas } from "./tabs/TradeIdeas";
 import { Plumbing } from "./tabs/Plumbing";
+import { VcpScreener } from "./tabs/VcpScreener";
+import { Options } from "./tabs/Options";
+import { Backtest } from "./tabs/Backtest";
 import { Placeholder } from "./tabs/Placeholder";
 
 type Mode = "mock" | "live";
@@ -25,10 +28,10 @@ export default function App() {
           <div className="mt-6">
             {tab === "ideas" && <TradeIdeas />}
             {tab === "plumbing" && <Plumbing />}
-            {tab === "vcp" && <Placeholder title="VCP Screener" />}
-            {tab === "options" && <Placeholder title="Options & Greeks Engine" />}
+            {tab === "vcp" && <VcpScreener />}
+            {tab === "options" && <Options />}
             {tab === "fno" && <Placeholder title="Weekly F&O Planner" />}
-            {tab === "backtest" && <Placeholder title="Backtest & Tax Friction" />}
+            {tab === "backtest" && <Backtest />}
           </div>
         </main>
       </div>

@@ -6,6 +6,11 @@ import type {
   ValidateResponse,
   OrderForm,
   SimpleResponse,
+  VcpResponse,
+  OptionsForm,
+  OptionsResponse,
+  BacktestForm,
+  BacktestResponse,
 } from "./types";
 
 // All requests go to /api/* and are proxied to the Python backend (see vite.config.ts).
@@ -49,4 +54,13 @@ export const api = {
 
   clearAll: () =>
     postJSON<Record<string, never>, SimpleResponse>("/api/trade/clear-all", {}),
+
+  vcpScreen: (universe: string) =>
+    postJSON<{ universe: string }, VcpResponse>("/api/strategy/vcp-screen", { universe }),
+
+  optionsPricing: (form: OptionsForm) =>
+    postJSON<OptionsForm, OptionsResponse>("/api/options/pricing", form),
+
+  backtestEvaluate: (form: BacktestForm) =>
+    postJSON<BacktestForm, BacktestResponse>("/api/backtest/evaluate", form),
 };

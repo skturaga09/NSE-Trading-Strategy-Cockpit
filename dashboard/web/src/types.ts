@@ -167,3 +167,93 @@ export interface SimpleResponse {
   success: boolean;
   message?: string;
 }
+
+// --- VCP Screener ---
+export interface VcpCandidate {
+  symbol: string;
+  composite_score: number;
+  trend_score: number;
+  contraction_count: number;
+  t1_depth_pct: number;
+  t2_depth_pct: number;
+  t3_depth_pct: number;
+  volume_dryup_score: number;
+  pivot_price: number;
+  current_price: number;
+  distance_to_pivot_pct: number;
+  relative_strength_score: number;
+  status: string;
+  rs_vs_index_6m_pct?: number;
+}
+export interface VcpResponse {
+  universe: string;
+  total_screened: number;
+  candidates_count: number;
+  price_source: string;
+  candidates: VcpCandidate[];
+}
+
+// --- Options & Greeks ---
+export interface Greeks {
+  delta: number | null;
+  gamma: number | null;
+  theta: number | null;
+  vega: number | null;
+  rho: number | null;
+}
+export interface OptionsForm {
+  spot: number;
+  strike: number;
+  days_to_expiry: number;
+  volatility: number; // decimal (0.15)
+  option_type: "CALL" | "PUT";
+}
+export interface OptionsResponse {
+  spot: number;
+  strike: number;
+  days_to_expiry: number;
+  implied_volatility: number;
+  option_type: string;
+  calculated_price: number | null;
+  engine: string;
+  error?: string;
+  greeks: Greeks;
+}
+
+// --- Backtest ---
+export interface BacktestForm {
+  total_trades: number;
+  win_rate: number;
+  avg_win_pct: number;
+  avg_loss_pct: number;
+  max_drawdown_pct: number;
+  years_tested: number;
+  num_parameters: number;
+  avg_trade_value: number;
+  trade_type: string;
+  brokerage_per_trade: number;
+  slippage_tested: boolean;
+  include_india_costs: boolean;
+}
+export interface BacktestDimension {
+  name: string;
+  score: number;
+  max_score: number;
+  details: string;
+}
+export interface BacktestRedFlag {
+  severity: "critical" | "warning" | "info";
+  message: string;
+  recommendation: string;
+}
+export interface BacktestResponse {
+  total_score: number | null;
+  max_possible: number;
+  percentage: number;
+  verdict: string;
+  verdict_detail: string;
+  adjusted_expectancy_pct: number;
+  dimensions: BacktestDimension[];
+  red_flags: BacktestRedFlag[];
+  error?: string;
+}
