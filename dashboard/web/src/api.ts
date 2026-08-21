@@ -81,4 +81,8 @@ export const api = {
 
   getJournalRecent: () =>
     getJSON<JournalRecentResponse>(`/api/journal/recent?_t=${Date.now()}`),
+
+  refreshZerodha: () =>
+    postJSON<Record<string, never>, { success: boolean; message: string }>(
+      "/api/zerodha/refresh", {}),
 };

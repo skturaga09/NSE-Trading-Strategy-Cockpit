@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { api } from "../api";
 
 type Status = "pending" | "pass" | "warn" | "fail";
 interface CheckResult {
@@ -110,30 +111,46 @@ export function SystemCheck({ onClose, onGoLive }: { onClose: () => void; onGoLi
     CHECKS.map((c) => ({ name: c.name, critical: c.critical, status: "pending", detail: "checking…" }))
   );
   const [done, setDone] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [connectMsg, setConnectMsg] = useState<string | null>(null);
+
+  const runChecks = useCallback(async () => {
+    setDone(false);
+    setResults(CHECKS.map((c) => ({ name: c.name, critical: c.critical, status: "pending", detail: "checking…" })));
+    for (let i = 0; i < CHECKS.length; i++) {
+      let out: { status: Status; detail: string };
+      try {
+        out = await CHECKS[i].run();
+      } catch (e) {
+        out = { status: "fail", detail: e instanceof Error ? e.message : "error" };
+      }
+      setResults((prev) => {
+        const next = [...prev];
+        next[i] = { ...next[i], ...out };
+        return next;
+      });
+    }
+    setDone(true);
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      for (let i = 0; i < CHECKS.length; i++) {
-        let out: { status: Status; detail: string };
-        try {
-          out = await CHECKS[i].run();
-        } catch (e) {
-          out = { status: "fail", detail: e instanceof Error ? e.message : "error" };
-        }
-        if (cancelled) return;
-        setResults((prev) => {
-          const next = [...prev];
-          next[i] = { ...next[i], ...out };
-          return next;
-        });
-      }
-      if (!cancelled) setDone(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void runChecks();
+  }, [runChecks]);
+
+  // On-demand Kite login: run the server-side refresh flow, then re-verify.
+  const connectZerodha = useCallback(async () => {
+    setConnecting(true);
+    setConnectMsg("Logging in to Zerodha Kite…");
+    try {
+      const r = await api.refreshZerodha();
+      setConnectMsg((r.success ? "✅ " : "⚠ ") + r.message);
+      if (r.success) await runChecks();
+    } catch (e) {
+      setConnectMsg("⚠ " + (e instanceof Error ? e.message : "connection failed"));
+    } finally {
+      setConnecting(false);
+    }
+  }, [runChecks]);
 
   const criticalFail = results.some((r) => r.critical && r.status === "fail");
   const anyWarn = results.some((r) => r.status === "warn");
@@ -179,10 +196,25 @@ export function SystemCheck({ onClose, onGoLive }: { onClose: () => void; onGoLi
           {readyLive && !anyWarn && "✅ All systems go. Ready to go live."}
         </div>
 
-        <div className="mt-4 flex justify-end gap-2">
+        {connectMsg && (
+          <div className="mt-3 rounded-lg border border-line bg-raised/40 px-3 py-2 font-mono text-[11px] text-muted">
+            {connectMsg}
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
           <button onClick={onClose} className="rounded-lg border border-line bg-raised px-4 py-2 text-xs font-bold text-muted hover:text-ink">
             Close
           </button>
+          {done && !kiteConnected && (
+            <button
+              onClick={connectZerodha}
+              disabled={connecting}
+              className="rounded-lg border border-gold/50 bg-gold/15 px-4 py-2 text-xs font-bold text-gold hover:bg-gold/25 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {connecting ? "⏳ Connecting…" : "⚡ Connect to Zerodha"}
+            </button>
+          )}
           <button
             disabled={!readyLive}
             onClick={() => {

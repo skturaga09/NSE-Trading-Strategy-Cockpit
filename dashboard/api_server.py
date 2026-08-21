@@ -27,6 +27,7 @@ from dashboard import app as core
 from dashboard import journal
 
 STATIC_DIR = Path(__file__).parent / "static"
+WEB_DIST = Path(__file__).parent / "web" / "dist"  # built React app (npm run build)
 
 app = FastAPI(title="NSE Trading Dashboard API", version="2.0")
 app.add_middleware(
@@ -102,6 +103,50 @@ def get_zerodha_config() -> Dict[str, Any]:
         "auth_type": "Kite Connect API" if api_key else ("Kite Web Enctoken" if kc.get("enctoken") else "None"),
         "data_source": "Zerodha Kite Live API (api.kite.trade)" if is_conn else "Calibrated Live Simulation",
     }
+
+
+@app.post("/api/zerodha/refresh")
+def zerodha_refresh() -> JSONResponse:
+    """On-demand Kite login: run the daily refresh flow now, reload the fresh
+    token, and verify live connectivity. Backs the dashboard 'Connect to Zerodha'
+    button so the user never has to touch the terminal or wait for the 08:00 cron.
+    Secrets stay in the macOS Keychain — the script reads them; nothing crosses the
+    browser."""
+    import subprocess
+    import sys
+
+    script = Path(__file__).parent / "scripts" / "refresh_kite_token.py"
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(script)], capture_output=True, text=True, timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        return JSONResponse(
+            {"success": False, "message": "Kite login timed out (120s). Try again."},
+            status_code=504,
+        )
+
+    # Reload whatever the script wrote and test it against the live quote endpoint.
+    core.KITE_CONFIG.clear()
+    core.KITE_CONFIG.update(core.load_kite_config())
+    kc = core.KITE_CONFIG
+    quotes = core.ZerodhaPlumbingInspector.fetch_kite_ltp(
+        ["NSE:NIFTY 50"], api_key=kc.get("api_key", ""),
+        access_token=kc.get("access_token", ""), enctoken=kc.get("enctoken", ""))
+    if quotes:
+        kc["is_connected"] = True
+        core.save_kite_config(kc)
+        nifty = quotes.get("NSE:NIFTY 50", "?")
+        return JSONResponse({"success": True, "message": f"Connected to Zerodha Kite — NIFTY 50 @ ₹{nifty}", "quotes": quotes})
+
+    # Failed — give the user the actionable reason from the script's own output.
+    tail = (proc.stderr or proc.stdout or "").strip().splitlines()
+    hint = tail[-1] if tail else f"exit code {proc.returncode}"
+    if proc.returncode == 3:
+        hint = "Kite Keychain secrets missing. Store them once (see dashboard/scripts/README.md)."
+    elif proc.returncode == 2:
+        hint = "Missing Python deps on the server. Run: pip install requests pyotp"
+    return JSONResponse({"success": False, "message": f"Could not connect: {hint}"}, status_code=400)
 
 
 @app.get("/api/trade/positions")
@@ -472,5 +517,8 @@ async def post_zerodha_config(request: Request) -> JSONResponse:
     return JSONResponse({"success": False, "message": "Could not connect to Zerodha Kite API."}, status_code=400)
 
 
-# Serve the classic static UI (mounted last so /api/* routes win).
-app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
+# Serve the UI (mounted last so /api/* routes win). Prefer the built React app
+# (dashboard/web/dist) so one process serves API + UI on boot with no Vite; fall
+# back to the classic static UI if the bundle hasn't been built.
+_UI_DIR = WEB_DIST if (WEB_DIST / "index.html").exists() else STATIC_DIR
+app.mount("/", StaticFiles(directory=str(_UI_DIR), html=True), name="static")
