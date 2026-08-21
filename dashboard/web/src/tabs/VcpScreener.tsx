@@ -38,6 +38,10 @@ export function VcpScreener() {
         target_price: Math.round(price * 1.15 * 100) / 100, is_option: false,
         product: "CNC", order_type: "LIMIT", transaction_type: "BUY",
         strategy_origin: "Minervini VCP Screener", available_margin: 1e7, allow_after_hours: afterHours,
+        signal: {
+          composite_score: c.composite_score, trend_score: c.trend_score, rs: c.relative_strength_score,
+          distance_to_pivot_pct: c.distance_to_pivot_pct, sector: c.status, plan_type: "positional",
+        },
       });
     },
     onSuccess: (r, c) => {

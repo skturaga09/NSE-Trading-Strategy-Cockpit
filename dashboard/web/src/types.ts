@@ -72,6 +72,7 @@ export interface PlaceTradeRequest {
   strategy_origin: string;
   available_margin: number;
   allow_after_hours?: boolean;
+  signal?: Record<string, unknown>;
 }
 
 export interface MarketSession {

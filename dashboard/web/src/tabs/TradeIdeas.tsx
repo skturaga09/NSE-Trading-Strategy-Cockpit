@@ -53,6 +53,10 @@ export function TradeIdeas() {
       is_option: !!idea.is_option, product: idea.product ?? (idea.is_option ? "NRML" : "CNC"),
       order_type: "LIMIT", transaction_type: idea.transaction_type ?? "BUY",
       strategy_origin: "Trend Trade Ideas", available_margin: 1e7, allow_after_hours: afterHours,
+      signal: {
+        conviction: idea.conviction, sector: idea.theme, plan_type: "positional",
+        regime: data?.market_bias.regime, bias_score: data?.market_bias.score, is_live: data?.is_live,
+      },
     });
   }
 

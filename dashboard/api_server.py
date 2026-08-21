@@ -24,6 +24,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from dashboard import app as core
+from dashboard import journal
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -67,6 +68,16 @@ def market_cockpit() -> Dict[str, Any]:
 @app.get("/api/market/session")
 def market_session() -> Dict[str, Any]:
     return core.ZerodhaPlumbingInspector.market_session()
+
+
+@app.get("/api/journal/attribution")
+def journal_attribution() -> Dict[str, Any]:
+    return journal.attribution()
+
+
+@app.get("/api/journal/recent")
+def journal_recent() -> Dict[str, Any]:
+    return {"trades": journal.recent()}
 
 
 @app.get("/api/strategy/recommendations")
@@ -120,10 +131,23 @@ def get_positions() -> Dict[str, Any]:
             t["pnl"] = round(net, 2)
             base = t["entry_price"] * t["quantity"]
             t["pnl_pct"] = round((net / base) * 100.0, 2) if base > 0 else 0.0
+            # Journal: track excursions while open; finalize when SL/target trips.
+            try:
+                journal.update_excursion(t["order_id"], t["current_price"])
+            except Exception:
+                pass
             if t.get("stop_loss_price") and t["transaction_type"] == "BUY" and t["current_price"] <= t["stop_loss_price"]:
                 t["status"] = "STOP_LOSS_HIT"
+                try:
+                    journal.finalize(t["order_id"], t["current_price"], "STOP")
+                except Exception:
+                    pass
             elif t.get("target_price") and t["transaction_type"] == "BUY" and t["current_price"] >= t["target_price"]:
                 t["status"] = "TARGET_HIT"
+                try:
+                    journal.finalize(t["order_id"], t["current_price"], "TARGET")
+                except Exception:
+                    pass
 
     active = [t for t in book if t["status"] == "ACTIVE"]
     closed = [t for t in book if t["status"] != "ACTIVE"]
@@ -376,6 +400,18 @@ async def place_trade(request: Request) -> JSONResponse:
     }
     core.TRADE_BOOK.insert(0, rec)
     core.save_trade_book(core.TRADE_BOOK)
+
+    # Journal the entry with its signal-feature snapshot (for outcome attribution).
+    try:
+        journal.record_entry(
+            order_id=order_id, symbol=rec["symbol"], entry_price=entry,
+            stop=rec.get("stop_loss_price"), target=rec.get("target_price"),
+            qty=rec["quantity"], source=rec["strategy_origin"], is_option=is_option,
+            signal=p.get("signal") or {},
+        )
+    except Exception:
+        pass
+
     return JSONResponse({
         "success": True, "mode": mode, "order_id": order_id,
         "message": f"Order executed successfully in {mode.upper()} mode.",
@@ -392,6 +428,10 @@ async def square_off(request: Request) -> JSONResponse:
         if t["order_id"] == oid:
             t["status"] = "CLOSED"
             core.save_trade_book(core.TRADE_BOOK)
+            try:
+                journal.finalize(oid, t.get("current_price", t["entry_price"]), "MANUAL")
+            except Exception:
+                pass
             return JSONResponse({"success": True, "message": f"Position {oid} squared off successfully."})
     return JSONResponse({"success": False, "message": f"Order {oid} not found."}, status_code=404)
 

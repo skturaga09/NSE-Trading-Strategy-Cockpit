@@ -21,4 +21,5 @@ temp_interactive_push.bat
 dashboard/kite_config.json
 dashboard/trade_book.json
 dashboard/fii_dii_cache.json
+dashboard/journal.db
 dashboard/logs/

@@ -37,6 +37,10 @@ export function BreakoutRadar() {
         is_option: false, product: intraday ? "MIS" : "CNC", order_type: "LIMIT",
         transaction_type: "BUY", strategy_origin: intraday ? "Breakout Radar (Intraday)" : "Breakout Radar (Positional)",
         available_margin: 1e7, allow_after_hours: afterHours,
+        signal: {
+          composite_score: b.composite_score, rs: b.rs, distance_to_pivot_pct: b.above_pivot_pct,
+          plan_type: intraday ? "intraday" : "positional",
+        },
       });
     },
     onSuccess: (r, v) => {
