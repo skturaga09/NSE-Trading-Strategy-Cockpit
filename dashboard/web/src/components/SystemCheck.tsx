@@ -206,13 +206,14 @@ export function SystemCheck({ onClose, onGoLive }: { onClose: () => void; onGoLi
           <button onClick={onClose} className="rounded-lg border border-line bg-raised px-4 py-2 text-xs font-bold text-muted hover:text-ink">
             Close
           </button>
-          {done && !kiteConnected && (
+          {done && (
             <button
               onClick={connectZerodha}
               disabled={connecting}
+              title="Run the Kite login flow now and refresh the daily token"
               className="rounded-lg border border-gold/50 bg-gold/15 px-4 py-2 text-xs font-bold text-gold hover:bg-gold/25 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {connecting ? "⏳ Connecting…" : "⚡ Connect to Zerodha"}
+              {connecting ? "⏳ Connecting…" : kiteConnected ? "↻ Reconnect Kite" : "⚡ Connect to Zerodha"}
             </button>
           )}
           <button
