@@ -1,12 +1,13 @@
-export type TabId = "ideas" | "plumbing" | "vcp" | "options" | "fno" | "backtest";
+export type TabId = "ideas" | "plumbing" | "journal" | "vcp" | "options" | "fno" | "backtest";
 
 const TABS: { id: TabId; label: string; no: string }[] = [
   { id: "ideas", label: "Ideas", no: "01" },
   { id: "plumbing", label: "Plumbing", no: "02" },
-  { id: "vcp", label: "Screener", no: "03" },
-  { id: "options", label: "Greeks", no: "04" },
-  { id: "fno", label: "F&O Plan", no: "05" },
-  { id: "backtest", label: "Backtest", no: "06" },
+  { id: "journal", label: "Journal", no: "03" },
+  { id: "vcp", label: "Screener", no: "04" },
+  { id: "options", label: "Greeks", no: "05" },
+  { id: "fno", label: "F&O Plan", no: "06" },
+  { id: "backtest", label: "Backtest", no: "07" },
 ];
 
 export function TabNav({ active, onChange }: { active: TabId; onChange: (t: TabId) => void }) {

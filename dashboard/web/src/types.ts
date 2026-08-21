@@ -322,3 +322,53 @@ export interface BacktestResponse {
   red_flags: BacktestRedFlag[];
   error?: string;
 }
+
+// --- Trade Journal / Attribution ---
+export interface ExpectancyStat {
+  trades: number;
+  win_rate?: number;
+  avg_win_r?: number;
+  avg_loss_r?: number;
+  expectancy_r?: number;
+  avg_mfe_r?: number;
+  avg_mae_r?: number;
+  net_pnl?: number;
+  group?: string;
+  sufficient?: boolean;
+}
+export interface AttributionResponse {
+  generated_at: string;
+  min_sample: number;
+  open_trades: number;
+  overall: ExpectancyStat;
+  by_source: ExpectancyStat[];
+  by_conviction: ExpectancyStat[];
+  by_regime: ExpectancyStat[];
+}
+export interface JournalTrade {
+  order_id: string;
+  ts_entry: string;
+  source: string | null;
+  symbol: string;
+  plan_type: string | null;
+  entry_price: number | null;
+  stop: number | null;
+  target: number | null;
+  conviction: number | null;
+  regime: string | null;
+  sector: string | null;
+  ts_exit: string | null;
+  exit_price: number | null;
+  exit_reason: string | null;
+  r_multiple: number | null;
+  net_pnl: number | null;
+  net_pnl_pct: number | null;
+  mfe_r: number | null;
+  mae_r: number | null;
+  holding_mins: number | null;
+  outcome: string | null;
+  status: string;
+}
+export interface JournalRecentResponse {
+  trades: JournalTrade[];
+}

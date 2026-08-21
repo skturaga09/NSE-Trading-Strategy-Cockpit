@@ -14,6 +14,8 @@ import type {
   FnoPlan,
   BreakoutsResponse,
   MarketSession,
+  AttributionResponse,
+  JournalRecentResponse,
 } from "./types";
 
 // All requests go to /api/* and are proxied to the Python backend (see vite.config.ts).
@@ -73,4 +75,10 @@ export const api = {
   getBreakouts: () => getJSON<BreakoutsResponse>("/api/strategy/breakouts"),
 
   getSession: () => getJSON<MarketSession>("/api/market/session"),
+
+  getAttribution: () =>
+    getJSON<AttributionResponse>(`/api/journal/attribution?_t=${Date.now()}`),
+
+  getJournalRecent: () =>
+    getJSON<JournalRecentResponse>(`/api/journal/recent?_t=${Date.now()}`),
 };

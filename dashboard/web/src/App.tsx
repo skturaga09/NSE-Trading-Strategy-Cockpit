@@ -3,6 +3,7 @@ import { Header } from "./components/Header";
 import { TabNav, type TabId } from "./components/TabNav";
 import { TradeIdeas } from "./tabs/TradeIdeas";
 import { Plumbing } from "./tabs/Plumbing";
+import { Journal } from "./tabs/Journal";
 import { VcpScreener } from "./tabs/VcpScreener";
 import { Options } from "./tabs/Options";
 import { Backtest } from "./tabs/Backtest";
@@ -32,6 +33,7 @@ export default function App() {
           <div className="mt-6">
             {tab === "ideas" && <TradeIdeas />}
             {tab === "plumbing" && <Plumbing />}
+            {tab === "journal" && <Journal />}
             {tab === "vcp" && <VcpScreener />}
             {tab === "options" && <Options />}
             {tab === "fno" && <FnoPlanner />}
