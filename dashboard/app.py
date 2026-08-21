@@ -183,6 +183,28 @@ def get_underlying_symbol(symbol: str) -> str:
     clean = clean.replace("CE", "").replace("PE", "").strip()
     return clean if clean else s
 
+def parse_option_symbol(symbol: str) -> Optional[Tuple[str, int, str]]:
+    """Parse an index-option tradingsymbol → (underlying, strike, 'CE'|'PE'). None if not an option.
+
+    Handles e.g. NIFTY24250PE and NIFTY26AUG24000CE (expiry digits are stripped,
+    keeping the trailing 5-digit strike).
+    """
+    s = symbol.strip().upper()
+    if s.endswith("CE"):
+        opt = "CE"
+    elif s.endswith("PE"):
+        opt = "PE"
+    else:
+        return None
+    underlying = "BANKNIFTY" if "BANKNIFTY" in s else ("FINNIFTY" if "FINNIFTY" in s else "NIFTY")
+    digits = "".join(ch for ch in s[:-2] if ch.isdigit())
+    if not digits:
+        return None
+    if len(digits) > 5:
+        digits = digits[-5:]  # drop leading expiry digits, keep the strike
+    return underlying, int(digits), opt
+
+
 def fetch_live_market_price(symbol: str, is_option: bool = False, entry_price: float = 287.0) -> Tuple[float, str]:
     """
     Fetch authentic live market quote.
@@ -206,7 +228,41 @@ def fetch_live_market_price(symbol: str, is_option: bool = False, entry_price: f
                     LAST_TICK_PRICES[symbol] = price
                     return price, "Zerodha Kite Live API (api.kite.trade)"
 
-    # 2. Stable Real Market Baseline (Realistic NSE minimum tick size 0.05 - 0.15)
+    # 2. Real LTP from Yahoo Finance for equities & indices (options have no free feed).
+    if not is_option:
+        try:
+            from dashboard.live_market import get_ltp
+            underlying = get_underlying_symbol(symbol)
+            # For a plain equity, symbol IS the tradingsymbol; for an index use the underlying.
+            lookup = underlying if underlying in ("NIFTY", "BANKNIFTY", "FINNIFTY") else symbol
+            real = get_ltp(lookup)
+            if real and real > 0:
+                LAST_TICK_PRICES[symbol] = real
+                return real, "Yahoo Finance LTP (yfinance)"
+        except Exception:
+            pass
+
+    # 2b. Index-option LTP that tracks the live underlying via Black-Scholes.
+    #     (No free option feed exists; this is a theoretical mark, not a traded price.)
+    if is_option and BLACK_SCHOLES_AVAILABLE:
+        parsed = parse_option_symbol(symbol)
+        if parsed:
+            und, strike, opt = parsed
+            try:
+                from dashboard.live_market import get_ltp
+                spot = get_ltp(und)
+                if spot and spot > 0:
+                    ot = OptionType.CALL if opt == "CE" else OptionType.PUT
+                    prem = OptionPricer(spot=float(spot), strike=float(strike),
+                                        time_to_expiry=4.0 / 365.0, volatility=0.13,
+                                        risk_free_rate=0.065).price(ot)
+                    prem = round(max(0.05, prem), 2)
+                    LAST_TICK_PRICES[symbol] = prem
+                    return prem, "Black-Scholes mark (live underlying, no option feed)"
+            except Exception:
+                pass
+
+    # 3. Stable Real Market Baseline (Realistic NSE minimum tick size 0.05 - 0.15)
     if symbol not in LAST_TICK_PRICES:
         if "NIFTY24000CE" in symbol:
             LAST_TICK_PRICES[symbol] = 294.50

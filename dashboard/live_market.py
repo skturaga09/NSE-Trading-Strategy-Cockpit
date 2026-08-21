@@ -168,6 +168,49 @@ def get_live_market(force: bool = False) -> Optional[Dict[str, Any]]:
     return result
 
 
+# Per-symbol last-price cache so positions polling (every ~2s) does not hammer
+# Yahoo. Refreshed at most once per _LTP_TTL seconds per symbol.
+_LTP_CACHE: Dict[str, Any] = {}
+_LTP_TTL = 45
+
+# Index tradingsymbols → Yahoo tickers.
+_INDEX_YF = {
+    "NIFTY": "^NSEI", "NIFTY 50": "^NSEI",
+    "BANKNIFTY": "^NSEBANK", "NIFTY BANK": "^NSEBANK",
+    "FINNIFTY": "NIFTY_FIN_SERVICE.NS",
+}
+
+
+def get_ltp(symbol: str) -> Optional[float]:
+    """Real last price for an equity/index symbol from Yahoo (cached). None if unavailable."""
+    if not YF_OK or not symbol:
+        return None
+    key = symbol.upper().strip()
+    now = time.time()
+    hit = _LTP_CACHE.get(key)
+    if hit and (now - hit[1]) < _LTP_TTL:
+        return hit[0]
+
+    yf_ticker = _INDEX_YF.get(key, key if key.endswith(".NS") else f"{key}.NS")
+    price: Optional[float] = None
+    try:
+        tk = yf.Ticker(yf_ticker)
+        try:
+            price = float(tk.fast_info["last_price"])
+        except Exception:
+            h = tk.history(period="1d")
+            if len(h):
+                price = float(h["Close"].iloc[-1])
+    except Exception:
+        price = None
+
+    if price and price > 0:
+        price = round(price, 2)
+        _LTP_CACHE[key] = (price, now)
+        return price
+    return None
+
+
 def get_live_quotes(symbols: List[str]) -> Dict[str, Dict[str, float]]:
     """Live last price, 200-DMA distance, and 6-month relative strength vs Nifty for each symbol."""
     if not YF_OK or not symbols:
