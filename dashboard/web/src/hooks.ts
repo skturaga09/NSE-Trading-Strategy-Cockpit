@@ -11,7 +11,7 @@ export function useRecommendations() {
 }
 
 export function biasColor(label?: string): string {
-  if (label === "BULLISH") return "#22c55e";
-  if (label === "BEARISH") return "#f43f5e";
-  return "#eab308";
+  if (label === "BULLISH") return "var(--green)";
+  if (label === "BEARISH") return "var(--red)";
+  return "var(--gold)";
 }

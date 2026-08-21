@@ -16,6 +16,11 @@ dependencies = [
     "yfinance>=0.2.36",
     "pandas>=2.0",
     "niftystocks>=0.0.2",
+    # Dashboard backend (FastAPI server) + Kite token automation
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "requests>=2.31",
+    "pyotp>=2.9",
 ]
 
 [project.optional-dependencies]

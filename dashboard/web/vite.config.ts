@@ -5,6 +5,9 @@ import react from "@vitejs/plugin-react";
 // in dev exactly as it will be in production (where app.py serves the built bundle).
 export default defineConfig({
   plugins: [react()],
+  // Ensure a single React instance (motion otherwise resolves its own copy).
+  resolve: { dedupe: ["react", "react-dom"] },
+  optimizeDeps: { include: ["react", "react-dom", "motion", "motion/react"] },
   server: {
     port: 5173,
     proxy: {

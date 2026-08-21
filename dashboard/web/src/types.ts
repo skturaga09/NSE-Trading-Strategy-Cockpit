@@ -74,5 +74,96 @@ export interface PlaceTradeResponse {
   success: boolean;
   order_id?: string;
   message?: string;
+  mode?: string;
+  sliced_orders_executed?: number;
   errors?: string[];
+}
+
+// --- Plumbing & Orders ---
+
+export interface PositionsSummary {
+  total_pnl: number;
+  unrealized_pnl: number;
+  realized_pnl: number;
+  active_count: number;
+  closed_count: number;
+  total_trades: number;
+  win_rate_pct: number;
+  total_capital_invested: number;
+  last_updated: string;
+  data_source: string;
+}
+
+export interface Position {
+  order_id: string;
+  timestamp: string;
+  strategy_origin?: string;
+  symbol: string;
+  transaction_type: string;
+  product: string;
+  quantity: number;
+  entry_price: number;
+  current_price: number;
+  pnl: number;
+  gross_pnl?: number;
+  friction_costs?: number;
+  pnl_pct: number;
+  stop_loss_price?: number | null;
+  target_price?: number | null;
+  status: string;
+  is_option?: boolean;
+}
+
+export interface PositionsResponse {
+  summary: PositionsSummary;
+  trades: Position[];
+}
+
+export type DiagStatus = "PASSED" | "WARNING" | "FAILED";
+
+export interface Diagnostic {
+  check_name: string;
+  status: DiagStatus;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
+export interface CostBreakdown {
+  trade_value: number;
+  brokerage: number;
+  stt: number;
+  stamp_duty: number;
+  exchange_charges: number;
+  sebi_charges: number;
+  gst: number;
+  total_friction: number;
+  friction_pct: number;
+  break_even_points: number;
+}
+
+export interface ValidateResponse {
+  is_valid: boolean;
+  suggested_limit_price?: number;
+  sliced_orders: { slice_number: number; quantity: number }[];
+  cost_breakdown: CostBreakdown | null;
+  warnings: string[];
+  errors: string[];
+  diagnostics: Diagnostic[];
+}
+
+export interface OrderForm {
+  symbol: string;
+  transaction_type: string;
+  product: string;
+  order_type: string;
+  is_option: boolean;
+  quantity: number;
+  price: number;
+  stop_loss_price: number;
+  available_margin: number;
+}
+
+export interface SimpleResponse {
+  success: boolean;
+  message?: string;
 }

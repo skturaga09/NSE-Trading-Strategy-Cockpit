@@ -99,10 +99,10 @@ const CHECKS: {
 ];
 
 const DOT: Record<Status, string> = {
-  pending: "bg-slate-600 animate-pulse",
-  pass: "bg-emerald-500",
-  warn: "bg-amber-500",
-  fail: "bg-rose-500",
+  pending: "bg-muted animate-pulse",
+  pass: "bg-signalgreen",
+  warn: "bg-gold",
+  fail: "bg-signalred",
 };
 
 export function SystemCheck({ onClose, onGoLive }: { onClose: () => void; onGoLive?: () => void }) {
@@ -143,24 +143,24 @@ export function SystemCheck({ onClose, onGoLive }: { onClose: () => void; onGoLi
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"
+        className="w-full max-w-lg rounded-lg border border-line bg-raised p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h2 className="flex items-center gap-2 text-base font-bold text-white">⚡ System Check — Go-Live Pre-flight</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-white">✕</button>
+        <div className="flex items-center justify-between border-b border-line pb-3">
+          <h2 className="flex items-center gap-2 text-base font-bold text-ink">⚡ System Check — Go-Live Pre-flight</h2>
+          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
         </div>
 
         <ul className="mt-4 space-y-2">
           {results.map((r) => (
-            <li key={r.name} className="flex items-center gap-3 rounded-lg bg-slate-800/40 px-3 py-2">
+            <li key={r.name} className="flex items-center gap-3 rounded-lg bg-raised/40 px-3 py-2">
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${DOT[r.status]}`} />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 text-sm text-slate-200">
+                <div className="flex items-center gap-2 text-sm text-ink">
                   {r.name}
-                  {r.critical && <span className="text-[9px] font-bold uppercase text-slate-500">critical</span>}
+                  {r.critical && <span className="text-[9px] font-bold uppercase text-muted">critical</span>}
                 </div>
-                <div className="truncate text-[11px] text-slate-500">{r.detail}</div>
+                <div className="truncate text-[11px] text-muted">{r.detail}</div>
               </div>
             </li>
           ))}
@@ -180,7 +180,7 @@ export function SystemCheck({ onClose, onGoLive }: { onClose: () => void; onGoLi
         </div>
 
         <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-lg bg-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-600">
+          <button onClick={onClose} className="rounded-lg border border-line bg-raised px-4 py-2 text-xs font-bold text-muted hover:text-ink">
             Close
           </button>
           <button
@@ -189,7 +189,7 @@ export function SystemCheck({ onClose, onGoLive }: { onClose: () => void; onGoLi
               onGoLive?.();
               onClose();
             }}
-            className="rounded-lg bg-gradient-to-b from-emerald-500 to-emerald-600 px-4 py-2 text-xs font-bold text-white shadow disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg bg-signalgreen/20 border border-signalgreen/50 px-4 py-2 text-xs font-bold text-signalgreen disabled:cursor-not-allowed disabled:opacity-40"
           >
             🚀 Go Live
           </button>

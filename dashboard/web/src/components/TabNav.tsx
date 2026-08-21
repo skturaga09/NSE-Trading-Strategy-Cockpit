@@ -1,31 +1,35 @@
 export type TabId = "ideas" | "plumbing" | "vcp" | "options" | "fno" | "backtest";
 
-const TABS: { id: TabId; label: string; icon: string }[] = [
-  { id: "ideas", label: "Trade Ideas", icon: "💡" },
-  { id: "plumbing", label: "Plumbing & Orders", icon: "🔧" },
-  { id: "vcp", label: "VCP Screener", icon: "🔍" },
-  { id: "options", label: "Options & Greeks", icon: "🧮" },
-  { id: "fno", label: "F&O Planner", icon: "📅" },
-  { id: "backtest", label: "Backtest", icon: "📊" },
+const TABS: { id: TabId; label: string; no: string }[] = [
+  { id: "ideas", label: "Ideas", no: "01" },
+  { id: "plumbing", label: "Plumbing", no: "02" },
+  { id: "vcp", label: "Screener", no: "03" },
+  { id: "options", label: "Greeks", no: "04" },
+  { id: "fno", label: "F&O Plan", no: "05" },
+  { id: "backtest", label: "Backtest", no: "06" },
 ];
 
 export function TabNav({ active, onChange }: { active: TabId; onChange: (t: TabId) => void }) {
   return (
-    <div className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/50 p-1">
+    <div className="flex gap-1 overflow-x-auto border-b border-line font-mono">
       {TABS.map((t) => {
         const on = t.id === active;
         return (
           <button
             key={t.id}
             onClick={() => onChange(t.id)}
-            className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
-              on
-                ? "bg-gradient-to-b from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-900/40"
-                : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-100"
+            className={`group relative flex shrink-0 items-baseline gap-2 px-4 py-3 text-sm font-semibold transition-colors ${
+              on ? "text-gold" : "text-muted hover:text-ink"
             }`}
           >
-            <span>{t.icon}</span>
-            {t.label}
+            <span className="text-[10px] tabular-nums opacity-60">{t.no}</span>
+            <span className="tracking-wide">{t.label}</span>
+            <span
+              className={`absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-gold transition-transform duration-300 ${
+                on ? "scale-x-100" : "scale-x-0 group-hover:scale-x-50"
+              }`}
+              style={{ boxShadow: on ? "0 0 12px var(--gold)" : "none" }}
+            />
           </button>
         );
       })}

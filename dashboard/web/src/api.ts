@@ -2,6 +2,10 @@ import type {
   Recommendations,
   PlaceTradeRequest,
   PlaceTradeResponse,
+  PositionsResponse,
+  ValidateResponse,
+  OrderForm,
+  SimpleResponse,
 } from "./types";
 
 // All requests go to /api/* and are proxied to the Python backend (see vite.config.ts).
@@ -30,4 +34,19 @@ export const api = {
 
   placeTrade: (req: PlaceTradeRequest) =>
     postJSON<PlaceTradeRequest, PlaceTradeResponse>("/api/trade/place", req),
+
+  getPositions: () =>
+    getJSON<PositionsResponse>(`/api/trade/positions?_t=${Date.now()}`),
+
+  validateTrade: (form: OrderForm) =>
+    postJSON<OrderForm, ValidateResponse>("/api/plumbing/validate-trade", form),
+
+  squareOff: (order_id: string) =>
+    postJSON<{ order_id: string }, SimpleResponse>("/api/trade/square-off", { order_id }),
+
+  squareOffAll: () =>
+    postJSON<Record<string, never>, SimpleResponse>("/api/trade/square-off-all", {}),
+
+  clearAll: () =>
+    postJSON<Record<string, never>, SimpleResponse>("/api/trade/clear-all", {}),
 };

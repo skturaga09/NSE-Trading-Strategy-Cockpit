@@ -2,6 +2,7 @@ import { createContext, useContext, useState } from "react";
 import { Header } from "./components/Header";
 import { TabNav, type TabId } from "./components/TabNav";
 import { TradeIdeas } from "./tabs/TradeIdeas";
+import { Plumbing } from "./tabs/Plumbing";
 import { Placeholder } from "./tabs/Placeholder";
 
 type Mode = "mock" | "live";
@@ -17,13 +18,13 @@ export default function App() {
 
   return (
     <ModeCtx.Provider value={{ mode, setMode }}>
-      <div className="min-h-screen bg-slate-950">
+      <div className="min-h-screen">
         <Header mode={mode} setMode={setMode} />
-        <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+        <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6">
           <TabNav active={tab} onChange={setTab} />
           <div className="mt-6">
             {tab === "ideas" && <TradeIdeas />}
-            {tab === "plumbing" && <Placeholder title="Trade Plumbing & Orders" />}
+            {tab === "plumbing" && <Plumbing />}
             {tab === "vcp" && <Placeholder title="VCP Screener" />}
             {tab === "options" && <Placeholder title="Options & Greeks Engine" />}
             {tab === "fno" && <Placeholder title="Weekly F&O Planner" />}
