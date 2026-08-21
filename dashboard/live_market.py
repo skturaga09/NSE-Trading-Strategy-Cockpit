@@ -211,6 +211,87 @@ def get_ltp(symbol: str) -> Optional[float]:
     return None
 
 
+# NSE sector indices (Yahoo tickers) → dashboard theme labels. Labels match the
+# symbol→theme map in app.py so a screened stock earns its sector's live conviction.
+_SECTOR_INDICES: Dict[str, str] = {
+    "^NSEBANK": "Banking & Financials",
+    "^CNXIT": "IT & Digital",
+    "^CNXPHARMA": "Pharma & Healthcare",
+    "^CNXAUTO": "Auto",
+    "^CNXFMCG": "FMCG & Consumption",
+    "^CNXMETAL": "Metals",
+    "^CNXENERGY": "Energy",
+    "^CNXREALTY": "Realty",
+    "^CNXINFRA": "Defence & Capital Goods",
+    "^CNXMEDIA": "Media",
+}
+
+_THEME_CACHE: Dict[str, Any] = {"ts": 0.0, "data": None}
+_THEME_TTL = 1800
+
+
+def get_sector_themes(top_n: int = 3) -> Optional[List[Dict[str, Any]]]:
+    """Rank NSE sectors by live momentum & relative strength; return the top N themes.
+
+    Each theme: {theme, conviction (0-5), driver} derived from 3-month return,
+    relative strength vs Nifty, and trend vs the 50/200-DMA. None if unavailable.
+    """
+    if not YF_OK:
+        return None
+    now = time.time()
+    if _THEME_CACHE["data"] is not None and (now - _THEME_CACHE["ts"]) < _THEME_TTL:
+        return _THEME_CACHE["data"]
+
+    try:
+        tickers = list(_SECTOR_INDICES) + [INDEX_TICKER]
+        df = yf.download(tickers, period="1y", interval="1d", progress=False, threads=True)
+        close = df["Close"] if "Close" in df.columns.get_level_values(0) else df
+    except Exception:
+        return None
+    if INDEX_TICKER not in close.columns:
+        return None
+
+    def ret_3m(s: "pd.Series") -> Optional[float]:
+        s = s.dropna()
+        return float(s.iloc[-1] / s.iloc[-63] - 1.0) * 100.0 if len(s) > 63 else None
+
+    nifty_ret = ret_3m(close[INDEX_TICKER])
+    if nifty_ret is None:
+        return None
+
+    scored: List[Dict[str, Any]] = []
+    for tk, theme in _SECTOR_INDICES.items():
+        if tk not in close.columns:
+            continue
+        s = close[tk].dropna()
+        r = ret_3m(s)
+        if r is None:
+            continue
+        last = float(s.iloc[-1])
+        d50 = _dma(s, 50)
+        d200 = _dma(s, 200) if len(s) >= 200 else None
+        rs = r - nifty_ret
+        above50 = bool(d50 and last > d50)
+        above200 = d200 is None or last > d200  # if no 200d history, don't penalize
+        conv = 2.5 + rs * 0.15 + (0.6 if above200 else -0.6) + (0.4 if above50 else -0.4)
+        conv = round(max(0.5, min(5.0, conv)), 1)
+        trend = "above" if above200 else "below"
+        scored.append({
+            "theme": theme,
+            "conviction": conv,
+            "driver": f"{r:+.1f}% 3M · RS {rs:+.1f} vs Nifty · {trend} 200-DMA",
+            "_rs": rs,
+        })
+
+    if not scored:
+        return None
+    scored.sort(key=lambda x: x["conviction"], reverse=True)
+    top = [{k: v for k, v in t.items() if k != "_rs"} for t in scored[:top_n]]
+    _THEME_CACHE["ts"] = now
+    _THEME_CACHE["data"] = top
+    return top
+
+
 def get_live_quotes(symbols: List[str]) -> Dict[str, Dict[str, float]]:
     """Live last price, 200-DMA distance, and 6-month relative strength vs Nifty for each symbol."""
     if not YF_OK or not symbols:

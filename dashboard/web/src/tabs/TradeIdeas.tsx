@@ -96,6 +96,19 @@ export function TradeIdeas() {
               <span key={i} className="rounded border border-line bg-raised/60 px-2 py-1 font-mono text-[10px] text-muted">{d}</span>
             ))}
           </div>
+          {data.top_themes && data.top_themes.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <span className="font-mono text-[9px] uppercase tracking-widest text-muted">
+                leadership {data.themes_live ? "· live" : "· est"}
+              </span>
+              {data.top_themes.map((t, i) => (
+                <span key={i} title={t.driver}
+                  className="rounded border border-gold/25 bg-gold/5 px-2 py-1 font-mono text-[10px] text-gold">
+                  {t.theme} <span className="text-gold-dim">{t.conviction}</span>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="mt-2 font-mono text-[10px] text-muted/70">
             {data.data_source}{data.as_of ? ` · ${data.as_of}` : ""}
             {data.ideas_source ? ` · setups: ${data.ideas_source}` : ""}

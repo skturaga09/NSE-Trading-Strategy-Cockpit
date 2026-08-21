@@ -330,6 +330,18 @@ def get_market_cockpit_data() -> Dict[str, Any]:
         live = None
 
     # Prefer the fetched end-of-day FII/DII figure when the cache is fresh.
+    # Live sector-momentum themes (fall back to editorial list when unavailable).
+    themes = _CALIBRATED_THEMES
+    themes_live = False
+    try:
+        from dashboard.live_market import get_sector_themes
+        st = get_sector_themes()
+        if st:
+            themes = st
+            themes_live = True
+    except Exception:
+        pass
+
     flows = None
     try:
         from dashboard.live_fii_dii import get_fii_dii
@@ -357,7 +369,8 @@ def get_market_cockpit_data() -> Dict[str, Any]:
         return {
             "market_health": live["market_health"],
             "institutional_flows": flows,
-            "top_themes": _CALIBRATED_THEMES,
+            "top_themes": themes,
+            "themes_live": themes_live,
             "is_live": True,
             "data_source": f"Yahoo Finance (yfinance) — Nifty-50 basket ({live.get('universe_size', '?')} names)",
             "as_of": live.get("as_of"),
@@ -366,7 +379,8 @@ def get_market_cockpit_data() -> Dict[str, Any]:
     return {
         "market_health": dict(_CALIBRATED_HEALTH),
         "institutional_flows": flows,
-        "top_themes": _CALIBRATED_THEMES,
+        "top_themes": themes,
+        "themes_live": themes_live,
         "is_live": False,
         "data_source": "Calibrated simulation (live feed unavailable)",
         "as_of": None,
@@ -681,6 +695,7 @@ def build_trade_recommendations(universe: str = "nifty200") -> Dict[str, Any]:
         "as_of": cockpit.get("as_of"),
         "market_health": cockpit["market_health"],
         "ideas_source": ideas_source,
+        "themes_live": cockpit.get("themes_live", False),
         "top_themes": cockpit["top_themes"],
         "headline": (
             f"{bias_label} tape ({bias_score}/100). "

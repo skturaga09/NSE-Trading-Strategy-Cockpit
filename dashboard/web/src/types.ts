@@ -53,6 +53,8 @@ export interface Recommendations {
   as_of: string | null;
   headline: string;
   ideas_source?: string;
+  themes_live?: boolean;
+  top_themes?: { theme: string; conviction: number; driver: string }[];
   ideas: TradeIdea[];
 }
 
