@@ -190,6 +190,7 @@ export interface VcpResponse {
   total_screened: number;
   candidates_count: number;
   price_source: string;
+  screening?: boolean;
   candidates: VcpCandidate[];
 }
 

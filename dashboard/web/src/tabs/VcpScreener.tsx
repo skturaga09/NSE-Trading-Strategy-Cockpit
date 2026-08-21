@@ -25,6 +25,8 @@ export function VcpScreener() {
   const { data, isFetching, refetch } = useQuery({
     queryKey: ["vcp", universe],
     queryFn: () => api.vcpScreen(universe),
+    // Auto-poll while a real background screen is running, then stop.
+    refetchInterval: (q) => (q.state.data?.screening ? 5000 : false),
   });
 
   const buy = useMutation({

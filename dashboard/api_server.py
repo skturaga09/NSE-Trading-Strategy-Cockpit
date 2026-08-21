@@ -176,9 +176,31 @@ async def validate_trade(request: Request) -> Dict[str, Any]:
 async def vcp_screen(request: Request) -> Dict[str, Any]:
     p = await request.json()
     universe = str(p.get("universe", "nifty50")).lower()
+
+    # 1. Prefer the real, computed VCP screen (cached + background-refreshed).
+    try:
+        from dashboard.live_vcp import get_vcp_candidates
+        real, source, screening = get_vcp_candidates(universe)
+        if real is not None:
+            total_map = {"nifty50": 50, "nifty200": 200, "nifty500": 500}
+            return {
+                "universe": universe,
+                "total_screened": total_map.get(universe, 50),
+                "candidates_count": len(real),
+                "price_source": source,
+                "screening": screening,
+                "candidates": real,
+            }
+        first_call_source = source  # background screen kicked off; show modeled meanwhile
+        first_call_screening = screening
+    except Exception:
+        first_call_source = None
+        first_call_screening = False
+
+    # 2. Fallback: modeled snapshot with live price/RS enrichment (first call only).
     data = core.get_vcp_universe_data()
     raw = data.get(universe, data["nifty50"])
-    price_source = "Modeled screener snapshot"
+    price_source = first_call_source or "Modeled screener snapshot"
 
     kc = core.KITE_CONFIG
     if kc.get("is_connected") and kc.get("api_key") and kc.get("access_token"):
@@ -219,12 +241,17 @@ async def vcp_screen(request: Request) -> Dict[str, Any]:
         except Exception:
             pass
 
+    # While a real screen runs, keep the honest "screening…" label over the price feed.
+    if first_call_screening and first_call_source:
+        price_source = first_call_source
+
     total_map = {"nifty50": 50, "nifty200": 200, "nifty500": 500}
     return {
         "universe": universe,
         "total_screened": total_map.get(universe, 50),
         "candidates_count": len(raw),
         "price_source": price_source,
+        "screening": first_call_screening,
         "candidates": raw,
     }
 
