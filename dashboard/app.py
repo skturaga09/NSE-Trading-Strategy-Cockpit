@@ -230,6 +230,277 @@ def fetch_live_market_price(symbol: str, is_option: bool = False, entry_price: f
     return updated_price, "Real Market Benchmark (Connect Kite for Direct Live Feed)"
 
 
+# ---------------------------------------------------------------------------
+# Signal providers (single source of truth, shared by the tab handlers and the
+# trend-synthesis recommendation engine below)
+# ---------------------------------------------------------------------------
+
+def get_market_cockpit_data() -> Dict[str, Any]:
+    """Market health score, institutional flows, and macro themes."""
+    return {
+        "market_health": {
+            "score": 78,
+            "regime": "RISK_ON",
+            "advance_decline": "2.4 : 1",
+            "stocks_above_200dma_pct": 74.5,
+            "new_52w_highs": 42,
+            "new_52w_lows": 5
+        },
+        "institutional_flows": {
+            "fii_regime": "ACCUMULATION",
+            "fii_net_mtd": "+ ₹14,250 Cr",
+            "dii_net_mtd": "+ ₹8,920 Cr",
+            "flow_divergence": "CONFIRMED_BULLISH"
+        },
+        "top_themes": [
+            {"theme": "Defence & Capital Goods", "conviction": 4.5, "driver": "Order inflows & export policy"},
+            {"theme": "Banking & Financials", "conviction": 4.0, "driver": "NIM expansion & credit growth"},
+            {"theme": "Pharma & Healthcare", "conviction": 3.8, "driver": "USFDA approvals & defensive rotation"}
+        ]
+    }
+
+
+# Maps each screener candidate to the macro theme it belongs to, so a setup can
+# be scored higher when it aligns with a high-conviction leadership theme.
+SYMBOL_THEME_MAP: Dict[str, str] = {
+    "BEL": "Defence & Capital Goods",
+    "DATAPATTNS": "Defence & Capital Goods",
+    "KAYNES": "Defence & Capital Goods",
+    "DIXON": "Defence & Capital Goods",
+    "POLYCAB": "Defence & Capital Goods",
+    "SUNPHARMA": "Pharma & Healthcare",
+    "TRENT": "Consumption & Retail",
+    "KALYANKJIL": "Consumption & Retail",
+    "BHARTIARTL": "Telecom",
+    "PERSISTENT": "IT & Digital",
+    "CDSL": "Banking & Financials",
+    "ZOMATO": "New-Age Internet",
+}
+
+
+def get_vcp_universe_data() -> Dict[str, List[Dict[str, Any]]]:
+    """Minervini VCP screener candidates by universe."""
+    return {
+        "nifty50": [
+            {"symbol": "TRENT", "composite_score": 93.8, "trend_score": 96.0, "contraction_count": 3, "t1_depth_pct": 14.2, "t2_depth_pct": 6.5, "t3_depth_pct": 2.1, "volume_dryup_score": 92.0, "pivot_price": 2985.0, "current_price": 2974.0, "distance_to_pivot_pct": 0.37, "relative_strength_score": 96.0, "status": "ACTIONABLE_BREAKOUT_SETUP"},
+            {"symbol": "BEL", "composite_score": 90.2, "trend_score": 94.0, "contraction_count": 3, "t1_depth_pct": 12.0, "t2_depth_pct": 4.8, "t3_depth_pct": 1.5, "volume_dryup_score": 89.0, "pivot_price": 412.0, "current_price": 410.0, "distance_to_pivot_pct": 0.49, "relative_strength_score": 93.0, "status": "ACTIONABLE_BREAKOUT_SETUP"},
+            {"symbol": "BHARTIARTL", "composite_score": 86.5, "trend_score": 89.0, "contraction_count": 3, "t1_depth_pct": 11.5, "t2_depth_pct": 5.1, "t3_depth_pct": 1.8, "volume_dryup_score": 84.0, "pivot_price": 1690.0, "current_price": 1682.0, "distance_to_pivot_pct": 0.48, "relative_strength_score": 90.0, "status": "NEAR_PIVOT_BUILDING"},
+            {"symbol": "SUNPHARMA", "composite_score": 84.1, "trend_score": 87.0, "contraction_count": 2, "t1_depth_pct": 9.8, "t2_depth_pct": 3.4, "t3_depth_pct": 0.0, "volume_dryup_score": 81.0, "pivot_price": 1835.0, "current_price": 1820.0, "distance_to_pivot_pct": 0.82, "relative_strength_score": 88.0, "status": "NEAR_PIVOT_BUILDING"}
+        ],
+        "nifty200": [
+            {"symbol": "DIXON", "composite_score": 94.5, "trend_score": 97.0, "contraction_count": 3, "t1_depth_pct": 15.6, "t2_depth_pct": 7.2, "t3_depth_pct": 2.4, "volume_dryup_score": 93.0, "pivot_price": 11950.0, "current_price": 11880.0, "distance_to_pivot_pct": 0.59, "relative_strength_score": 97.0, "status": "ACTIONABLE_BREAKOUT_SETUP"},
+            {"symbol": "POLYCAB", "composite_score": 91.2, "trend_score": 93.0, "contraction_count": 3, "t1_depth_pct": 13.8, "t2_depth_pct": 5.9, "t3_depth_pct": 1.9, "volume_dryup_score": 88.0, "pivot_price": 6480.0, "current_price": 6435.0, "distance_to_pivot_pct": 0.70, "relative_strength_score": 92.0, "status": "ACTIONABLE_BREAKOUT_SETUP"},
+            {"symbol": "PERSISTENT", "composite_score": 88.9, "trend_score": 91.0, "contraction_count": 2, "t1_depth_pct": 10.5, "t2_depth_pct": 4.1, "t3_depth_pct": 0.0, "volume_dryup_score": 86.0, "pivot_price": 5220.0, "current_price": 5175.0, "distance_to_pivot_pct": 0.87, "relative_strength_score": 90.0, "status": "NEAR_PIVOT_BUILDING"},
+            {"symbol": "KALYANKJIL", "composite_score": 87.4, "trend_score": 90.0, "contraction_count": 3, "t1_depth_pct": 16.2, "t2_depth_pct": 6.8, "t3_depth_pct": 2.2, "volume_dryup_score": 85.0, "pivot_price": 692.0, "current_price": 685.5, "distance_to_pivot_pct": 0.95, "relative_strength_score": 89.0, "status": "NEAR_PIVOT_BUILDING"}
+        ],
+        "nifty500": [
+            {"symbol": "KAYNES", "composite_score": 95.2, "trend_score": 98.0, "contraction_count": 4, "t1_depth_pct": 18.5, "t2_depth_pct": 8.1, "t3_depth_pct": 3.2, "volume_dryup_score": 95.0, "pivot_price": 4980.0, "current_price": 4940.0, "distance_to_pivot_pct": 0.81, "relative_strength_score": 98.0, "status": "ACTIONABLE_BREAKOUT_SETUP"},
+            {"symbol": "DATAPATTNS", "composite_score": 92.0, "trend_score": 95.0, "contraction_count": 3, "t1_depth_pct": 14.1, "t2_depth_pct": 5.8, "t3_depth_pct": 1.7, "volume_dryup_score": 90.0, "pivot_price": 2880.0, "current_price": 2845.0, "distance_to_pivot_pct": 1.23, "relative_strength_score": 94.0, "status": "NEAR_PIVOT_BUILDING"},
+            {"symbol": "CDSL", "composite_score": 89.8, "trend_score": 92.0, "contraction_count": 3, "t1_depth_pct": 12.8, "t2_depth_pct": 5.2, "t3_depth_pct": 1.6, "volume_dryup_score": 87.0, "pivot_price": 1580.0, "current_price": 1565.0, "distance_to_pivot_pct": 0.96, "relative_strength_score": 91.0, "status": "NEAR_PIVOT_BUILDING"},
+            {"symbol": "ZOMATO", "composite_score": 88.2, "trend_score": 90.0, "contraction_count": 2, "t1_depth_pct": 11.2, "t2_depth_pct": 4.5, "t3_depth_pct": 0.0, "volume_dryup_score": 84.0, "pivot_price": 268.0, "current_price": 264.8, "distance_to_pivot_pct": 1.21, "relative_strength_score": 89.0, "status": "NEAR_PIVOT_BUILDING"}
+        ]
+    }
+
+
+def compute_market_bias(cockpit: Dict[str, Any]) -> Dict[str, Any]:
+    """Blend regime, institutional flows, and breadth into a single directional bias.
+
+    Returns a bias label (BULLISH / NEUTRAL / BEARISH), a 0-100 score, and the
+    human-readable drivers behind it — so every trade idea can be traced to the trend.
+    """
+    health = cockpit["market_health"]
+    flows = cockpit["institutional_flows"]
+
+    score = 50.0
+    drivers: List[str] = []
+
+    regime = health.get("regime", "NEUTRAL")
+    if regime == "RISK_ON":
+        score += 18; drivers.append(f"Regime RISK_ON (health {health.get('score')}/100)")
+    elif regime == "RISK_OFF":
+        score -= 18; drivers.append(f"Regime RISK_OFF (health {health.get('score')}/100)")
+    else:
+        drivers.append(f"Regime NEUTRAL (health {health.get('score')}/100)")
+
+    fii = flows.get("fii_regime", "")
+    if fii == "ACCUMULATION":
+        score += 12; drivers.append(f"FII accumulation ({flows.get('fii_net_mtd')} MTD)")
+    elif fii == "DISTRIBUTION":
+        score -= 12; drivers.append(f"FII distribution ({flows.get('fii_net_mtd')} MTD)")
+
+    above200 = health.get("stocks_above_200dma_pct", 50.0)
+    score += (above200 - 50.0) * 0.4
+    drivers.append(f"Breadth {above200}% above 200-DMA")
+
+    div = flows.get("flow_divergence", "")
+    if div == "CONFIRMED_BULLISH":
+        score += 8; drivers.append("FII+DII flows confirmed bullish")
+    elif div == "CONFIRMED_BEARISH":
+        score -= 8; drivers.append("FII+DII flows confirmed bearish")
+
+    # Advance/decline ratio (e.g. "2.4 : 1")
+    try:
+        ad = health.get("advance_decline", "1 : 1")
+        adv, dec = [float(x.strip()) for x in ad.split(":")]
+        if dec > 0:
+            ratio = adv / dec
+            score += max(-8.0, min(8.0, (ratio - 1.0) * 6.0))
+            drivers.append(f"Advance/decline {ad}")
+    except Exception:
+        pass
+
+    score = round(max(0.0, min(100.0, score)), 1)
+    if score >= 62:
+        label = "BULLISH"
+    elif score <= 38:
+        label = "BEARISH"
+    else:
+        label = "NEUTRAL"
+
+    return {"bias": label, "score": score, "drivers": drivers, "regime": regime}
+
+
+def build_trade_recommendations(universe: str = "nifty200") -> Dict[str, Any]:
+    """Synthesize the trend (bias) with screener setups into ranked, rationale-backed ideas."""
+    cockpit = get_market_cockpit_data()
+    bias = compute_market_bias(cockpit)
+    bias_label = bias["bias"]
+    bias_score = bias["score"]
+    theme_conviction = {t["theme"]: t["conviction"] for t in cockpit["top_themes"]}
+
+    # Flatten all screener candidates across universes, de-duplicated by symbol.
+    seen = set()
+    candidates: List[Dict[str, Any]] = []
+    vcp = get_vcp_universe_data()
+    for uni in ("nifty50", "nifty200", "nifty500"):
+        for c in vcp.get(uni, []):
+            if c["symbol"] not in seen:
+                seen.add(c["symbol"])
+                candidates.append(c)
+
+    ideas: List[Dict[str, Any]] = []
+
+    # --- Equity momentum ideas from VCP setups (long-only; gated by regime) ---
+    for c in candidates:
+        actionable = c["status"] == "ACTIONABLE_BREAKOUT_SETUP"
+        theme = SYMBOL_THEME_MAP.get(c["symbol"], "")
+        theme_conv = theme_conviction.get(theme, 0.0)  # 0..5
+
+        # Stop just under the tightest contraction; target at 2R.
+        tightest = c["t3_depth_pct"] if c["t3_depth_pct"] > 0 else c["t2_depth_pct"]
+        risk_pct = round(max(2.0, min(8.0, tightest + 1.5)), 2)
+        entry = c["pivot_price"]
+        stop = round(entry * (1 - risk_pct / 100.0), 1)
+        target = round(entry * (1 + 2 * risk_pct / 100.0), 1)
+
+        # Conviction = setup quality, aligned with the market trend and leadership theme.
+        alignment = bias_score if bias_label != "BEARISH" else (100.0 - bias_score)
+        conviction = round(c["composite_score"] * 0.6 + alignment * 0.3 + theme_conv * 2.0, 1)
+        conviction = min(100.0, conviction)
+
+        rationale = [
+            f"{bias_label} market ({bias_score}/100): " + "; ".join(bias["drivers"][:3]),
+            f"{c['symbol']} VCP: composite {c['composite_score']}, RS {c['relative_strength_score']}, "
+            f"{c['contraction_count']} contractions, {c['distance_to_pivot_pct']}% from pivot ({c['status'].replace('_',' ').title()}).",
+        ]
+        if theme:
+            lead = " (leadership theme)" if theme_conv >= 4.0 else ""
+            rationale.append(f"Sector: {theme}{lead}.")
+
+        # In a bearish tape, long breakouts are demoted, not surfaced as buys.
+        if bias_label == "BEARISH":
+            action = "AVOID / WAIT"
+            rationale.append("Long breakouts are low-probability while the tape is risk-off — stand aside.")
+        elif actionable:
+            action = "BUY ON BREAKOUT"
+        else:
+            action = "WATCH — BUILD ALERT"
+
+        ideas.append({
+            "type": "EQUITY_MOMENTUM",
+            "symbol": c["symbol"],
+            "direction": "LONG",
+            "action": action,
+            "conviction": conviction,
+            "entry_zone": f"₹{entry:,.1f} (pivot breakout)",
+            "entry_price": entry,
+            "stop_loss": stop,
+            "target": target,
+            "risk_reward": "1 : 2",
+            "suggested_qty": max(1, round(50000 / entry)),
+            "is_option": False,
+            "theme": theme,
+            "rationale": rationale,
+        })
+
+    # --- Index F&O idea aligned to the overall bias ---
+    if bias_label == "BULLISH":
+        index_idea = {
+            "type": "INDEX_FNO",
+            "symbol": "NIFTY",
+            "direction": "BULLISH",
+            "action": "BUY WEEKLY CALL",
+            "conviction": round(bias_score, 1),
+            "instrument": "NIFTY weekly ATM/1-OTM CE",
+            "entry_zone": "On dip toward VWAP / prior-day close",
+            "is_option": True,
+            "rationale": [
+                f"BULLISH bias {bias_score}/100 — " + "; ".join(bias["drivers"][:3]),
+                "Directional long via weekly calls; define risk with a premium stop and exit before expiry-day theta bleed.",
+            ],
+        }
+    elif bias_label == "BEARISH":
+        index_idea = {
+            "type": "INDEX_FNO",
+            "symbol": "NIFTY",
+            "direction": "BEARISH",
+            "action": "BUY WEEKLY PUT / HEDGE",
+            "conviction": round(100.0 - bias_score, 1),
+            "instrument": "NIFTY weekly ATM/1-OTM PE",
+            "entry_zone": "On bounce toward resistance",
+            "is_option": True,
+            "rationale": [
+                f"BEARISH bias {bias_score}/100 — " + "; ".join(bias["drivers"][:3]),
+                "Use puts to hedge longs or express downside; keep size small against a risk-off tape.",
+            ],
+        }
+    else:
+        index_idea = {
+            "type": "INDEX_FNO",
+            "symbol": "NIFTY",
+            "direction": "NEUTRAL",
+            "action": "NON-DIRECTIONAL / WAIT",
+            "conviction": round(bias_score, 1),
+            "instrument": "NIFTY weekly iron condor (range-bound)",
+            "entry_zone": "Sell strikes outside the expected weekly range",
+            "is_option": True,
+            "rationale": [
+                f"NEUTRAL bias {bias_score}/100 — no clear edge for directional trades.",
+                "Prefer premium-selling / range strategies until the trend resolves.",
+            ],
+        }
+    ideas.append(index_idea)
+
+    ideas.sort(key=lambda x: x["conviction"], reverse=True)
+    for i, idea in enumerate(ideas, start=1):
+        idea["rank"] = i
+
+    return {
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "market_bias": bias,
+        "top_themes": cockpit["top_themes"],
+        "headline": (
+            f"{bias_label} tape ({bias_score}/100). "
+            + ("Favor long momentum breakouts in leadership sectors."
+               if bias_label == "BULLISH"
+               else "Reduce risk; favor hedges / non-directional structures."
+               if bias_label == "BEARISH"
+               else "Mixed signals — be selective and size down.")
+        ),
+        "ideas": ideas,
+    }
+
+
 class DashboardRequestHandler(SimpleHTTPRequestHandler):
     """Custom HTTP Request Handler for Dashboard API & Static UI."""
 
@@ -272,6 +543,8 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
             self.handle_plumbing_status()
         elif url_path == "/api/market/cockpit":
             self.handle_market_cockpit()
+        elif url_path == "/api/strategy/recommendations":
+            self.handle_recommendations()
         elif url_path == "/api/trade/positions":
             self.handle_get_positions()
         elif url_path == "/api/zerodha/config":
@@ -384,28 +657,11 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
 
     def handle_market_cockpit(self):
         """Returns overall market health score, institutional flows, and macro drivers."""
-        data = {
-            "market_health": {
-                "score": 78,
-                "regime": "RISK_ON",
-                "advance_decline": "2.4 : 1",
-                "stocks_above_200dma_pct": 74.5,
-                "new_52w_highs": 42,
-                "new_52w_lows": 5
-            },
-            "institutional_flows": {
-                "fii_regime": "ACCUMULATION",
-                "fii_net_mtd": "+ ₹14,250 Cr",
-                "dii_net_mtd": "+ ₹8,920 Cr",
-                "flow_divergence": "CONFIRMED_BULLISH"
-            },
-            "top_themes": [
-                {"theme": "Defence & Capital Goods", "conviction": 4.5, "driver": "Order inflows & export policy"},
-                {"theme": "Banking & Financials", "conviction": 4.0, "driver": "NIM expansion & credit growth"},
-                {"theme": "Pharma & Healthcare", "conviction": 3.8, "driver": "USFDA approvals & defensive rotation"}
-            ]
-        }
-        self._send_json_response(data)
+        self._send_json_response(get_market_cockpit_data())
+
+    def handle_recommendations(self):
+        """Trend-synthesis: ranked trade ideas derived from regime, flows, breadth, and setups."""
+        self._send_json_response(build_trade_recommendations())
 
     def handle_validate_trade(self):
         payload = self._parse_post_json()
@@ -459,194 +715,7 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
         payload = self._parse_post_json()
         universe = payload.get("universe", "nifty50").lower()
 
-        universe_data = {
-            "nifty50": [
-                {
-                    "symbol": "TRENT",
-                    "composite_score": 93.8,
-                    "trend_score": 96.0,
-                    "contraction_count": 3,
-                    "t1_depth_pct": 14.2,
-                    "t2_depth_pct": 6.5,
-                    "t3_depth_pct": 2.1,
-                    "volume_dryup_score": 92.0,
-                    "pivot_price": 2985.0,
-                    "current_price": 2974.0,
-                    "distance_to_pivot_pct": 0.37,
-                    "relative_strength_score": 96.0,
-                    "status": "ACTIONABLE_BREAKOUT_SETUP"
-                },
-                {
-                    "symbol": "BEL",
-                    "composite_score": 90.2,
-                    "trend_score": 94.0,
-                    "contraction_count": 3,
-                    "t1_depth_pct": 12.0,
-                    "t2_depth_pct": 4.8,
-                    "t3_depth_pct": 1.5,
-                    "volume_dryup_score": 89.0,
-                    "pivot_price": 412.0,
-                    "current_price": 410.0,
-                    "distance_to_pivot_pct": 0.49,
-                    "relative_strength_score": 93.0,
-                    "status": "ACTIONABLE_BREAKOUT_SETUP"
-                },
-                {
-                    "symbol": "BHARTIARTL",
-                    "composite_score": 86.5,
-                    "trend_score": 89.0,
-                    "contraction_count": 3,
-                    "t1_depth_pct": 11.5,
-                    "t2_depth_pct": 5.1,
-                    "t3_depth_pct": 1.8,
-                    "volume_dryup_score": 84.0,
-                    "pivot_price": 1690.0,
-                    "current_price": 1682.0,
-                    "distance_to_pivot_pct": 0.48,
-                    "relative_strength_score": 90.0,
-                    "status": "NEAR_PIVOT_BUILDING"
-                },
-                {
-                    "symbol": "SUNPHARMA",
-                    "composite_score": 84.1,
-                    "trend_score": 87.0,
-                    "contraction_count": 2,
-                    "t1_depth_pct": 9.8,
-                    "t2_depth_pct": 3.4,
-                    "t3_depth_pct": 0.0,
-                    "volume_dryup_score": 81.0,
-                    "pivot_price": 1835.0,
-                    "current_price": 1820.0,
-                    "distance_to_pivot_pct": 0.82,
-                    "relative_strength_score": 88.0,
-                    "status": "NEAR_PIVOT_BUILDING"
-                }
-            ],
-            "nifty200": [
-                {
-                    "symbol": "DIXON",
-                    "composite_score": 94.5,
-                    "trend_score": 97.0,
-                    "contraction_count": 3,
-                    "t1_depth_pct": 15.6,
-                    "t2_depth_pct": 7.2,
-                    "t3_depth_pct": 2.4,
-                    "volume_dryup_score": 93.0,
-                    "pivot_price": 11950.0,
-                    "current_price": 11880.0,
-                    "distance_to_pivot_pct": 0.59,
-                    "relative_strength_score": 97.0,
-                    "status": "ACTIONABLE_BREAKOUT_SETUP"
-                },
-                {
-                    "symbol": "POLYCAB",
-                    "composite_score": 91.2,
-                    "trend_score": 93.0,
-                    "contraction_count": 3,
-                    "t1_depth_pct": 13.8,
-                    "t2_depth_pct": 5.9,
-                    "t3_depth_pct": 1.9,
-                    "volume_dryup_score": 88.0,
-                    "pivot_price": 6480.0,
-                    "current_price": 6435.0,
-                    "distance_to_pivot_pct": 0.70,
-                    "relative_strength_score": 92.0,
-                    "status": "ACTIONABLE_BREAKOUT_SETUP"
-                },
-                {
-                    "symbol": "PERSISTENT",
-                    "composite_score": 88.9,
-                    "trend_score": 91.0,
-                    "contraction_count": 2,
-                    "t1_depth_pct": 10.5,
-                    "t2_depth_pct": 4.1,
-                    "t3_depth_pct": 0.0,
-                    "volume_dryup_score": 86.0,
-                    "pivot_price": 5220.0,
-                    "current_price": 5175.0,
-                    "distance_to_pivot_pct": 0.87,
-                    "relative_strength_score": 90.0,
-                    "status": "NEAR_PIVOT_BUILDING"
-                },
-                {
-                    "symbol": "KALYANKJIL",
-                    "composite_score": 87.4,
-                    "trend_score": 90.0,
-                    "contraction_count": 3,
-                    "t1_depth_pct": 16.2,
-                    "t2_depth_pct": 6.8,
-                    "t3_depth_pct": 2.2,
-                    "volume_dryup_score": 85.0,
-                    "pivot_price": 692.0,
-                    "current_price": 685.5,
-                    "distance_to_pivot_pct": 0.95,
-                    "relative_strength_score": 89.0,
-                    "status": "NEAR_PIVOT_BUILDING"
-                }
-            ],
-            "nifty500": [
-                {
-                    "symbol": "KAYNES",
-                    "composite_score": 95.2,
-                    "trend_score": 98.0,
-                    "contraction_count": 4,
-                    "t1_depth_pct": 18.5,
-                    "t2_depth_pct": 8.1,
-                    "t3_depth_pct": 3.2,
-                    "volume_dryup_score": 95.0,
-                    "pivot_price": 4980.0,
-                    "current_price": 4940.0,
-                    "distance_to_pivot_pct": 0.81,
-                    "relative_strength_score": 98.0,
-                    "status": "ACTIONABLE_BREAKOUT_SETUP"
-                },
-                {
-                    "symbol": "DATAPATTNS",
-                    "composite_score": 92.0,
-                    "trend_score": 95.0,
-                    "contraction_count": 3,
-                    "t1_depth_pct": 14.1,
-                    "t2_depth_pct": 5.8,
-                    "t3_depth_pct": 1.7,
-                    "volume_dryup_score": 90.0,
-                    "pivot_price": 2880.0,
-                    "current_price": 2845.0,
-                    "distance_to_pivot_pct": 1.23,
-                    "relative_strength_score": 94.0,
-                    "status": "NEAR_PIVOT_BUILDING"
-                },
-                {
-                    "symbol": "CDSL",
-                    "composite_score": 89.8,
-                    "trend_score": 92.0,
-                    "contraction_count": 3,
-                    "t1_depth_pct": 12.8,
-                    "t2_depth_pct": 5.2,
-                    "t3_depth_pct": 1.6,
-                    "volume_dryup_score": 87.0,
-                    "pivot_price": 1580.0,
-                    "current_price": 1565.0,
-                    "distance_to_pivot_pct": 0.96,
-                    "relative_strength_score": 91.0,
-                    "status": "NEAR_PIVOT_BUILDING"
-                },
-                {
-                    "symbol": "ZOMATO",
-                    "composite_score": 88.2,
-                    "trend_score": 90.0,
-                    "contraction_count": 2,
-                    "t1_depth_pct": 11.2,
-                    "t2_depth_pct": 4.5,
-                    "t3_depth_pct": 0.0,
-                    "volume_dryup_score": 84.0,
-                    "pivot_price": 268.0,
-                    "current_price": 264.8,
-                    "distance_to_pivot_pct": 1.21,
-                    "relative_strength_score": 89.0,
-                    "status": "NEAR_PIVOT_BUILDING"
-                }
-            ]
-        }
+        universe_data = get_vcp_universe_data()
 
         raw_candidates = universe_data.get(universe, universe_data["nifty50"])
         
