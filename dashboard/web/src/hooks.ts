@@ -6,7 +6,9 @@ export function useRecommendations() {
   return useQuery({
     queryKey: ["recommendations"],
     queryFn: api.getRecommendations,
-    refetchInterval: 60_000,
+    // Poll fast while the real VCP screen is still warming, then settle to 60s.
+    refetchInterval: (q) =>
+      q.state.data?.ideas_source === "modeled snapshot" ? 6000 : 60_000,
   });
 }
 

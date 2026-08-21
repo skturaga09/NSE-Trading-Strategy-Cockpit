@@ -52,6 +52,7 @@ export interface Recommendations {
   data_source: string;
   as_of: string | null;
   headline: string;
+  ideas_source?: string;
   ideas: TradeIdea[];
 }
 

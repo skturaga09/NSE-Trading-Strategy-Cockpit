@@ -388,6 +388,19 @@ SYMBOL_THEME_MAP: Dict[str, str] = {
     "PERSISTENT": "IT & Digital",
     "CDSL": "Banking & Financials",
     "ZOMATO": "New-Age Internet",
+    # Common Nifty-50 large-caps the live screen surfaces
+    "INDUSINDBK": "Banking & Financials",
+    "BAJFINANCE": "Banking & Financials",
+    "BAJAJFINSV": "Banking & Financials",
+    "AXISBANK": "Banking & Financials",
+    "ICICIBANK": "Banking & Financials",
+    "SBIN": "Banking & Financials",
+    "LT": "Defence & Capital Goods",
+    "SIEMENS": "Defence & Capital Goods",
+    "CIPLA": "Pharma & Healthcare",
+    "DRREDDY": "Pharma & Healthcare",
+    "DIVISLAB": "Pharma & Healthcare",
+    "APOLLOHOSP": "Pharma & Healthcare",
 }
 
 
@@ -520,15 +533,27 @@ def build_trade_recommendations(universe: str = "nifty200") -> Dict[str, Any]:
     bias_score = bias["score"]
     theme_conviction = {t["theme"]: t["conviction"] for t in cockpit["top_themes"]}
 
-    # Flatten all screener candidates across universes, de-duplicated by symbol.
-    seen = set()
+    # Prefer the REAL screened candidates; fall back to the modeled snapshot only
+    # while the background screen is still warming (first call after startup).
     candidates: List[Dict[str, Any]] = []
-    vcp = get_vcp_universe_data()
-    for uni in ("nifty50", "nifty200", "nifty500"):
-        for c in vcp.get(uni, []):
-            if c["symbol"] not in seen:
-                seen.add(c["symbol"])
-                candidates.append(c)
+    ideas_source = "modeled snapshot"
+    try:
+        from dashboard.live_vcp import get_vcp_candidates
+        real, _src, _screening = get_vcp_candidates("nifty50")
+        if real:
+            candidates = real
+            ideas_source = "Live VCP screen (yfinance)"
+    except Exception:
+        pass
+
+    if not candidates:
+        seen = set()
+        vcp = get_vcp_universe_data()
+        for uni in ("nifty50", "nifty200", "nifty500"):
+            for c in vcp.get(uni, []):
+                if c["symbol"] not in seen:
+                    seen.add(c["symbol"])
+                    candidates.append(c)
 
     ideas: List[Dict[str, Any]] = []
 
@@ -655,6 +680,7 @@ def build_trade_recommendations(universe: str = "nifty200") -> Dict[str, Any]:
         "data_source": cockpit.get("data_source", ""),
         "as_of": cockpit.get("as_of"),
         "market_health": cockpit["market_health"],
+        "ideas_source": ideas_source,
         "top_themes": cockpit["top_themes"],
         "headline": (
             f"{bias_label} tape ({bias_score}/100). "

@@ -98,6 +98,7 @@ export function TradeIdeas() {
           </div>
           <div className="mt-2 font-mono text-[10px] text-muted/70">
             {data.data_source}{data.as_of ? ` · ${data.as_of}` : ""}
+            {data.ideas_source ? ` · setups: ${data.ideas_source}` : ""}
           </div>
         </div>
       </motion.div>
