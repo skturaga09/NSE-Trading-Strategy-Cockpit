@@ -29,9 +29,67 @@ export function Plumbing() {
   return (
     <div className="space-y-6">
       <PositionsMonitor />
+      <SignalPerformance />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <OrderDesk />
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Signal performance by source ---------------- */
+
+interface SignalStat {
+  source: string;
+  trades: number;
+  wins: number;
+  winRate: number;
+  netPnl: number;
+  avgPnl: number;
+}
+
+function SignalPerformance() {
+  const { data } = useQuery({ queryKey: ["positions"], queryFn: api.getPositions, refetchInterval: 2000 });
+  const trades = data?.trades ?? [];
+
+  const groups = new Map<string, Position[]>();
+  for (const t of trades) {
+    const key = t.strategy_origin || "Manual";
+    (groups.get(key) ?? groups.set(key, []).get(key)!).push(t);
+  }
+  const stats: SignalStat[] = [...groups.entries()].map(([source, ts]) => {
+    const wins = ts.filter((t) => t.pnl > 0).length;
+    const netPnl = ts.reduce((s, t) => s + (t.pnl || 0), 0);
+    return { source, trades: ts.length, wins, winRate: Math.round((wins / ts.length) * 100), netPnl, avgPnl: netPnl / ts.length };
+  }).sort((a, b) => b.netPnl - a.netPnl);
+
+  return (
+    <div className="panel space-y-3 rounded-lg p-6">
+      <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
+        📡 Signal Performance <span className="font-mono text-[11px] font-normal text-muted">— net P&amp;L by source</span>
+      </h2>
+      {stats.length === 0 ? (
+        <p className="font-mono text-[11px] text-muted">No trades yet. Place from Trade Ideas, the Breakout Radar, or the screener to start tracking.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-line">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-raised/50 font-mono text-[10px] uppercase tracking-wider text-muted">
+              <tr>{["Signal source", "Trades", "Win rate", "Net P&L", "Avg / trade"].map((h) => <th key={h} className="px-3 py-2.5">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-line font-mono">
+              {stats.map((s) => (
+                <tr key={s.source} className="hover:bg-raised/40">
+                  <td className="px-3 py-2.5 text-ink/90">{s.source}</td>
+                  <td className="px-3 py-2.5 tnum text-muted">{s.wins}/{s.trades}</td>
+                  <td className="px-3 py-2.5 tnum" style={{ color: s.winRate >= 50 ? "var(--green)" : "var(--gold)" }}>{s.winRate}%</td>
+                  <td className="px-3 py-2.5 tnum font-bold" style={{ color: s.netPnl >= 0 ? "var(--green)" : "var(--red)" }}>{s.netPnl >= 0 ? "+" : ""}{inr(s.netPnl)}</td>
+                  <td className="px-3 py-2.5 tnum" style={{ color: s.avgPnl >= 0 ? "var(--green)" : "var(--red)" }}>{s.avgPnl >= 0 ? "+" : ""}{inr(s.avgPnl)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

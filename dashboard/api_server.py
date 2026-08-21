@@ -69,6 +69,11 @@ def recommendations() -> Dict[str, Any]:
     return core.build_trade_recommendations()
 
 
+@app.get("/api/strategy/breakouts")
+def breakouts() -> Dict[str, Any]:
+    return core.compute_breakouts()
+
+
 @app.get("/api/zerodha/config")
 def get_zerodha_config() -> Dict[str, Any]:
     kc = core.KITE_CONFIG

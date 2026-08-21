@@ -4,6 +4,7 @@ import { api } from "../api";
 import { useRecommendations, biasColor } from "../hooks";
 import { useMode } from "../App";
 import { useToast } from "../components/Toast";
+import { BreakoutRadar } from "../components/BreakoutRadar";
 import type { TradeIdea } from "../types";
 
 function convColor(c: number): string {
@@ -64,6 +65,9 @@ export function TradeIdeas() {
 
   return (
     <div className="space-y-5">
+      {/* Breakout radar — flashes when a setup crosses its pivot */}
+      <BreakoutRadar />
+
       {/* Bias banner */}
       <motion.div
         initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: "easeOut" }}

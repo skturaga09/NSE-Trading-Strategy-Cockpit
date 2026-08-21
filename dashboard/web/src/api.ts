@@ -12,6 +12,7 @@ import type {
   BacktestForm,
   BacktestResponse,
   FnoPlan,
+  BreakoutsResponse,
 } from "./types";
 
 // All requests go to /api/* and are proxied to the Python backend (see vite.config.ts).
@@ -67,4 +68,6 @@ export const api = {
 
   getFnoPlan: () =>
     postJSON<Record<string, never>, FnoPlan>("/api/strategy/fno-plan", {}),
+
+  getBreakouts: () => getJSON<BreakoutsResponse>("/api/strategy/breakouts"),
 };

@@ -503,6 +503,97 @@ def compute_market_bias(cockpit: Dict[str, Any]) -> Dict[str, Any]:
     return {"bias": label, "score": score, "drivers": drivers, "regime": regime}
 
 
+def compute_breakouts(universe: str = "nifty50") -> Dict[str, Any]:
+    """Detect VCP setups whose live price has crossed (or is about to cross) the pivot.
+
+    For each, returns positional and intraday trade plans with entry/stop/targets and
+    net-of-cost profit ratios, so a breakout can be flashed and traded immediately.
+    """
+    from datetime import datetime as _dt
+    candidates: List[Dict[str, Any]] = []
+    src = "modeled"
+    try:
+        from dashboard.live_vcp import get_vcp_candidates
+        real, s, _screening = get_vcp_candidates(universe)
+        if real:
+            candidates, src = real, "Live VCP screen (yfinance)"
+    except Exception:
+        pass
+    if not candidates:
+        for uni in ("nifty50", "nifty200", "nifty500"):
+            candidates.extend(get_vcp_universe_data().get(uni, []))
+
+    try:
+        from dashboard.live_market import get_ltp
+    except Exception:
+        get_ltp = lambda _s: None  # noqa: E731
+
+    breakouts: List[Dict[str, Any]] = []
+    for c in candidates:
+        pivot = c["pivot_price"]
+        ltp = get_ltp(c["symbol"]) or c.get("current_price", pivot)
+        above_pct = round((ltp / pivot - 1.0) * 100.0, 2)  # +ve = above pivot = broken out
+        if ltp >= pivot:
+            state = "BROKEN_OUT"
+        elif above_pct >= -0.5:
+            state = "IMMINENT"
+        else:
+            continue  # still building — not radar-worthy
+
+        tightest = c["t3_depth_pct"] if c.get("t3_depth_pct", 0) > 0 else c.get("t2_depth_pct", 3.0)
+        risk_pct = round(max(2.0, min(8.0, tightest + 1.5)), 2)
+        entry = pivot
+        qty = max(1, round(50000 / entry))
+
+        # Positional (CNC): stop below the tightest contraction, targets at 2R / 3R.
+        pos_sl = round(entry * (1 - risk_pct / 100.0), 1)
+        pos_t1 = round(entry * (1 + 2 * risk_pct / 100.0), 1)
+        pos_t2 = round(entry * (1 + 3 * risk_pct / 100.0), 1)
+        # Intraday (MIS): tighter ~1.2% stop, ~2.5% target — no overnight risk, lower STT.
+        intra_sl = round(entry * 0.988, 1)
+        intra_t = round(entry * 1.025, 1)
+
+        def net_rr(target: float, stop: float, product: str) -> Dict[str, Any]:
+            reward = (target - entry) * qty
+            risk = (entry - stop) * qty
+            # Round-trip friction at entry+exit for this product.
+            f_in = ZerodhaPlumbingInspector.calculate_trade_costs(c["symbol"], "BUY", product, qty, entry).total_friction / 2
+            f_out = ZerodhaPlumbingInspector.calculate_trade_costs(c["symbol"], "SELL", product, qty, target).total_friction / 2
+            friction = round(f_in + f_out, 0)
+            net_reward = reward - friction
+            return {
+                "gross_rr": round(reward / risk, 2) if risk > 0 else None,
+                "net_reward": round(net_reward, 0),
+                "net_profit_pct": round(net_reward / (entry * qty) * 100, 2) if entry * qty else 0.0,
+                "friction": friction,
+            }
+
+        breakouts.append({
+            "symbol": c["symbol"],
+            "state": state,
+            "ltp": round(ltp, 2),
+            "pivot": pivot,
+            "above_pivot_pct": above_pct,
+            "composite_score": c.get("composite_score"),
+            "rs": c.get("relative_strength_score"),
+            "qty": qty,
+            "positional": {"entry": entry, "stop": pos_sl, "target1": pos_t1, "target2": pos_t2,
+                           **net_rr(pos_t1, pos_sl, "CNC")},
+            "intraday": {"entry": entry, "stop": intra_sl, "target": intra_t,
+                         **net_rr(intra_t, intra_sl, "MIS")},
+        })
+
+    # Broken-out first, then closest-to-pivot; strongest setups on top.
+    order = {"BROKEN_OUT": 0, "IMMINENT": 1}
+    breakouts.sort(key=lambda b: (order.get(b["state"], 2), -(b["composite_score"] or 0)))
+    return {
+        "generated_at": _dt.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "source": src,
+        "count": len(breakouts),
+        "breakouts": breakouts,
+    }
+
+
 def _build_index_option_order(direction: str, cockpit: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Turn a directional index bias into a concrete, one-click-tradeable NIFTY option order.
 

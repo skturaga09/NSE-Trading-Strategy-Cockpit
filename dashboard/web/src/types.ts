@@ -171,6 +171,37 @@ export interface SimpleResponse {
   message?: string;
 }
 
+// --- Breakout radar ---
+export interface BreakoutLeg {
+  entry: number;
+  stop: number;
+  target?: number;
+  target1?: number;
+  target2?: number;
+  gross_rr: number | null;
+  net_reward: number;
+  net_profit_pct: number;
+  friction: number;
+}
+export interface Breakout {
+  symbol: string;
+  state: "BROKEN_OUT" | "IMMINENT";
+  ltp: number;
+  pivot: number;
+  above_pivot_pct: number;
+  composite_score: number;
+  rs: number;
+  qty: number;
+  positional: BreakoutLeg;
+  intraday: BreakoutLeg;
+}
+export interface BreakoutsResponse {
+  generated_at: string;
+  source: string;
+  count: number;
+  breakouts: Breakout[];
+}
+
 // --- VCP Screener ---
 export interface VcpCandidate {
   symbol: string;
