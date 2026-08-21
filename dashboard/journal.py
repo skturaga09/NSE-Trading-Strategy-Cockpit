@@ -66,6 +66,9 @@ CREATE TABLE IF NOT EXISTS trade_journal (
 def _conn() -> sqlite3.Connection:
     c = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=5)
     c.row_factory = sqlite3.Row
+    # Ensure the schema on every connection (idempotent) so the journal stays
+    # resilient if journal.db is deleted/reset while the server is running.
+    c.executescript(_SCHEMA)
     return c
 
 
