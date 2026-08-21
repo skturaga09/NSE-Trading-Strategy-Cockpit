@@ -45,7 +45,7 @@
 
             <div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg glass-panel text-xs">
                 <span class="text-slate-400">Market Health:</span>
-                <span class="badge-pass px-2 py-0.5 rounded font-semibold">78 / 100 (Risk-On)</span>
+                <span id="hdr-market-health" class="badge-pass px-2 py-0.5 rounded font-semibold">— / 100</span>
             </div>
 
             <div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg glass-panel text-xs">
@@ -643,17 +643,35 @@
             const data = await res.json();
             const bias = data.market_bias || {};
             const c = biasColor(bias.bias);
+            const mh = data.market_health || {};
+
+            // Live vs simulated data badge
+            const liveBadge = data.is_live
+                ? `<span class="text-[10px] px-2 py-0.5 rounded-full font-bold" style="background:#22c55e22;color:#22c55e"><i class="fa-solid fa-circle text-[6px] align-middle"></i> LIVE</span>`
+                : `<span class="text-[10px] px-2 py-0.5 rounded-full font-bold" style="background:#eab30822;color:#eab308">SIMULATED</span>`;
+            const niftyLine = (mh.nifty_last != null)
+                ? `<span class="text-[11px] font-mono text-slate-400">Nifty ${mh.nifty_last} · 50DMA ${mh.nifty_50dma ?? '—'} · 200DMA ${mh.nifty_200dma ?? '—'}</span>`
+                : '';
 
             document.getElementById('ideas-bias').innerHTML = `
                 <div class="flex items-center gap-3 flex-wrap">
                     <span class="text-lg font-extrabold" style="color:${c}">${escapeHtml(bias.bias || '—')}</span>
                     <span class="text-xs font-mono text-slate-400">${bias.score ?? '—'} / 100</span>
+                    ${liveBadge}
                     <span class="text-xs text-slate-300">${escapeHtml(data.headline || '')}</span>
                 </div>
+                <div class="mt-2">${niftyLine}</div>
                 <div class="flex flex-wrap gap-2 mt-3">
                     ${(bias.drivers || []).map(d => `<span class="text-[10px] px-2 py-1 rounded-full bg-slate-800 text-slate-300">${escapeHtml(d)}</span>`).join('')}
                 </div>
-                <div class="text-[10px] text-slate-500 mt-2">Generated ${escapeHtml(data.generated_at || '')}</div>`;
+                <div class="text-[10px] text-slate-500 mt-2">${escapeHtml(data.data_source || '')}${data.as_of ? ' · as of ' + escapeHtml(data.as_of) : ''} · generated ${escapeHtml(data.generated_at || '')}</div>`;
+
+            // Sync the header health badge with the live read
+            const hdr = document.getElementById('hdr-market-health');
+            if (hdr && mh.score != null) {
+                hdr.innerText = `${mh.score} / 100 (${(mh.regime || '').replace('_', '-')})`;
+                hdr.style.color = c;
+            }
 
             const list = document.getElementById('ideas-list');
             list.dataset.loaded = '1';

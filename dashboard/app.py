@@ -235,28 +235,65 @@ def fetch_live_market_price(symbol: str, is_option: bool = False, entry_price: f
 # trend-synthesis recommendation engine below)
 # ---------------------------------------------------------------------------
 
+# Institutional flows have no reliable free live feed, so they stay calibrated
+# (and are flagged is_live=False wherever surfaced). Themes are editorial.
+_CALIBRATED_FLOWS: Dict[str, Any] = {
+    "fii_regime": "ACCUMULATION",
+    "fii_net_mtd": "+ ₹14,250 Cr",
+    "dii_net_mtd": "+ ₹8,920 Cr",
+    "flow_divergence": "CONFIRMED_BULLISH",
+}
+_CALIBRATED_THEMES: List[Dict[str, Any]] = [
+    {"theme": "Defence & Capital Goods", "conviction": 4.5, "driver": "Order inflows & export policy"},
+    {"theme": "Banking & Financials", "conviction": 4.0, "driver": "NIM expansion & credit growth"},
+    {"theme": "Pharma & Healthcare", "conviction": 3.8, "driver": "USFDA approvals & defensive rotation"},
+]
+_CALIBRATED_HEALTH: Dict[str, Any] = {
+    "score": 78,
+    "regime": "RISK_ON",
+    "advance_decline": "2.4 : 1",
+    "stocks_above_200dma_pct": 74.5,
+    "new_52w_highs": 42,
+    "new_52w_lows": 5,
+}
+
+
 def get_market_cockpit_data() -> Dict[str, Any]:
-    """Market health score, institutional flows, and macro themes."""
+    """Market health + breadth (live from yfinance when reachable), flows, and themes.
+
+    Live market_health/breadth comes from Yahoo Finance over a Nifty-50 basket;
+    if the feed is unavailable (offline / rate-limited / yfinance missing) it
+    falls back to calibrated values. FII/DII flows are always calibrated and
+    flagged is_live=False. The response carries is_live / data_source / as_of.
+    """
+    live = None
+    try:
+        from dashboard.live_market import get_live_market
+        live = get_live_market()
+    except Exception:
+        live = None
+
+    flows = dict(_CALIBRATED_FLOWS)
+    flows["is_live"] = False
+    flows["note"] = "Estimate — FII/DII flows have no free live feed"
+
+    if live:
+        return {
+            "market_health": live["market_health"],
+            "institutional_flows": flows,
+            "top_themes": _CALIBRATED_THEMES,
+            "is_live": True,
+            "data_source": f"Yahoo Finance (yfinance) — Nifty-50 basket ({live.get('universe_size', '?')} names)",
+            "as_of": live.get("as_of"),
+        }
+
     return {
-        "market_health": {
-            "score": 78,
-            "regime": "RISK_ON",
-            "advance_decline": "2.4 : 1",
-            "stocks_above_200dma_pct": 74.5,
-            "new_52w_highs": 42,
-            "new_52w_lows": 5
-        },
-        "institutional_flows": {
-            "fii_regime": "ACCUMULATION",
-            "fii_net_mtd": "+ ₹14,250 Cr",
-            "dii_net_mtd": "+ ₹8,920 Cr",
-            "flow_divergence": "CONFIRMED_BULLISH"
-        },
-        "top_themes": [
-            {"theme": "Defence & Capital Goods", "conviction": 4.5, "driver": "Order inflows & export policy"},
-            {"theme": "Banking & Financials", "conviction": 4.0, "driver": "NIM expansion & credit growth"},
-            {"theme": "Pharma & Healthcare", "conviction": 3.8, "driver": "USFDA approvals & defensive rotation"}
-        ]
+        "market_health": dict(_CALIBRATED_HEALTH),
+        "institutional_flows": flows,
+        "top_themes": _CALIBRATED_THEMES,
+        "is_live": False,
+        "data_source": "Calibrated simulation (live feed unavailable)",
+        "as_of": None,
     }
 
 
@@ -303,48 +340,50 @@ def get_vcp_universe_data() -> Dict[str, List[Dict[str, Any]]]:
 
 
 def compute_market_bias(cockpit: Dict[str, Any]) -> Dict[str, Any]:
-    """Blend regime, institutional flows, and breadth into a single directional bias.
+    """Blend the (live) market health/trend with institutional flows into a directional bias.
 
-    Returns a bias label (BULLISH / NEUTRAL / BEARISH), a 0-100 score, and the
-    human-readable drivers behind it — so every trade idea can be traced to the trend.
+    The health score already encodes breadth + Nifty-vs-200DMA + the 50/200 cross,
+    so it is the anchor. Estimated (non-live) flows only nudge it — half weight — so
+    calibrated guesses can never override the real trend read. Returns a label
+    (BULLISH / NEUTRAL / BEARISH), a 0-100 score, and the human-readable drivers.
     """
     health = cockpit["market_health"]
     flows = cockpit["institutional_flows"]
 
-    score = 50.0
-    drivers: List[str] = []
-
     regime = health.get("regime", "NEUTRAL")
-    if regime == "RISK_ON":
-        score += 18; drivers.append(f"Regime RISK_ON (health {health.get('score')}/100)")
-    elif regime == "RISK_OFF":
-        score -= 18; drivers.append(f"Regime RISK_OFF (health {health.get('score')}/100)")
-    else:
-        drivers.append(f"Regime NEUTRAL (health {health.get('score')}/100)")
+    base = float(health.get("score", 50))  # anchor on the market's own trend score
+    score = base
+    drivers: List[str] = [f"Market health {int(base)}/100 ({regime})"]
+
+    above200 = health.get("stocks_above_200dma_pct")
+    if above200 is not None:
+        drivers.append(f"Breadth {above200}% above 200-DMA")  # already in the health score
+
+    # Institutional flows nudge the anchor; estimated flows carry half the weight.
+    live_flows = bool(flows.get("is_live"))
+    est = "" if live_flows else " est."
+    fii_w = 12.0 if live_flows else 6.0
+    div_w = 8.0 if live_flows else 4.0
 
     fii = flows.get("fii_regime", "")
     if fii == "ACCUMULATION":
-        score += 12; drivers.append(f"FII accumulation ({flows.get('fii_net_mtd')} MTD)")
+        score += fii_w; drivers.append(f"FII accumulation ({flows.get('fii_net_mtd')} MTD{est})")
     elif fii == "DISTRIBUTION":
-        score -= 12; drivers.append(f"FII distribution ({flows.get('fii_net_mtd')} MTD)")
-
-    above200 = health.get("stocks_above_200dma_pct", 50.0)
-    score += (above200 - 50.0) * 0.4
-    drivers.append(f"Breadth {above200}% above 200-DMA")
+        score -= fii_w; drivers.append(f"FII distribution ({flows.get('fii_net_mtd')} MTD{est})")
 
     div = flows.get("flow_divergence", "")
     if div == "CONFIRMED_BULLISH":
-        score += 8; drivers.append("FII+DII flows confirmed bullish")
+        score += div_w; drivers.append(f"FII+DII flows confirmed bullish{est}")
     elif div == "CONFIRMED_BEARISH":
-        score -= 8; drivers.append("FII+DII flows confirmed bearish")
+        score -= div_w; drivers.append(f"FII+DII flows confirmed bearish{est}")
 
-    # Advance/decline ratio (e.g. "2.4 : 1")
+    # Advance/decline as a small same-session tilt (e.g. "2.4 : 1").
     try:
         ad = health.get("advance_decline", "1 : 1")
         adv, dec = [float(x.strip()) for x in ad.split(":")]
         if dec > 0:
             ratio = adv / dec
-            score += max(-8.0, min(8.0, (ratio - 1.0) * 6.0))
+            score += max(-6.0, min(6.0, (ratio - 1.0) * 4.0))
             drivers.append(f"Advance/decline {ad}")
     except Exception:
         pass
@@ -488,6 +527,10 @@ def build_trade_recommendations(universe: str = "nifty200") -> Dict[str, Any]:
     return {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "market_bias": bias,
+        "is_live": cockpit.get("is_live", False),
+        "data_source": cockpit.get("data_source", ""),
+        "as_of": cockpit.get("as_of"),
+        "market_health": cockpit["market_health"],
         "top_themes": cockpit["top_themes"],
         "headline": (
             f"{bias_label} tape ({bias_score}/100). "
@@ -718,8 +761,9 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
         universe_data = get_vcp_universe_data()
 
         raw_candidates = universe_data.get(universe, universe_data["nifty50"])
-        
-        # Pull live LTP from Zerodha Kite for all candidate symbols
+        price_source = "Modeled screener snapshot"
+
+        # 1. Prefer Zerodha Kite live LTP when connected
         symbols_to_fetch = [f"NSE:{c['symbol']}" for c in raw_candidates]
         if KITE_CONFIG.get("is_connected") and KITE_CONFIG.get("api_key") and KITE_CONFIG.get("access_token"):
             try:
@@ -739,6 +783,27 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
                                 c["pivot_price"] = round(actual_ltp * 1.008, 1)
                             dist = round(((c["pivot_price"] - actual_ltp) / actual_ltp) * 100.0, 2)
                             c["distance_to_pivot_pct"] = max(0.1, dist)
+                    price_source = "Zerodha Kite Live API"
+            except Exception:
+                pass
+
+        # 2. Otherwise fall back to Yahoo Finance close + real relative strength
+        if price_source == "Modeled screener snapshot":
+            try:
+                from dashboard.live_market import get_live_quotes
+                q = get_live_quotes([c["symbol"] for c in raw_candidates])
+                if q:
+                    for c in raw_candidates:
+                        rec = q.get(c["symbol"])
+                        if rec and rec.get("last_price", 0) > 0:
+                            ltp = rec["last_price"]
+                            c["current_price"] = ltp
+                            if ltp > c["pivot_price"]:
+                                c["pivot_price"] = round(ltp * 1.008, 1)
+                            c["distance_to_pivot_pct"] = max(0.1, round(((c["pivot_price"] - ltp) / ltp) * 100.0, 2))
+                            if "rs_vs_index_6m_pct" in rec:
+                                c["rs_vs_index_6m_pct"] = rec["rs_vs_index_6m_pct"]
+                    price_source = "Yahoo Finance (yfinance) daily close"
             except Exception:
                 pass
 
@@ -747,6 +812,7 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
             "universe": universe,
             "total_screened": total_map.get(universe, 50),
             "candidates_count": len(raw_candidates),
+            "price_source": price_source,
             "candidates": raw_candidates
         })
 
