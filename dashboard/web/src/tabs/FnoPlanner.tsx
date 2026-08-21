@@ -19,6 +19,12 @@ export function FnoPlanner() {
         stop_loss_price: tc.stop_loss_price, target_price: tc.target_1, is_option: true,
         product: "NRML", order_type: "LIMIT", transaction_type: "BUY",
         strategy_origin: "Weekly F&O Plan", available_margin: 1e7, allow_after_hours: afterHours,
+        signal: {
+          // macro_conviction is /5 — scale to the 0-100 conviction bucket the journal uses.
+          conviction: data!.macro_conviction_score * 20,
+          bias_score: data!.macro_conviction_score,
+          regime: tc.direction, sector: data!.dominant_theme, plan_type: "positional",
+        },
       });
     },
     onSuccess: (r) => {

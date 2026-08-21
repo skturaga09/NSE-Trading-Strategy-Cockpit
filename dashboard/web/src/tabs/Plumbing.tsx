@@ -258,6 +258,9 @@ function OrderDesk() {
       transaction_type: form.transaction_type,
       strategy_origin: "Manual Order Desk",
       available_margin: form.available_margin, allow_after_hours: afterHours,
+      // Discretionary order — no signal conviction to snapshot; only capture the
+      // holding style so intraday vs positional attribution still works honestly.
+      signal: { plan_type: form.product === "MIS" ? "intraday" : "positional" },
     }),
     onSuccess: (r) => {
       if (r.success) {
