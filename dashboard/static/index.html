@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Trading Strategy Dashboard — Zerodha Kite Execution Cockpit</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .tab-active { border-bottom: 3px solid #3b82f6; color: #60a5fa; font-weight: 600; }
+        .badge-pass { background-color: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .badge-warn { background-color: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); }
+        .badge-fail { background-color: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Top Navigation & Cockpit Bar -->
+    <header class="glass-panel sticky top-0 z-50 px-6 py-4 flex flex-wrap items-center justify-between shadow-xl">
+        <div class="flex items-center space-x-3">
+            <div class="bg-blue-600 text-white p-2.5 rounded-xl shadow-lg">
+                <i class="fa-solid fa-chart-line text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                    NSE Trading & Strategy Cockpit
+                    <span class="text-xs px-2 py-0.5 rounded bg-blue-900/60 text-blue-300 font-normal">v2.0</span>
+                </h1>
+                <p class="text-xs text-slate-400">Zerodha Kite Trade Plumbing & Multi-Strategy Optimizer</p>
+            </div>
+        </div>
+
+        <!-- System Badges -->
+        <div class="flex items-center space-x-3 mt-2 sm:mt-0">
+            <button onclick="openKiteModal()" id="kite-connect-btn" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-orange-950/60 border border-orange-500/40 text-orange-300 hover:bg-orange-900/60 text-xs font-semibold shadow">
+                <i class="fa-solid fa-satellite-dish text-orange-400"></i>
+                <span id="kite-status-text">Zerodha Kite: Live Feed</span>
+            </button>
+
+            <div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg glass-panel text-xs">
+                <span class="text-slate-400">Market Health:</span>
+                <span class="badge-pass px-2 py-0.5 rounded font-semibold">78 / 100 (Risk-On)</span>
+            </div>
+
+            <div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg glass-panel text-xs">
+                <span class="text-slate-400">Execution Mode:</span>
+                <select id="execution-mode-select" class="bg-slate-800 text-white text-xs rounded px-2 py-1 border border-slate-700 outline-none">
+                    <option value="mock">MOCK MODE (Dry Run)</option>
+                    <option value="live">LIVE MODE (Zerodha Kite)</option>
+                </select>
+            </div>
+
+            <button onclick="emergencyKillSwitch()" class="bg-red-600/80 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded-lg font-semibold shadow flex items-center gap-1.5">
+                <i class="fa-solid fa-power-off"></i> Kill Switch
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-slate-700/80 space-x-6 text-sm overflow-x-auto">
+            <button onclick="switchTab('tab-plumbing')" id="nav-tab-plumbing" class="py-3 px-1 tab-active flex items-center gap-2">
+                <i class="fa-solid fa-faucet-drip"></i> Trade Plumbing & Orders
+            </button>
+            <button onclick="switchTab('tab-vcp')" id="nav-tab-vcp" class="py-3 px-1 text-slate-400 hover:text-white flex items-center gap-2">
+                <i class="fa-solid fa-filter"></i> VCP Screener
+            </button>
+            <button onclick="switchTab('tab-options')" id="nav-tab-options" class="py-3 px-1 text-slate-400 hover:text-white flex items-center gap-2">
+                <i class="fa-solid fa-calculator"></i> Options & Greeks Engine
+            </button>
+            <button onclick="switchTab('tab-fno')" id="nav-tab-fno" class="py-3 px-1 text-slate-400 hover:text-white flex items-center gap-2">
+                <i class="fa-solid fa-calendar-week"></i> Weekly F&O Planner
+            </button>
+            <button onclick="switchTab('tab-backtest')" id="nav-tab-backtest" class="py-3 px-1 text-slate-400 hover:text-white flex items-center gap-2">
+                <i class="fa-solid fa-chart-pie"></i> Backtest & Tax Friction
+            </button>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- TAB 1: Zerodha Trade Plumbing & Order Verification -->
+        <!-- ===================================================================== -->
+        <section id="tab-plumbing" class="space-y-6">
+
+            <!-- Position & Trade Performance Monitor Cockpit -->
+            <div class="glass-panel rounded-2xl p-6 space-y-5">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700/60 pb-4">
+                    <div class="flex items-center space-x-3">
+                        <h2 class="text-base font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-chart-line text-green-400"></i> Active Positions & Portfolio Performance Center
+                        </h2>
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                            Live P&L Ticking Active • <span id="last-update-time" class="font-mono">10:15:30</span>
+                        </span>
+                    </div>
+
+                    <!-- Quick Actions Toolbar -->
+                    <div class="flex items-center space-x-2 text-xs">
+                        <button onclick="addSimulatedTrade('NIFTY24000CE', 75, 140.0, 95.0, 195.0, 'Weekly F&O Plan')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 rounded-lg flex items-center gap-1">
+                            <i class="fa-solid fa-plus text-[10px]"></i> Nifty CE
+                        </button>
+                        <button onclick="addSimulatedTrade('RELIANCE', 50, 2950.0, 2880.0, 3100.0, 'Minervini VCP Screener')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-purple-300 border border-slate-700 rounded-lg flex items-center gap-1">
+                            <i class="fa-solid fa-plus text-[10px]"></i> Reliance
+                        </button>
+                        <button onclick="squareOffAllPositions()" class="px-2.5 py-1 bg-red-900/40 hover:bg-red-800/60 text-red-300 border border-red-700/50 rounded-lg font-semibold flex items-center gap-1">
+                            <i class="fa-solid fa-power-off text-[10px]"></i> Square Off All
+                        </button>
+                        <button onclick="clearAllTrades()" class="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-slate-400 border border-slate-800 rounded-lg flex items-center gap-1">
+                            <i class="fa-solid fa-trash text-[10px]"></i> Clear
+                        </button>
+                        <button onclick="fetchPositions()" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-rotate text-[10px]"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Position Summary Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                    <div class="bg-slate-900/90 border border-slate-800 p-4 rounded-xl space-y-1">
+                        <div class="text-slate-400 font-medium flex items-center justify-between">
+                            <span>Total P&L</span>
+                            <i class="fa-solid fa-wallet text-slate-500"></i>
+                        </div>
+                        <div id="summary-pnl" class="text-xl font-extrabold text-green-400 font-mono">+₹1,387.50</div>
+                        <div class="text-[10px] text-slate-500 flex justify-between pt-0.5">
+                            <span>Floating: <span id="summary-unrealized" class="text-slate-300 font-mono">+₹1,387.50</span></span>
+                            <span>Locked: <span id="summary-realized" class="text-slate-300 font-mono">₹0.00</span></span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/90 border border-slate-800 p-4 rounded-xl space-y-1">
+                        <div class="text-slate-400 font-medium flex items-center justify-between">
+                            <span>Active Positions</span>
+                            <i class="fa-solid fa-layer-group text-slate-500"></i>
+                        </div>
+                        <div id="summary-active" class="text-xl font-extrabold text-white font-mono">1 <span class="text-xs font-normal text-slate-400">Open</span></div>
+                        <div class="text-[10px] text-slate-500 pt-0.5">
+                            Closed Trades: <span id="summary-closed" class="text-slate-300 font-mono">0</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/90 border border-slate-800 p-4 rounded-xl space-y-1">
+                        <div class="text-slate-400 font-medium flex items-center justify-between">
+                            <span>Win Rate %</span>
+                            <i class="fa-solid fa-trophy text-slate-500"></i>
+                        </div>
+                        <div id="summary-winrate" class="text-xl font-extrabold text-blue-400 font-mono">100.0%</div>
+                        <div class="text-[10px] text-slate-500 pt-0.5">
+                            Total Executed Trades: <span id="summary-total-trades" class="text-slate-300 font-mono">1</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/90 border border-slate-800 p-4 rounded-xl space-y-1">
+                        <div class="text-slate-400 font-medium flex items-center justify-between">
+                            <span>Capital Allocated</span>
+                            <i class="fa-solid fa-coins text-slate-500"></i>
+                        </div>
+                        <div id="summary-capital" class="text-xl font-extrabold text-yellow-400 font-mono">₹10,500.00</div>
+                        <div class="text-[10px] text-slate-500 pt-0.5">
+                            Margin Utilized: <span class="text-slate-300 font-mono">10.5%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Positions Table -->
+                <div class="overflow-x-auto rounded-xl border border-slate-800">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-900/90 text-slate-400 uppercase font-mono text-[11px]">
+                            <tr>
+                                <th class="py-3 px-3">Order ID</th>
+                                <th class="py-3 px-3">Time</th>
+                                <th class="py-3 px-3">Strategy / Trigger</th>
+                                <th class="py-3 px-3">Symbol</th>
+                                <th class="py-3 px-3">Type</th>
+                                <th class="py-3 px-3">Qty</th>
+                                <th class="py-3 px-3">Entry (₹)</th>
+                                <th class="py-3 px-3">LTP (₹)</th>
+                                <th class="py-3 px-3">Live P&L</th>
+                                <th class="py-3 px-3">GTT SL / Target</th>
+                                <th class="py-3 px-3">Status</th>
+                                <th class="py-3 px-3">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positions-table-body" class="divide-y divide-slate-800/80 font-mono bg-slate-900/40">
+                            <!-- Rendered dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                <!-- Left: Trade Order Form -->
+                <div class="lg:col-span-6 glass-panel rounded-2xl p-6 space-y-5">
+                    <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                        <h2 class="text-base font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-paper-plane text-blue-400"></i> Trade Execution & Order Plumbing
+                        </h2>
+                        <span class="text-xs text-slate-400">Validated against Zerodha Kite API Rules</span>
+                    </div>
+
+                    <form id="order-form" class="space-y-4 text-sm" onsubmit="event.preventDefault(); validateAndRunOrder();">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-xs text-slate-400">Trading Symbol / Ticker</label>
+                                <input type="text" id="order-symbol" value="NIFTY" oninput="liveValidateOrder()" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:border-blue-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="text-xs text-slate-400">Transaction Type</label>
+                                <select id="order-transaction-type" onchange="liveValidateOrder()" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                                    <option value="BUY">BUY (Long)</option>
+                                    <option value="SELL">SELL (Short)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <label class="text-xs text-slate-400">Product</label>
+                                <select id="order-product" onchange="liveValidateOrder()" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                                    <option value="MIS">MIS (Intraday)</option>
+                                    <option value="NRML">NRML (F&O Overnight)</option>
+                                    <option value="CNC">CNC (Delivery)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-slate-400">Order Type</label>
+                                <select id="order-type" onchange="liveValidateOrder()" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                                    <option value="LIMIT">LIMIT</option>
+                                    <option value="MARKET">MARKET</option>
+                                    <option value="SL">SL (Stop Loss Limit)</option>
+                                    <option value="SL-M">SL-M (Stop Loss Market)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-slate-400">Is F&O Option?</label>
+                                <select id="order-is-option" onchange="liveValidateOrder()" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none">
+                                    <option value="true">YES (Option Contract)</option>
+                                    <option value="false">NO (Equity / Future)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <label class="text-xs text-slate-400">Quantity (Shares/Lots)</label>
+                                <input type="number" id="order-quantity" value="75" oninput="liveValidateOrder()" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                            </div>
+                            <div>
+                                <label class="text-xs text-slate-400">Price (₹)</label>
+                                <input type="number" step="0.05" id="order-price" value="140.00" oninput="liveValidateOrder()" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                            </div>
+                            <div>
+                                <label class="text-xs text-slate-400">Stop-Loss Price (₹)</label>
+                                <input type="number" step="0.05" id="order-sl" value="95.00" oninput="liveValidateOrder()" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-xs text-slate-400">Available Account Margin (₹)</label>
+                            <input type="number" id="order-margin" value="1000000" oninput="liveValidateOrder()" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                        </div>
+
+                        <div class="flex items-center justify-between pt-2">
+                            <button type="button" onclick="liveValidateOrder()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold">
+                                <i class="fa-solid fa-vial"></i> Run Plumbing Test
+                            </button>
+                            <button type="submit" id="btn-submit-order" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-lg flex items-center gap-2">
+                                <i class="fa-solid fa-play"></i> Execute Order
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Right: 7-Point Plumbing Diagnostic Checklist -->
+                <div class="lg:col-span-6 glass-panel rounded-2xl p-6 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                        <h2 class="text-base font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-clipboard-check text-green-400"></i> 7-Point Zerodha Plumbing Diagnostics
+                        </h2>
+                        <span id="plumbing-overall-status" class="badge-pass px-2.5 py-0.5 rounded text-xs">PASSED</span>
+                    </div>
+
+                    <div id="diagnostics-list" class="space-y-2.5 text-xs">
+                        <!-- Diagnostic items rendered dynamically -->
+                    </div>
+
+                    <!-- Tax & Cost Friction Breakdown -->
+                    <div id="cost-breakdown-card" class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 text-xs space-y-2">
+                        <h3 class="font-bold text-slate-300 flex items-center justify-between">
+                            <span><i class="fa-solid fa-calculator text-yellow-400 mr-1"></i> Indian Market Tax & Friction Auditor</span>
+                            <span id="friction-total-tag" class="text-yellow-400 font-mono">₹45.20</span>
+                        </h3>
+                        <div class="grid grid-cols-3 gap-2 text-slate-400 pt-1 font-mono">
+                            <div>Brokerage: <span id="cost-brokerage" class="text-white">₹20.00</span></div>
+                            <div>STT Tax: <span id="cost-stt" class="text-white">₹13.12</span></div>
+                            <div>Stamp Duty: <span id="cost-stamp" class="text-white">₹0.32</span></div>
+                            <div>Exchange Fees: <span id="cost-exchange" class="text-white">₹5.25</span></div>
+                            <div>GST (18%): <span id="cost-gst" class="text-white">₹4.55</span></div>
+                            <div>Break-even: <span id="cost-breakeven" class="text-green-400">+0.60 pts</span></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- TAB 2: VCP Screener -->
+        <!-- ===================================================================== -->
+        <section id="tab-vcp" class="space-y-6 hidden">
+            <div class="glass-panel rounded-2xl p-6 space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700/60 pb-4">
+                    <div>
+                        <h2 class="text-base font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-filter text-purple-400"></i> Mark Minervini Volatility Contraction Pattern Screener
+                        </h2>
+                        <p class="text-xs text-slate-400">5-Tier Composite Scoring: Trend Template (25%), Contraction (25%), Volume Dryup (20%), Pivot Proximity (15%), RS (15%)</p>
+                    </div>
+
+                    <div class="flex items-center space-x-3">
+                        <select id="vcp-universe-select" onchange="runVcpScreen()" class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-white outline-none cursor-pointer focus:border-purple-500">
+                            <option value="nifty50">Nifty 50 Universe</option>
+                            <option value="nifty200">Nifty 200 Universe</option>
+                            <option value="nifty500">Nifty 500 Universe</option>
+                        </select>
+                        <button onclick="runVcpScreen()" id="vcp-run-btn" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold shadow flex items-center gap-2 transition active:scale-95">
+                            <i class="fa-solid fa-bolt"></i> Run Screener
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Screener Results Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-900/60 text-slate-400 uppercase font-mono">
+                            <tr>
+                                <th class="py-3 px-4">Symbol</th>
+                                <th class="py-3 px-4">Composite Score</th>
+                                <th class="py-3 px-4">Contractions</th>
+                                <th class="py-3 px-4">T1 / T2 / T3 Depth</th>
+                                <th class="py-3 px-4">Pivot Price</th>
+                                <th class="py-3 px-4">Dist to Pivot</th>
+                                <th class="py-3 px-4">RS Rating</th>
+                                <th class="py-3 px-4">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vcp-results-table" class="divide-y divide-slate-800/80 font-mono">
+                            <!-- Rendered dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- TAB 3: Options & Greeks Engine -->
+        <!-- ===================================================================== -->
+        <section id="tab-options" class="space-y-6 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                <!-- Pricing & Input Controls -->
+                <div class="lg:col-span-5 glass-panel rounded-2xl p-6 space-y-4">
+                    <h2 class="text-base font-bold flex items-center gap-2 border-b border-slate-700/60 pb-3">
+                        <i class="fa-solid fa-calculator text-cyan-400"></i> Black-Scholes Pricing & Greeks Calculator
+                    </h2>
+
+                    <div class="grid grid-cols-2 gap-4 text-xs">
+                        <div>
+                            <label class="text-slate-400">Underlying Spot Price (₹)</label>
+                            <input type="number" id="opt-spot" value="24000" onchange="calculateOptionPrice()" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Strike Price (₹)</label>
+                            <input type="number" id="opt-strike" value="24200" onchange="calculateOptionPrice()" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Days to Expiry</label>
+                            <input type="number" id="opt-expiry" value="7" onchange="calculateOptionPrice()" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Implied Volatility (IV %)</label>
+                            <input type="number" step="0.5" id="opt-vol" value="15.0" onchange="calculateOptionPrice()" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                        </div>
+                    </div>
+
+                    <!-- Calculated Output Cards -->
+                    <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-400">Estimated Fair Premium:</span>
+                            <span id="opt-fair-price" class="text-lg font-bold text-cyan-400 font-mono">₹145.50</span>
+                        </div>
+                        <div class="grid grid-cols-5 gap-2 text-center text-xs border-t border-slate-800 pt-3">
+                            <div class="bg-slate-800 p-2 rounded"><div class="text-slate-400 text-[10px]">DELTA</div><div id="greek-delta" class="font-bold font-mono">0.450</div></div>
+                            <div class="bg-slate-800 p-2 rounded"><div class="text-slate-400 text-[10px]">GAMMA</div><div id="greek-gamma" class="font-bold font-mono">0.0012</div></div>
+                            <div class="bg-slate-800 p-2 rounded"><div class="text-slate-400 text-[10px]">THETA</div><div id="greek-theta" class="font-bold font-mono text-red-400">-12.5</div></div>
+                            <div class="bg-slate-800 p-2 rounded"><div class="text-slate-400 text-[10px]">VEGA</div><div id="greek-vega" class="font-bold font-mono text-green-400">+15.2</div></div>
+                            <div class="bg-slate-800 p-2 rounded"><div class="text-slate-400 text-[10px]">RHO</div><div id="greek-rho" class="font-bold font-mono">2.10</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payoff Diagram / Visualizer -->
+                <div class="lg:col-span-7 glass-panel rounded-2xl p-6 space-y-4 flex flex-col justify-between">
+                    <h2 class="text-base font-bold flex items-center gap-2 border-b border-slate-700/60 pb-3">
+                        <i class="fa-solid fa-chart-area text-blue-400"></i> Strategy Payoff Visualizer
+                    </h2>
+
+                    <div class="relative h-64 w-full">
+                        <canvas id="payoffChart"></canvas>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- TAB 4: Weekly F&O Trade Planner -->
+        <!-- ===================================================================== -->
+        <section id="tab-fno" class="space-y-6 hidden">
+            <div class="glass-panel rounded-2xl p-6 space-y-6">
+                <div class="flex items-center justify-between border-b border-slate-700/60 pb-4">
+                    <div>
+                        <h2 class="text-base font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-week text-emerald-400"></i> Weekly High-Conviction F&O Trade Plan
+                        </h2>
+                        <p class="text-xs text-slate-400">Automated multi-phase workflow combining news, FII flows, technical setup & GTT stop-loss execution</p>
+                    </div>
+                    <button onclick="generateFnoPlan()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow flex items-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Weekly Trade Idea
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
+                    <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl space-y-2">
+                        <div class="text-slate-400">Dominant Macro Narrative</div>
+                        <div id="fno-narrative" class="font-semibold text-white">FII Institutional Inflows + Defence Momentum</div>
+                        <div class="text-emerald-400 font-bold">Conviction: 4.5 / 5.0</div>
+                    </div>
+                    <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl space-y-2">
+                        <div class="text-slate-400">Trade Setup</div>
+                        <div id="fno-instrument" class="font-semibold text-white">NIFTY 24000 CE (Weekly Expiry)</div>
+                        <div class="text-blue-400 font-bold">Recommended Lots: 2 (150 Qty)</div>
+                    </div>
+                    <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl space-y-2">
+                        <div class="text-slate-400">Capital & Risk/Reward</div>
+                        <div id="fno-capital" class="font-semibold text-white">Required Capital: ₹20,250</div>
+                        <div class="text-yellow-400 font-bold">Risk / Reward: 1 : 2.4</div>
+                    </div>
+                </div>
+
+                <!-- Trade Card Details -->
+                <div class="bg-slate-900/90 border border-emerald-500/30 rounded-2xl p-6 space-y-4">
+                    <h3 class="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-ticket"></i> Actionable Trade Card & GTT Trigger Blueprint
+                    </h3>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+                        <div class="bg-slate-800 p-3 rounded-lg"><span class="text-slate-400 block text-[10px]">ENTRY ZONE</span><span id="fno-entry" class="text-white font-bold text-sm">₹130.00 - ₹140.00</span></div>
+                        <div class="bg-slate-800 p-3 rounded-lg"><span class="text-slate-400 block text-[10px]">STOP LOSS (GTT)</span><span id="fno-sl" class="text-red-400 font-bold text-sm">₹85.00</span></div>
+                        <div class="bg-slate-800 p-3 rounded-lg"><span class="text-slate-400 block text-[10px]">TARGET 1 (Book 50%)</span><span id="fno-t1" class="text-green-400 font-bold text-sm">₹195.00</span></div>
+                        <div class="bg-slate-800 p-3 rounded-lg"><span class="text-slate-400 block text-[10px]">TARGET 2 (Trail Rest)</span><span id="fno-t2" class="text-green-400 font-bold text-sm">₹260.00</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- TAB 5: Backtest & Tax Friction Evaluator -->
+        <!-- ===================================================================== -->
+        <section id="tab-backtest" class="space-y-6 hidden">
+            <div class="glass-panel rounded-2xl p-6 space-y-6">
+                <div class="flex items-center justify-between border-b border-slate-700/60 pb-4">
+                    <h2 class="text-base font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-orange-400"></i> Strategy Backtest Evaluator & Cost Impact
+                    </h2>
+                    <button onclick="evaluateBacktest()" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-bold shadow">
+                        Evaluate Strategy
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-slate-900/80 border border-slate-800 p-6 rounded-2xl text-center space-y-2">
+                        <div class="text-xs text-slate-400">Overall Robustness Score</div>
+                        <div id="bt-score" class="text-4xl font-extrabold text-orange-400 font-mono">— / 100</div>
+                        <span id="bt-verdict" class="badge-pass text-xs px-3 py-1 rounded-full font-semibold">NOT EVALUATED</span>
+                        <p id="bt-verdict-detail" class="text-[11px] text-slate-400 leading-relaxed pt-1"></p>
+                        <p id="bt-expectancy" class="text-[11px] text-slate-500 font-mono"></p>
+                    </div>
+
+                    <div class="md:col-span-2 bg-slate-900/80 border border-slate-800 p-6 rounded-2xl space-y-3 text-xs">
+                        <h3 class="font-bold text-slate-300">5-Dimension Breakdown</h3>
+                        <div id="bt-dimensions" class="space-y-2">
+                            <p class="text-[11px] text-slate-500">Click <span class="font-semibold text-orange-400">Evaluate Strategy</span> to score the strategy across all five dimensions.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="bt-flags-wrap" class="bg-slate-900/80 border border-slate-800 p-6 rounded-2xl space-y-2 text-xs hidden">
+                    <h3 class="font-bold text-slate-300 flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Red Flags</h3>
+                    <div id="bt-flags" class="space-y-2"></div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="glass-panel mt-auto py-4 px-6 text-center text-xs text-slate-500">
+        Indian Trading Skills Dashboard — Built with Zerodha Kite Trade Plumbing & Safety Controls
+    </footer>
+
+    <!-- App JavaScript Logic -->
+    <script>
+        let payoffChartInstance = null;
+
+        function switchTab(tabId) {
+            ['tab-plumbing', 'tab-vcp', 'tab-options', 'tab-fno', 'tab-backtest'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+                document.getElementById('nav-' + id).classList.remove('tab-active');
+                document.getElementById('nav-' + id).classList.add('text-slate-400');
+            });
+            document.getElementById(tabId).classList.remove('hidden');
+            document.getElementById('nav-' + tabId).classList.add('tab-active');
+            document.getElementById('nav-' + tabId).classList.remove('text-slate-400');
+
+            if(tabId === 'tab-options') {
+                setTimeout(renderPayoffChart, 100);
+            }
+        }
+
+        async function liveValidateOrder() {
+            const payload = {
+                symbol: document.getElementById('order-symbol').value,
+                product: document.getElementById('order-product').value,
+                order_type: document.getElementById('order-type').value,
+                transaction_type: document.getElementById('order-transaction-type').value,
+                quantity: parseInt(document.getElementById('order-quantity').value) || 0,
+                price: parseFloat(document.getElementById('order-price').value) || 0,
+                stop_loss_price: parseFloat(document.getElementById('order-sl').value) || 0,
+                is_option: document.getElementById('order-is-option').value === "true",
+                available_margin: parseFloat(document.getElementById('order-margin').value) || 1000000
+            };
+
+            try {
+                const res = await fetch('/api/plumbing/validate-trade', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                renderDiagnostics(data);
+            } catch(e) {
+                console.error("Plumbing validation error:", e);
+            }
+        }
+
+        function renderDiagnostics(data) {
+            const listEl = document.getElementById('diagnostics-list');
+            listEl.innerHTML = '';
+
+            const overallBadge = document.getElementById('plumbing-overall-status');
+            if(data.is_valid) {
+                overallBadge.innerText = 'PASSED';
+                overallBadge.className = 'badge-pass px-2.5 py-0.5 rounded text-xs';
+            } else {
+                overallBadge.innerText = 'FAILED';
+                overallBadge.className = 'badge-fail px-2.5 py-0.5 rounded text-xs';
+            }
+
+            data.diagnostics.forEach(item => {
+                let badgeClass = 'badge-pass';
+                let icon = 'fa-check-circle text-green-400';
+                if(item.status === 'WARNING') { badgeClass = 'badge-warn'; icon = 'fa-triangle-exclamation text-yellow-400'; }
+                if(item.status === 'FAILED') { badgeClass = 'badge-fail'; icon = 'fa-circle-xmark text-red-400'; }
+
+                listEl.innerHTML += `
+                    <div class="bg-slate-900/60 border border-slate-800 rounded-lg p-3 flex items-start justify-between">
+                        <div class="flex items-start space-x-2">
+                            <i class="fa-solid ${icon} mt-0.5"></i>
+                            <div>
+                                <div class="font-bold text-slate-200">${item.check_name}</div>
+                                <div class="text-slate-400 text-[11px]">${item.message}</div>
+                            </div>
+                        </div>
+                        <span class="${badgeClass} px-2 py-0.5 rounded font-mono text-[10px]">${item.status}</span>
+                    </div>
+                `;
+            });
+
+            if(data.cost_breakdown) {
+                document.getElementById('cost-brokerage').innerText = '₹' + data.cost_breakdown.brokerage;
+                document.getElementById('cost-stt').innerText = '₹' + data.cost_breakdown.stt;
+                document.getElementById('cost-stamp').innerText = '₹' + data.cost_breakdown.stamp_duty;
+                document.getElementById('cost-exchange').innerText = '₹' + data.cost_breakdown.exchange_charges;
+                document.getElementById('cost-gst').innerText = '₹' + data.cost_breakdown.gst;
+                document.getElementById('cost-breakeven').innerText = '+' + data.cost_breakdown.break_even_points + ' pts';
+                document.getElementById('friction-total-tag').innerText = '₹' + data.cost_breakdown.total_friction;
+            }
+        }
+
+        async function validateAndRunOrder() {
+            const mode = document.getElementById('execution-mode-select').value;
+            const payload = {
+                mode: mode,
+                symbol: document.getElementById('order-symbol').value,
+                product: document.getElementById('order-product').value,
+                order_type: document.getElementById('order-type').value,
+                transaction_type: document.getElementById('order-transaction-type').value,
+                quantity: parseInt(document.getElementById('order-quantity').value) || 0,
+                price: parseFloat(document.getElementById('order-price').value) || 0,
+                stop_loss_price: parseFloat(document.getElementById('order-sl').value) || 0,
+                is_option: document.getElementById('order-is-option').value === "true",
+                available_margin: parseFloat(document.getElementById('order-margin').value) || 1000000
+            };
+
+            const res = await fetch('/api/trade/place', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if(data.success) {
+                alert(`✅ [ORDER EXECUTED SUCCESSFULLY]\n\nMode: ${data.mode.toUpperCase()}\nOrder ID: ${data.order_id}\nSliced Orders: ${data.sliced_orders_executed}`);
+                fetchPositions();
+            } else {
+                const errList = data.errors && data.errors.length ? '\n\nReason(s):\n• ' + data.errors.join('\n• ') : '';
+                alert(`❌ [ORDER FAILED PLUMBING VALIDATION]\n\nStatus: ${data.message}${errList}`);
+            }
+        }
+
+        async function fetchPositions() {
+            try {
+                const res = await fetch('/api/trade/positions?_t=' + Date.now(), {
+                    cache: 'no-store',
+                    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+                });
+                const data = await res.json();
+                renderPositions(data);
+            } catch(e) {
+                console.error("Fetch positions error:", e);
+            }
+        }
+
+        function renderPositions(data) {
+            const summary = data.summary;
+            document.getElementById('summary-pnl').innerText = (summary.total_pnl >= 0 ? '+' : '') + '₹' + summary.total_pnl.toFixed(2);
+            document.getElementById('summary-pnl').className = summary.total_pnl >= 0 ? 'text-xl font-extrabold text-green-400 font-mono' : 'text-xl font-extrabold text-red-400 font-mono';
+            
+            if(document.getElementById('summary-unrealized')) {
+                document.getElementById('summary-unrealized').innerText = (summary.unrealized_pnl >= 0 ? '+' : '') + '₹' + summary.unrealized_pnl.toFixed(2);
+                document.getElementById('summary-realized').innerText = (summary.realized_pnl >= 0 ? '+' : '') + '₹' + summary.realized_pnl.toFixed(2);
+                document.getElementById('summary-closed').innerText = summary.closed_count;
+                document.getElementById('summary-total-trades').innerText = summary.total_trades;
+                document.getElementById('last-update-time').innerText = (summary.last_updated || new Date().toLocaleTimeString()) + ' (' + (summary.data_source || 'NSE Live') + ')';
+            }
+
+            document.getElementById('summary-active').innerText = summary.active_count + ' Open';
+            document.getElementById('summary-winrate').innerText = summary.win_rate_pct + '%';
+            document.getElementById('summary-capital').innerText = '₹' + summary.total_capital_invested.toLocaleString();
+
+            const tbody = document.getElementById('positions-table-body');
+
+            if(!data.trades || data.trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="12" class="py-6 text-center text-slate-500 font-mono">No active positions. Submit an order below or click quick action buttons above to simulate trades.</td></tr>';
+                return;
+            }
+
+            let html = '';
+            data.trades.forEach(t => {
+                const netPnl = t.pnl || 0.0;
+                const grossPnl = t.gross_pnl !== undefined ? t.gross_pnl : netPnl;
+                const friction = t.friction_costs || 0.0;
+                const pnlClass = netPnl >= 0 ? 'text-green-400 font-bold' : 'text-red-400 font-bold';
+                let statusBadge = 'badge-pass';
+                if(t.status === 'CLOSED') statusBadge = 'badge-warn';
+                if(t.status === 'STOP_LOSS_HIT') statusBadge = 'badge-fail';
+                if(t.status === 'TARGET_HIT') statusBadge = 'badge-pass';
+
+                const actionBtn = t.status === 'ACTIVE' 
+                    ? `<button onclick="squareOffPosition('${t.order_id}')" class="px-2.5 py-1 bg-red-600/80 hover:bg-red-600 text-white rounded text-[10px] font-bold shadow">Square Off</button>` 
+                    : `<span class="text-slate-500 text-[10px] font-mono">${t.status}</span>`;
+
+                html += `
+                    <tr class="hover:bg-slate-800/60 transition-colors">
+                        <td class="py-3 px-3 text-slate-300 font-mono text-[11px] font-bold">${t.order_id}</td>
+                        <td class="py-3 px-3 text-slate-400 text-[10px] font-mono">${t.timestamp}</td>
+                        <td class="py-3 px-3 text-cyan-400 font-bold text-[10px]"><i class="fa-solid fa-bolt text-xs mr-1"></i>${t.strategy_origin || 'Manual Order'}</td>
+                        <td class="py-3 px-3 font-bold text-white">${t.symbol}</td>
+                        <td class="py-3 px-3">${t.transaction_type} (${t.product})</td>
+                        <td class="py-3 px-3 font-bold">${t.quantity}</td>
+                        <td class="py-3 px-3">₹${t.entry_price.toFixed(2)}</td>
+                        <td class="py-3 px-3 font-bold text-white font-mono">₹${t.current_price.toFixed(2)}</td>
+                        <td class="py-3 px-3 ${pnlClass} font-mono">
+                            <div>${netPnl >= 0 ? '+' : ''}₹${netPnl.toFixed(2)} (${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct.toFixed(2)}%)</div>
+                            <div class="text-[9px] text-slate-400 font-normal">Gross: ${grossPnl >= 0 ? '+' : ''}₹${grossPnl.toFixed(2)} | Tax: -₹${friction.toFixed(2)}</div>
+                        </td>
+                        <td class="py-3 px-3 text-slate-400 text-[10px]">SL: ${t.stop_loss_price ? '₹'+t.stop_loss_price : 'N/A'}<br/>Tgt: ${t.target_price ? '₹'+t.target_price : 'N/A'}</td>
+                        <td class="py-3 px-3"><span class="${statusBadge} px-2 py-0.5 rounded text-[10px]">${t.status}</span></td>
+                        <td class="py-3 px-3">${actionBtn}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        async function squareOffPosition(orderId) {
+            if(!confirm(`Square off position ${orderId}?`)) return;
+            const res = await fetch('/api/trade/square-off', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: orderId })
+            });
+            const data = await res.json();
+            fetchPositions();
+        }
+
+        async function squareOffAllPositions() {
+            if(!confirm("Square off ALL active positions?")) return;
+            const res = await fetch('/api/trade/square-off-all', { method: 'POST' });
+            const data = await res.json();
+            fetchPositions();
+        }
+
+        async function clearAllTrades() {
+            if(!confirm("Clear all trade records from history?")) return;
+            const res = await fetch('/api/trade/clear-all', { method: 'POST' });
+            const data = await res.json();
+            fetchPositions();
+        }
+
+        async function addSimulatedTrade(symbol, qty, price, sl, target, strategy) {
+            const payload = {
+                symbol: symbol,
+                quantity: qty,
+                price: price,
+                stop_loss_price: sl,
+                target_price: target,
+                product: "NRML",
+                order_type: "LIMIT",
+                transaction_type: "BUY",
+                is_option: symbol.includes("CE") || symbol.includes("PE"),
+                strategy_origin: strategy
+            };
+            const res = await fetch('/api/trade/place', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            fetchPositions();
+        }
+
+        async function runVcpScreen() {
+            const btn = document.getElementById('vcp-run-btn');
+            const originalHtml = btn ? btn.innerHTML : '<i class="fa-solid fa-bolt"></i> Run Screener';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Screening...';
+            }
+
+            const universe = document.getElementById('vcp-universe-select').value;
+            try {
+                const res = await fetch('/api/strategy/vcp-screen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ universe })
+                });
+                const data = await res.json();
+                
+                const tbody = document.getElementById('vcp-results-table');
+                tbody.innerHTML = '';
+                if (!data.candidates || data.candidates.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-slate-500">No active VCP setups found in this universe.</td></tr>';
+                    return;
+                }
+                data.candidates.forEach(c => {
+                    const price = c.current_price || c.pivot_price;
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="py-3 px-4 font-bold text-white">
+                                <div class="flex items-center gap-2">
+                                    <span>${c.symbol}</span>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">₹${price}</span>
+                                </div>
+                            </td>
+                            <td class="py-3 px-4 font-bold text-purple-400">${c.composite_score}</td>
+                            <td class="py-3 px-4">${c.contraction_count} Contractions</td>
+                            <td class="py-3 px-4 text-slate-300">${c.t1_depth_pct}% / ${c.t2_depth_pct}% / ${c.t3_depth_pct}%</td>
+                            <td class="py-3 px-4 font-semibold text-white">₹${c.pivot_price}</td>
+                            <td class="py-3 px-4 text-green-400 font-semibold">+${c.distance_to_pivot_pct}%</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-purple-950/60 text-purple-300 border border-purple-800/40 text-[11px] font-bold">${c.relative_strength_score}</span></td>
+                            <td class="py-3 px-4 flex items-center space-x-2">
+                                <button onclick="executeVcpTrade('${c.symbol}', ${price})" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-[10px] font-bold shadow flex items-center gap-1">
+                                    <i class="fa-solid fa-bolt text-[9px]"></i> 1-Click Buy
+                                </button>
+                                <button onclick="presetOrder('${c.symbol}', ${price})" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px]">
+                                    Form
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch(e) {
+                console.error("VCP Screen error:", e);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+            }
+        }
+
+        async function executeVcpTrade(symbol, price) {
+            const qty = Math.max(1, Math.round(50000 / price));
+            const sl = Math.round(price * 0.95 * 100) / 100;
+            const target = Math.round(price * 1.15 * 100) / 100;
+
+            const payload = {
+                symbol: symbol,
+                quantity: qty,
+                price: price,
+                stop_loss_price: sl,
+                target_price: target,
+                product: "CNC",
+                order_type: "LIMIT",
+                transaction_type: "BUY",
+                is_option: false,
+                strategy_origin: "Minervini VCP Screener",
+                available_margin: 10000000
+            };
+
+            const res = await fetch('/api/trade/place', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if(data.success) {
+                alert(`✅ [VCP BREAKOUT TRADE EXECUTED]\n\nSymbol: ${symbol}\nQuantity: ${qty} shares @ ₹${price}\nOrder ID: ${data.order_id}\nTarget: ₹${target} | SL: ₹${sl}`);
+                switchTab('tab-plumbing');
+                fetchPositions();
+            } else {
+                alert(`❌ [PLUMBING VALIDATION ERROR]\n\n${data.message}\n• ` + (data.errors ? data.errors.join('\n• ') : ''));
+            }
+        }
+
+        function presetOrder(symbol, price) {
+            switchTab('tab-plumbing');
+            document.getElementById('order-symbol').value = symbol;
+            document.getElementById('order-price').value = price;
+            document.getElementById('order-is-option').value = "false";
+            document.getElementById('order-quantity').value = Math.max(1, Math.round(50000 / price));
+            liveValidateOrder();
+        }
+
+        async function calculateOptionPrice() {
+            const payload = {
+                spot: parseFloat(document.getElementById('opt-spot').value),
+                strike: parseFloat(document.getElementById('opt-strike').value),
+                days_to_expiry: parseFloat(document.getElementById('opt-expiry').value),
+                volatility: parseFloat(document.getElementById('opt-vol').value) / 100.0,
+                option_type: "CALL"
+            };
+
+            const res = await fetch('/api/options/pricing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            document.getElementById('opt-fair-price').innerText = '₹' + data.calculated_price;
+            document.getElementById('greek-delta').innerText = data.greeks.delta;
+            document.getElementById('greek-gamma').innerText = data.greeks.gamma;
+            document.getElementById('greek-theta').innerText = data.greeks.theta;
+            document.getElementById('greek-vega').innerText = data.greeks.vega;
+            document.getElementById('greek-rho').innerText = data.greeks.rho;
+            renderPayoffChart();
+        }
+
+        function renderPayoffChart() {
+            const ctx = document.getElementById('payoffChart').getContext('2d');
+            if(payoffChartInstance) payoffChartInstance.destroy();
+
+            const spot = parseFloat(document.getElementById('opt-spot').value);
+            const strike = parseFloat(document.getElementById('opt-strike').value);
+            const premium = parseFloat(document.getElementById('opt-fair-price').innerText.replace('₹', '')) || 145;
+
+            const labels = [];
+            const dataPoints = [];
+            for(let price = spot * 0.95; price <= spot * 1.05; price += (spot * 0.005)) {
+                labels.push(price.toFixed(0));
+                const payoff = Math.max(0, price - strike) - premium;
+                dataPoints.push(payoff);
+            }
+
+            payoffChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Option P/L Payoff at Expiry (₹)',
+                        data: dataPoints,
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                        fill: true,
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' } }
+                    }
+                }
+            });
+        }
+
+        async function generateFnoPlan() {
+            const res = await fetch('/api/strategy/fno-plan', { method: 'POST' });
+            const data = await res.json();
+            const card = data.trade_card;
+            document.getElementById('fno-narrative').innerText = data.dominant_theme;
+            document.getElementById('fno-instrument').innerText = card.instrument;
+            document.getElementById('fno-capital').innerText = 'Required Capital: ' + card.total_capital_required;
+            document.getElementById('fno-entry').innerText = card.entry_zone;
+            document.getElementById('fno-sl').innerText = '₹' + card.stop_loss_price;
+            document.getElementById('fno-t1').innerText = '₹' + card.target_1;
+            document.getElementById('fno-t2').innerText = '₹' + card.target_2;
+        }
+
+        async function evaluateBacktest() {
+            const res = await fetch('/api/backtest/evaluate', { method: 'POST' });
+            const data = await res.json();
+
+            if (data.total_score === null || data.total_score === undefined) {
+                document.getElementById('bt-score').innerText = '— / 100';
+                document.getElementById('bt-verdict').innerText = data.verdict || 'UNAVAILABLE';
+                document.getElementById('bt-verdict-detail').innerText = data.error || '';
+                return;
+            }
+
+            const max = data.max_possible || 100;
+            document.getElementById('bt-score').innerText = data.total_score + ' / ' + max;
+            document.getElementById('bt-verdict-detail').innerText = data.verdict_detail || '';
+
+            const exp = data.adjusted_expectancy_pct;
+            document.getElementById('bt-expectancy').innerText =
+                (exp !== undefined && exp !== null)
+                    ? 'Adj. expectancy: ' + (exp >= 0 ? '+' : '') + exp + '% / trade'
+                    : '';
+
+            // Verdict badge — color by score band
+            const badge = document.getElementById('bt-verdict');
+            badge.innerText = data.verdict;
+            const pct = data.percentage !== undefined ? data.percentage : (data.total_score / max * 100);
+            let badgeColor = '#ef4444';           // red
+            if (pct >= 80) badgeColor = '#22c55e'; // green
+            else if (pct >= 60) badgeColor = '#eab308'; // yellow
+            else if (pct >= 40) badgeColor = '#f97316'; // orange
+            badge.style.backgroundColor = badgeColor + '22';
+            badge.style.color = badgeColor;
+
+            // Dimension bars — color by score ratio
+            const dimWrap = document.getElementById('bt-dimensions');
+            dimWrap.innerHTML = (data.dimensions || []).map(d => {
+                const ratio = d.max_score > 0 ? (d.score / d.max_score) : 0;
+                const widthPct = Math.round(ratio * 100);
+                let barColor = 'bg-red-500';
+                if (ratio >= 0.85) barColor = 'bg-green-500';
+                else if (ratio >= 0.65) barColor = 'bg-blue-500';
+                else if (ratio >= 0.45) barColor = 'bg-yellow-500';
+                else barColor = 'bg-orange-500';
+                const details = d.details ? `<div class="text-[10px] text-slate-500 mt-0.5">${escapeHtml(d.details)}</div>` : '';
+                return `<div>
+                    <div class="flex justify-between text-[11px] mb-1">
+                        <span>${escapeHtml(d.name)}</span>
+                        <span class="font-mono">${d.score} / ${d.max_score}</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-2 rounded-full"><div class="${barColor} h-2 rounded-full" style="width: ${widthPct}%"></div></div>
+                    ${details}
+                </div>`;
+            }).join('');
+
+            // Red flags
+            const flagsWrap = document.getElementById('bt-flags-wrap');
+            const flags = data.red_flags || [];
+            if (flags.length === 0) {
+                flagsWrap.classList.add('hidden');
+            } else {
+                flagsWrap.classList.remove('hidden');
+                const sevColor = { critical: '#ef4444', warning: '#eab308', info: '#38bdf8' };
+                document.getElementById('bt-flags').innerHTML = flags.map(f => {
+                    const c = sevColor[f.severity] || '#94a3b8';
+                    const rec = f.recommendation ? `<div class="text-[10px] text-slate-500 mt-0.5">→ ${escapeHtml(f.recommendation)}</div>` : '';
+                    return `<div class="border-l-2 pl-3 py-1" style="border-color:${c}">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded" style="background:${c}22;color:${c}">${escapeHtml(f.severity)}</span>
+                            <span class="text-[11px] text-slate-300">${escapeHtml(f.message)}</span>
+                        </div>
+                        ${rec}
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        function escapeHtml(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function emergencyKillSwitch() {
+            if(confirm("EMERGENCY KILL SWITCH ACTIVATED!\nAre you sure you want to cancel all pending orders and exit all open positions?")) {
+                alert("All orders cancelled and positions closed via Zerodha Kite API safety protocol.");
+            }
+        }
+
+        function openKiteModal() {
+            document.getElementById('kite-modal').classList.remove('hidden');
+            document.getElementById('kite-connect-status-msg').classList.add('hidden');
+        }
+
+        function closeKiteModal() {
+            document.getElementById('kite-modal').classList.add('hidden');
+        }
+
+        async function fetchKiteStatus() {
+            try {
+                const res = await fetch('/api/zerodha/config');
+                const data = await res.json();
+                const btn = document.getElementById('kite-connect-btn');
+                const text = document.getElementById('kite-status-text');
+                if(data.is_connected) {
+                    btn.className = "flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60 text-xs font-semibold shadow";
+                    text.innerText = "Zerodha Kite: Live (Connected)";
+                } else {
+                    btn.className = "flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-orange-950/60 border border-orange-500/40 text-orange-300 hover:bg-orange-900/60 text-xs font-semibold shadow";
+                    text.innerText = "Zerodha Kite: Connect Live LTP";
+                }
+            } catch(e) {
+                console.error("Error fetching Kite status:", e);
+            }
+        }
+
+        async function saveAndVerifyKiteConfig() {
+            const enctoken = document.getElementById('kite-enctoken-input').value.trim();
+            const apiKey = document.getElementById('kite-api-key-input').value.trim();
+            const accessToken = document.getElementById('kite-access-token-input').value.trim();
+            const statusDiv = document.getElementById('kite-connect-status-msg');
+
+            statusDiv.classList.remove('hidden');
+            statusDiv.className = "text-xs font-mono p-2.5 rounded-lg bg-slate-800 text-blue-300";
+            statusDiv.innerText = "Connecting & testing live quotes against api.kite.trade...";
+
+            try {
+                const res = await fetch('/api/zerodha/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        enctoken: enctoken,
+                        api_key: apiKey,
+                        access_token: accessToken
+                    })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    statusDiv.className = "text-xs font-mono p-2.5 rounded-lg bg-emerald-950/80 border border-emerald-500/40 text-emerald-300";
+                    statusDiv.innerText = "✅ " + data.message;
+                    fetchKiteStatus();
+                    fetchPositions();
+                    setTimeout(() => { closeKiteModal(); }, 2000);
+                } else {
+                    statusDiv.className = "text-xs font-mono p-2.5 rounded-lg bg-red-950/80 border border-red-500/40 text-red-300";
+                    statusDiv.innerText = "❌ " + data.message;
+                }
+            } catch(e) {
+                statusDiv.className = "text-xs font-mono p-2.5 rounded-lg bg-red-950/80 border border-red-500/40 text-red-300";
+                statusDiv.innerText = "❌ Network error connecting to Zerodha Kite API.";
+            }
+        }
+
+        // Initialize on load — fetch positions immediately and start live auto-refresh
+        window.addEventListener('load', () => {
+            liveValidateOrder();
+            runVcpScreen();
+            fetchPositions();
+            fetchKiteStatus();
+
+            // Auto-refresh positions every 2 seconds for live P&L ticking
+            setInterval(fetchPositions, 2000);
+        });
+    </script>
+
+    <!-- Zerodha Kite Connection Modal -->
+    <div id="kite-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel border border-slate-700 bg-slate-900/95 max-w-lg w-full rounded-2xl p-6 space-y-5 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold">Z</div>
+                    <h3 class="text-base font-bold text-white">Connect Zerodha Kite Live Feed</h3>
+                </div>
+                <button onclick="closeKiteModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+            </div>
+
+            <p class="text-xs text-slate-300 leading-relaxed">
+                Pull 100% real-time live LTP and execution quotes directly from Zerodha Kite (<code class="text-orange-300">api.kite.trade</code>) for equity and F&O positions.
+            </p>
+
+            <div class="space-y-3 text-xs">
+                <div class="bg-slate-950/60 border border-slate-800 p-3 rounded-xl space-y-2">
+                    <label class="block text-slate-300 font-semibold">Option A: Kite Web Session Enctoken (Free / No Paid API)</label>
+                    <input type="password" id="kite-enctoken-input" placeholder="Paste your Zerodha enctoken cookie..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono text-xs outline-none focus:border-orange-500" />
+                    <span class="text-[10px] text-slate-500 block">How to get: Login to kite.zerodha.com -> Inspect -> Application -> Cookies -> Copy <code>enctoken</code></span>
+                </div>
+
+                <div class="relative flex py-0.5 items-center">
+                    <div class="flex-grow border-t border-slate-800"></div>
+                    <span class="flex-shrink mx-2 text-slate-500 text-[10px] uppercase font-bold">OR</span>
+                    <div class="flex-grow border-t border-slate-800"></div>
+                </div>
+
+                <div class="bg-slate-950/60 border border-slate-800 p-3 rounded-xl space-y-2">
+                    <label class="block text-slate-300 font-semibold">Option B: Official Kite Connect API</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="kite-api-key-input" placeholder="API Key" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono text-xs outline-none focus:border-orange-500" />
+                        <input type="password" id="kite-access-token-input" placeholder="Access Token" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono text-xs outline-none focus:border-orange-500" />
+                    </div>
+                </div>
+            </div>
+
+            <div id="kite-connect-status-msg" class="text-xs font-mono hidden p-2.5 rounded-lg"></div>
+
+            <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
+                <button onclick="closeKiteModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">Cancel</button>
+                <button onclick="saveAndVerifyKiteConfig()" class="px-4 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs shadow flex items-center gap-1.5">
+                    <i class="fa-solid fa-bolt"></i> Verify & Pull Kite LTP
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

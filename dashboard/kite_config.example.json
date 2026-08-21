@@ -1,0 +1,6 @@
+{
+  "api_key": "YOUR_KITE_API_KEY",
+  "access_token": "YOUR_KITE_ACCESS_TOKEN",
+  "enctoken": "",
+  "is_connected": false
+}
