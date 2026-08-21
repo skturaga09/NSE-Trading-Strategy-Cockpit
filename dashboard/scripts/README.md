@@ -5,7 +5,11 @@ Two launchd jobs keep the dashboard's live data current without daily manual wor
 | Job | Script | When | Needs secrets? |
 |-----|--------|------|----------------|
 | `com.clade.kite-refresh` | `refresh_kite_token.py` | 08:00 daily | Yes (Keychain) |
+| `com.clade.kite-verify` | `verify_kite_refresh.py` | 08:15 daily | No |
 | `com.clade.fii-dii-refresh` | `../live_fii_dii.py` | 18:30 Mon–Fri | No |
+
+`kite-verify` checks that the 08:00 refresh caught and pops a macOS
+notification (✅ or ⚠), so you never have to remember to look.
 
 Both run on **this Mac** (they write local files and need a residential IP). They
 run even when Claude / the terminal is closed, as long as you're logged in.
@@ -60,8 +64,10 @@ python3 dashboard/live_fii_dii.py
 
 ```bash
 cp dashboard/scripts/launchd/com.clade.kite-refresh.plist   ~/Library/LaunchAgents/
+cp dashboard/scripts/launchd/com.clade.kite-verify.plist    ~/Library/LaunchAgents/
 cp dashboard/scripts/launchd/com.clade.fii-dii-refresh.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.clade.kite-refresh.plist
+launchctl load ~/Library/LaunchAgents/com.clade.kite-verify.plist
 launchctl load ~/Library/LaunchAgents/com.clade.fii-dii-refresh.plist
 ```
 
