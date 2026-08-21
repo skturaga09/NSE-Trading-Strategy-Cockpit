@@ -9,18 +9,22 @@ import { Backtest } from "./tabs/Backtest";
 import { FnoPlanner } from "./tabs/FnoPlanner";
 
 type Mode = "mock" | "live";
-const ModeCtx = createContext<{ mode: Mode; setMode: (m: Mode) => void }>({
-  mode: "mock",
-  setMode: () => {},
+const ModeCtx = createContext<{
+  mode: Mode; setMode: (m: Mode) => void;
+  afterHours: boolean; setAfterHours: (b: boolean) => void;
+}>({
+  mode: "mock", setMode: () => {},
+  afterHours: false, setAfterHours: () => {},
 });
 export const useMode = () => useContext(ModeCtx);
 
 export default function App() {
   const [tab, setTab] = useState<TabId>("ideas");
   const [mode, setMode] = useState<Mode>("mock");
+  const [afterHours, setAfterHours] = useState(false);
 
   return (
-    <ModeCtx.Provider value={{ mode, setMode }}>
+    <ModeCtx.Provider value={{ mode, setMode, afterHours, setAfterHours }}>
       <div className="min-h-screen">
         <Header mode={mode} setMode={setMode} />
         <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6">

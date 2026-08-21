@@ -147,6 +147,32 @@ class ZerodhaPlumbingInspector:
             )
 
     @staticmethod
+    def market_session(now=None) -> Dict[str, Any]:
+        """NSE equity session state (IST). Note: does not account for trading holidays."""
+        from datetime import datetime, time as dtime
+        if now is None:
+            try:
+                from zoneinfo import ZoneInfo
+                now = datetime.now(ZoneInfo("Asia/Kolkata"))
+            except Exception:
+                now = datetime.now()
+        stamp = now.strftime("%Y-%m-%d %H:%M IST")
+        t = now.time()
+        if now.weekday() >= 5:
+            return {"is_open": False, "session": "WEEKEND", "now_ist": stamp,
+                    "message": "Markets closed (weekend). NSE trades Mon–Fri 09:15–15:30 IST."}
+        if t < dtime(9, 0):
+            return {"is_open": False, "session": "PRE_MARKET", "now_ist": stamp,
+                    "message": "Market not open yet. NSE opens 09:15 IST (pre-open from 09:00)."}
+        if t < dtime(9, 15):
+            return {"is_open": False, "session": "PRE_OPEN", "now_ist": stamp,
+                    "message": "Pre-open session (09:00–09:15). Continuous trading starts 09:15 IST."}
+        if t <= dtime(15, 30):
+            return {"is_open": True, "session": "OPEN", "now_ist": stamp, "message": "Market open."}
+        return {"is_open": False, "session": "CLOSED", "now_ist": stamp,
+                "message": "Market closed for the day. NSE trades 09:15–15:30 IST (AMO for after-hours)."}
+
+    @staticmethod
     def get_kite_instrument_candidates(symbol: str) -> List[str]:
         """Generate candidate Zerodha instrument symbols (e.g. NSE:RELIANCE, NFO:NIFTY24AUG24000CE, NFO:NIFTY2482524000CE)."""
         clean = ZerodhaPlumbingInspector.resolve_symbol(symbol)
@@ -537,9 +563,10 @@ class ZerodhaPlumbingInspector:
         target_price: Optional[float] = None,
         stop_loss_price: Optional[float] = None,
         is_option: bool = False,
-        available_margin: float = 100000.0
+        available_margin: float = 100000.0,
+        allow_after_hours: bool = False
     ) -> PlumbingValidationResult:
-        """Run complete 7-point trade plumbing diagnostic suite."""
+        """Run complete trade plumbing diagnostic suite (incl. NSE market-session gate)."""
         diagnostics = []
         warnings = []
         errors = []
@@ -548,6 +575,23 @@ class ZerodhaPlumbingInspector:
         diagnostics.append(conn_diag)
         if conn_diag.status == "WARNING":
             warnings.append(conn_diag.message)
+
+        # Market session — a real broker rejects regular orders outside 09:15–15:30 IST.
+        session = self.market_session()
+        if session["is_open"]:
+            diagnostics.append(PlumbingDiagnosticItem(
+                check_name="Market Session", status="PASSED",
+                message=f"Market open ({session['now_ist']}).", details=session))
+        elif allow_after_hours:
+            diagnostics.append(PlumbingDiagnosticItem(
+                check_name="Market Session", status="WARNING",
+                message=f"{session['message']} Placing anyway (after-hours/AMO override).", details=session))
+            warnings.append(session["message"])
+        else:
+            diagnostics.append(PlumbingDiagnosticItem(
+                check_name="Market Session", status="FAILED",
+                message=session["message"], details=session))
+            errors.append(session["message"])
 
         clean_symbol = self.resolve_symbol(symbol)
         diagnostics.append(PlumbingDiagnosticItem(

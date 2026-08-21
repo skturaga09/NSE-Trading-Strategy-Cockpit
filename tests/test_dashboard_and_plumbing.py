@@ -108,11 +108,22 @@ class TestZerodhaPlumbingInspector(unittest.TestCase):
             stop_loss_price=95.0,
             target_price=195.0,
             is_option=True,
-            available_margin=50000.0
+            available_margin=50000.0,
+            allow_after_hours=True,  # test order structure, not session timing
         )
         self.assertTrue(result.is_valid)
         self.assertEqual(len(result.errors), 0)
         self.assertIsNotNone(result.cost_breakdown)
+
+    def test_market_session(self):
+        # Closed sessions must not be tradeable; open must be.
+        from datetime import datetime
+        weekend = datetime(2026, 8, 22, 11, 0)   # Saturday
+        after = datetime(2026, 8, 21, 20, 0)     # Friday after close
+        during = datetime(2026, 8, 21, 11, 0)    # Friday mid-session
+        self.assertFalse(ZerodhaPlumbingInspector.market_session(weekend)["is_open"])
+        self.assertFalse(ZerodhaPlumbingInspector.market_session(after)["is_open"])
+        self.assertTrue(ZerodhaPlumbingInspector.market_session(during)["is_open"])
 
     def test_black_scholes_engine_importable(self):
         # Guards the dashboard wiring: app.py depends on this exact API, so a

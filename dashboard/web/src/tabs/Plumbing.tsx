@@ -230,7 +230,7 @@ function PositionRow({ t, onSquareOff }: { t: Position; onSquareOff: (id: string
 
 function OrderDesk() {
   const qc = useQueryClient();
-  const { mode } = useMode();
+  const { mode, afterHours } = useMode();
   const toast = useToast();
   const [form, setForm] = useState<OrderForm>(DEFAULT_FORM);
   const [result, setResult] = useState<ValidateResponse | null>(null);
@@ -257,7 +257,7 @@ function OrderDesk() {
       order_type: form.order_type,
       transaction_type: form.transaction_type,
       strategy_origin: "Manual Order Desk",
-      available_margin: form.available_margin,
+      available_margin: form.available_margin, allow_after_hours: afterHours,
     }),
     onSuccess: (r) => {
       if (r.success) {

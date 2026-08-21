@@ -1,5 +1,8 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRecommendations, biasColor } from "../hooks";
+import { api } from "../api";
+import { useMode } from "../App";
 import { SystemCheck } from "./SystemCheck";
 
 export function Header({
@@ -13,6 +16,8 @@ export function Header({
   const mh = data?.market_health;
   const c = biasColor(data?.market_bias.bias);
   const [checkOpen, setCheckOpen] = useState(false);
+  const { afterHours, setAfterHours } = useMode();
+  const { data: session } = useQuery({ queryKey: ["session"], queryFn: api.getSession, refetchInterval: 60_000 });
 
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-[color:var(--bg)]/85 backdrop-blur-md">
@@ -33,6 +38,30 @@ export function Header({
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-2 font-mono text-xs">
+          {/* Market session status */}
+          {session && (
+            <div className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5"
+              title={session.message}
+              style={{ borderColor: session.is_open ? "color-mix(in srgb, var(--green) 40%, transparent)" : "color-mix(in srgb, var(--red) 40%, transparent)" }}>
+              <span className="pip h-1.5 w-1.5 rounded-full" style={{ background: session.is_open ? "var(--green)" : "var(--red)" }} />
+              <span className="font-bold uppercase tracking-wider" style={{ color: session.is_open ? "var(--green)" : "var(--red)" }}>
+                {session.is_open ? "OPEN" : session.session}
+              </span>
+              <span className="text-muted">{session.now_ist.split(" ")[1]}</span>
+            </div>
+          )}
+
+          {/* After-hours override (only meaningful when closed) */}
+          {session && !session.is_open && (
+            <button onClick={() => setAfterHours(!afterHours)}
+              title="Allow placing orders after hours for paper testing (like an AMO)"
+              className={`rounded-md border px-2.5 py-1.5 font-bold uppercase tracking-wider transition ${
+                afterHours ? "border-gold/50 bg-gold/15 text-gold" : "border-line text-muted hover:text-ink"
+              }`}>
+              AMO {afterHours ? "on" : "off"}
+            </button>
+          )}
+
           {/* Market health readout */}
           <div className="flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-1.5">
             <span className="uppercase tracking-wider text-muted">HEALTH</span>

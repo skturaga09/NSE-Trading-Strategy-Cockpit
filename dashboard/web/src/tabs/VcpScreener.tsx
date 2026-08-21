@@ -19,7 +19,7 @@ function statusColor(s: string): string {
 export function VcpScreener() {
   const [universe, setUniverse] = useState("nifty50");
   const qc = useQueryClient();
-  const { mode } = useMode();
+  const { mode, afterHours } = useMode();
   const toast = useToast();
 
   const { data, isFetching, refetch } = useQuery({
@@ -37,7 +37,7 @@ export function VcpScreener() {
         price, stop_loss_price: Math.round(price * 0.95 * 100) / 100,
         target_price: Math.round(price * 1.15 * 100) / 100, is_option: false,
         product: "CNC", order_type: "LIMIT", transaction_type: "BUY",
-        strategy_origin: "Minervini VCP Screener", available_margin: 1e7,
+        strategy_origin: "Minervini VCP Screener", available_margin: 1e7, allow_after_hours: afterHours,
       });
     },
     onSuccess: (r, c) => {

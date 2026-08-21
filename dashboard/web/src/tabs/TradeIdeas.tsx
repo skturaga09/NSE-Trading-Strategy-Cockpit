@@ -30,7 +30,7 @@ const item = {
 
 export function TradeIdeas() {
   const { data, isLoading, isError, refetch, isFetching } = useRecommendations();
-  const { mode } = useMode();
+  const { mode, afterHours } = useMode();
   const toast = useToast();
 
   const place = useMutation({
@@ -52,7 +52,7 @@ export function TradeIdeas() {
       stop_loss_price: idea.stop_loss, target_price: idea.target,
       is_option: !!idea.is_option, product: idea.product ?? (idea.is_option ? "NRML" : "CNC"),
       order_type: "LIMIT", transaction_type: idea.transaction_type ?? "BUY",
-      strategy_origin: "Trend Trade Ideas", available_margin: 1e7,
+      strategy_origin: "Trend Trade Ideas", available_margin: 1e7, allow_after_hours: afterHours,
     });
   }
 

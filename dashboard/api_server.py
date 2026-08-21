@@ -64,6 +64,11 @@ def market_cockpit() -> Dict[str, Any]:
     return core.get_market_cockpit_data()
 
 
+@app.get("/api/market/session")
+def market_session() -> Dict[str, Any]:
+    return core.ZerodhaPlumbingInspector.market_session()
+
+
 @app.get("/api/strategy/recommendations")
 def recommendations() -> Dict[str, Any]:
     return core.build_trade_recommendations()
@@ -165,6 +170,7 @@ async def validate_trade(request: Request) -> Dict[str, Any]:
         stop_loss_price=float(p["stop_loss_price"]) if p.get("stop_loss_price") else None,
         is_option=_bool(p.get("is_option", False)),
         available_margin=float(p.get("available_margin", 10_000_000.0)),
+        allow_after_hours=_bool(p.get("allow_after_hours", False)),
     )
     return {
         "is_valid": result.is_valid,
@@ -349,6 +355,7 @@ async def place_trade(request: Request) -> JSONResponse:
         stop_loss_price=float(p["stop_loss_price"]) if p.get("stop_loss_price") else None,
         target_price=float(p["target_price"]) if p.get("target_price") else None,
         is_option=is_option, available_margin=float(p.get("available_margin", 10_000_000.0)),
+        allow_after_hours=_bool(p.get("allow_after_hours", False)),
     )
     if not validation.is_valid:
         return JSONResponse({"success": False, "message": "Order failed plumbing validation.",

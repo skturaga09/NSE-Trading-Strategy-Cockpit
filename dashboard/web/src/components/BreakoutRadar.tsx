@@ -7,7 +7,7 @@ import { useToast } from "./Toast";
 import type { Breakout } from "../types";
 
 export function BreakoutRadar() {
-  const { mode } = useMode();
+  const { mode, afterHours } = useMode();
   const toast = useToast();
   const qc = useQueryClient();
   const { data } = useQuery({
@@ -36,7 +36,7 @@ export function BreakoutRadar() {
         stop_loss_price: leg.stop, target_price: intraday ? b.intraday.target! : b.positional.target1!,
         is_option: false, product: intraday ? "MIS" : "CNC", order_type: "LIMIT",
         transaction_type: "BUY", strategy_origin: intraday ? "Breakout Radar (Intraday)" : "Breakout Radar (Positional)",
-        available_margin: 1e7,
+        available_margin: 1e7, allow_after_hours: afterHours,
       });
     },
     onSuccess: (r, v) => {

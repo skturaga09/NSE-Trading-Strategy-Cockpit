@@ -7,7 +7,7 @@ import { useToast } from "../components/Toast";
 
 export function FnoPlanner() {
   const { data, refetch, isFetching } = useQuery({ queryKey: ["fno"], queryFn: api.getFnoPlan });
-  const { mode } = useMode();
+  const { mode, afterHours } = useMode();
   const toast = useToast();
   const qc = useQueryClient();
 
@@ -18,7 +18,7 @@ export function FnoPlanner() {
         mode, symbol: "NIFTY24000CE", quantity: 75 * tc.recommended_lots, price: 285,
         stop_loss_price: tc.stop_loss_price, target_price: tc.target_1, is_option: true,
         product: "NRML", order_type: "LIMIT", transaction_type: "BUY",
-        strategy_origin: "Weekly F&O Plan", available_margin: 1e7,
+        strategy_origin: "Weekly F&O Plan", available_margin: 1e7, allow_after_hours: afterHours,
       });
     },
     onSuccess: (r) => {

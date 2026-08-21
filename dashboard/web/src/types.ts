@@ -71,6 +71,14 @@ export interface PlaceTradeRequest {
   transaction_type: string;
   strategy_origin: string;
   available_margin: number;
+  allow_after_hours?: boolean;
+}
+
+export interface MarketSession {
+  is_open: boolean;
+  session: string;
+  now_ist: string;
+  message: string;
 }
 
 export interface PlaceTradeResponse {
