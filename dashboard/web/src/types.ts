@@ -220,6 +220,27 @@ export interface OptionsResponse {
   greeks: Greeks;
 }
 
+// --- Weekly F&O Planner ---
+export interface FnoPlan {
+  macro_conviction_score: number;
+  dominant_theme: string;
+  selected_instrument: string;
+  trade_card: {
+    instrument: string;
+    direction: string;
+    underlying_spot: number;
+    entry_zone: string;
+    stop_loss_price: number;
+    target_1: number;
+    target_2: number;
+    recommended_lots: number;
+    total_capital_required: string;
+    gtt_levels: { sl_trigger: number; t1_trigger: number; t2_trigger: number };
+    risk_reward_ratio: string;
+    rules: string[];
+  };
+}
+
 // --- Backtest ---
 export interface BacktestForm {
   total_trades: number;

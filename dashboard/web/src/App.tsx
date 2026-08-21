@@ -6,7 +6,7 @@ import { Plumbing } from "./tabs/Plumbing";
 import { VcpScreener } from "./tabs/VcpScreener";
 import { Options } from "./tabs/Options";
 import { Backtest } from "./tabs/Backtest";
-import { Placeholder } from "./tabs/Placeholder";
+import { FnoPlanner } from "./tabs/FnoPlanner";
 
 type Mode = "mock" | "live";
 const ModeCtx = createContext<{ mode: Mode; setMode: (m: Mode) => void }>({
@@ -30,7 +30,7 @@ export default function App() {
             {tab === "plumbing" && <Plumbing />}
             {tab === "vcp" && <VcpScreener />}
             {tab === "options" && <Options />}
-            {tab === "fno" && <Placeholder title="Weekly F&O Planner" />}
+            {tab === "fno" && <FnoPlanner />}
             {tab === "backtest" && <Backtest />}
           </div>
         </main>
