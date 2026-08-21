@@ -481,9 +481,74 @@
                     <h2 class="text-base font-bold flex items-center gap-2">
                         <i class="fa-solid fa-chart-pie text-orange-400"></i> Strategy Backtest Evaluator & Cost Impact
                     </h2>
-                    <button onclick="evaluateBacktest()" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-bold shadow">
-                        Evaluate Strategy
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="resetBacktestInputs()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-bold shadow">
+                            Reset
+                        </button>
+                        <button onclick="evaluateBacktest()" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-bold shadow">
+                            Evaluate Strategy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Editable Strategy Inputs -->
+                <div class="bg-slate-900/80 border border-slate-800 p-6 rounded-2xl">
+                    <h3 class="font-bold text-slate-300 text-xs mb-4">Strategy Inputs</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                        <div>
+                            <label class="text-slate-400">Total Trades</label>
+                            <input type="number" min="1" step="1" id="bt-total-trades" value="150" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Win Rate (%)</label>
+                            <input type="number" min="0" max="100" step="0.5" id="bt-win-rate" value="52" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Avg Win (%)</label>
+                            <input type="number" min="0" step="0.1" id="bt-avg-win" value="2.4" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Avg Loss (%, positive)</label>
+                            <input type="number" min="0" step="0.1" id="bt-avg-loss" value="1.3" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Max Drawdown (%)</label>
+                            <input type="number" min="0" step="0.5" id="bt-max-dd" value="14" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Years Tested</label>
+                            <input type="number" min="0" step="0.5" id="bt-years" value="5" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                        </div>
+                        <div>
+                            <label class="text-slate-400"># Parameters</label>
+                            <input type="number" min="1" step="1" id="bt-params" value="4" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Avg Trade Value (₹)</label>
+                            <input type="number" min="1" step="1000" id="bt-trade-value" value="50000" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Trade Type</label>
+                            <select id="bt-trade-type" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                                <option value="delivery" selected>Delivery</option>
+                                <option value="intraday">Intraday</option>
+                                <option value="fno_options">F&O Options</option>
+                                <option value="fno_futures">F&O Futures</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-slate-400">Brokerage / Order (₹)</label>
+                            <input type="number" min="0" step="1" id="bt-brokerage" value="20" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono outline-none">
+                        </div>
+                        <div class="flex items-center gap-2 pt-5">
+                            <input type="checkbox" id="bt-slippage" checked class="w-4 h-4 accent-orange-500">
+                            <label for="bt-slippage" class="text-slate-400 cursor-pointer">Slippage modeled</label>
+                        </div>
+                        <div class="flex items-center gap-2 pt-5">
+                            <input type="checkbox" id="bt-india-costs" checked class="w-4 h-4 accent-orange-500">
+                            <label for="bt-india-costs" class="text-slate-400 cursor-pointer">Apply India costs</label>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -937,8 +1002,41 @@
             document.getElementById('fno-t2').innerText = '₹' + card.target_2;
         }
 
+        const BACKTEST_DEFAULTS = {
+            'bt-total-trades': '150', 'bt-win-rate': '52', 'bt-avg-win': '2.4', 'bt-avg-loss': '1.3',
+            'bt-max-dd': '14', 'bt-years': '5', 'bt-params': '4', 'bt-trade-value': '50000',
+            'bt-trade-type': 'delivery', 'bt-brokerage': '20', 'bt-slippage': true, 'bt-india-costs': true
+        };
+
+        function resetBacktestInputs() {
+            for (const [id, val] of Object.entries(BACKTEST_DEFAULTS)) {
+                const el = document.getElementById(id);
+                if (!el) continue;
+                if (el.type === 'checkbox') el.checked = val;
+                else el.value = val;
+            }
+        }
+
         async function evaluateBacktest() {
-            const res = await fetch('/api/backtest/evaluate', { method: 'POST' });
+            const payload = {
+                total_trades: parseInt(document.getElementById('bt-total-trades').value, 10),
+                win_rate: parseFloat(document.getElementById('bt-win-rate').value),
+                avg_win_pct: parseFloat(document.getElementById('bt-avg-win').value),
+                avg_loss_pct: parseFloat(document.getElementById('bt-avg-loss').value),
+                max_drawdown_pct: parseFloat(document.getElementById('bt-max-dd').value),
+                years_tested: parseFloat(document.getElementById('bt-years').value),
+                num_parameters: parseInt(document.getElementById('bt-params').value, 10),
+                avg_trade_value: parseFloat(document.getElementById('bt-trade-value').value),
+                trade_type: document.getElementById('bt-trade-type').value,
+                brokerage_per_trade: parseFloat(document.getElementById('bt-brokerage').value),
+                slippage_tested: document.getElementById('bt-slippage').checked,
+                include_india_costs: document.getElementById('bt-india-costs').checked
+            };
+            const res = await fetch('/api/backtest/evaluate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
             const data = await res.json();
 
             if (data.total_score === null || data.total_score === undefined) {
