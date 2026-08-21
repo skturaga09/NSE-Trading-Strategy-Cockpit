@@ -273,9 +273,29 @@ def get_market_cockpit_data() -> Dict[str, Any]:
     except Exception:
         live = None
 
-    flows = dict(_CALIBRATED_FLOWS)
-    flows["is_live"] = False
-    flows["note"] = "Estimate — FII/DII flows have no free live feed"
+    # Prefer the fetched end-of-day FII/DII figure when the cache is fresh.
+    flows = None
+    try:
+        from dashboard.live_fii_dii import get_fii_dii
+        fd = get_fii_dii()
+        if fd:
+            flows = {
+                "fii_regime": fd["fii_regime"],
+                "fii_net_mtd": fd["fii_net_mtd"],
+                "dii_net_mtd": fd["dii_net_mtd"],
+                "flow_divergence": fd["flow_divergence"],
+                "is_live": True,
+                "as_of": fd.get("as_of"),
+                "source": fd.get("source"),
+                "note": f"Official EOD figure for {fd.get('date', '')}".strip(),
+            }
+    except Exception:
+        flows = None
+
+    if flows is None:
+        flows = dict(_CALIBRATED_FLOWS)
+        flows["is_live"] = False
+        flows["note"] = "Estimate — FII/DII cache empty/stale (run live_fii_dii.py after ~6 PM)"
 
     if live:
         return {
@@ -362,14 +382,15 @@ def compute_market_bias(cockpit: Dict[str, Any]) -> Dict[str, Any]:
     # Institutional flows nudge the anchor; estimated flows carry half the weight.
     live_flows = bool(flows.get("is_live"))
     est = "" if live_flows else " est."
+    period = "1D" if live_flows else "MTD"  # live feed is a single EOD day; calibrated is MTD
     fii_w = 12.0 if live_flows else 6.0
     div_w = 8.0 if live_flows else 4.0
 
     fii = flows.get("fii_regime", "")
     if fii == "ACCUMULATION":
-        score += fii_w; drivers.append(f"FII accumulation ({flows.get('fii_net_mtd')} MTD{est})")
+        score += fii_w; drivers.append(f"FII accumulation ({flows.get('fii_net_mtd')} {period}{est})")
     elif fii == "DISTRIBUTION":
-        score -= fii_w; drivers.append(f"FII distribution ({flows.get('fii_net_mtd')} MTD{est})")
+        score -= fii_w; drivers.append(f"FII distribution ({flows.get('fii_net_mtd')} {period}{est})")
 
     div = flows.get("flow_divergence", "")
     if div == "CONFIRMED_BULLISH":

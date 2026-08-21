@@ -20,3 +20,5 @@ temp_interactive_push.bat
 # Dashboard secrets & local runtime state (never commit)
 dashboard/kite_config.json
 dashboard/trade_book.json
+dashboard/fii_dii_cache.json
+dashboard/logs/
