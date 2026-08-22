@@ -22,7 +22,7 @@ import json
 import sys
 import time
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, urljoin
 
 BASE_DIR = Path(__file__).resolve().parent.parent          # dashboard/
 CONFIG_FILE = BASE_DIR / "kite_config.json"
@@ -92,14 +92,22 @@ def refresh() -> int:
             return 5
 
         # 3. Kite Connect login -> capture request_token from the redirect chain
+        # Walk the redirect chain manually. The final hop points at the app's
+        # redirect URL (e.g. http://127.0.0.1:8000/?...request_token=...), which is
+        # NOT served — so we must read request_token out of the Location header
+        # rather than let requests follow it (that would raise ConnectionError).
         request_token = None
-        r = s.get(f"https://kite.zerodha.com/connect/login?api_key={api_key}&v=3",
-                  allow_redirects=True, timeout=15)
-        for resp in list(r.history) + [r]:
-            qs = parse_qs(urlparse(resp.url).query)
+        url = f"https://kite.zerodha.com/connect/login?api_key={api_key}&v=3"
+        for _ in range(10):
+            qs = parse_qs(urlparse(url).query)
             if "request_token" in qs:
                 request_token = qs["request_token"][0]
                 break
+            r = s.get(url, allow_redirects=False, timeout=15)
+            loc = r.headers.get("Location")
+            if not loc:
+                break
+            url = urljoin(url, loc)  # resolve relative redirects
         if not request_token:
             log("FATAL: could not capture request_token. Check that the app's "
                 "redirect URL is set in the Kite developer console.")
