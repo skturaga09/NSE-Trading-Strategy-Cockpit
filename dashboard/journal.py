@@ -60,6 +60,27 @@ CREATE TABLE IF NOT EXISTS trade_journal (
     peak_price          REAL,
     trough_price        REAL
 );
+
+-- Decision log for the intraday discipline console: every verdict (including
+-- NO TRADE / WAIT / STOP), not just executed trades. A disciplined NO-TRADE is
+-- a successful outcome, so the process-quality record must capture it.
+CREATE TABLE IF NOT EXISTS decision_log (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts              TEXT,
+    underlying      TEXT,
+    expiry          TEXT,
+    regime          TEXT,
+    setup           TEXT,
+    direction       TEXT,
+    verdict         TEXT,          -- STOP_DAY | INSUFFICIENT_DATA | NO_TRADE | WAIT | CANDIDATE
+    decision        TEXT,          -- human label
+    gates_failed    TEXT,
+    planned_entry   REAL,
+    planned_stop    REAL,
+    planned_target  REAL,
+    planned_risk    REAL,
+    permitted_lots  INTEGER
+);
 """
 
 
@@ -185,6 +206,48 @@ def record_external(order_id: str, symbol: str, source: str, entry_price: float,
              entry_price, qty, status, ts_exit, exit_price, "BROKER" if status == "CLOSED" else None,
              net_pnl, net_pnl_pct, outcome),
         )
+
+
+def record_decision(d: Dict[str, Any]) -> int:
+    """Append one intraday-console decision (any verdict) to the decision log.
+    Returns the new row id. Result fields stay in the trade journal; this table
+    is the process-quality record of every go/no-go call."""
+    row = {
+        "ts": d.get("ts") or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "underlying": d.get("underlying"), "expiry": d.get("expiry"),
+        "regime": d.get("regime"), "setup": d.get("setup"), "direction": d.get("direction"),
+        "verdict": d.get("verdict"), "decision": d.get("decision"),
+        "gates_failed": d.get("gates_failed"),
+        "planned_entry": _num(d.get("planned_entry")), "planned_stop": _num(d.get("planned_stop")),
+        "planned_target": _num(d.get("planned_target")), "planned_risk": _num(d.get("planned_risk")),
+        "permitted_lots": d.get("permitted_lots"),
+    }
+    cols = ", ".join(row.keys())
+    ph = ", ".join(["?"] * len(row))
+    with _LOCK, _conn() as c:
+        cur = c.execute(f"INSERT INTO decision_log ({cols}) VALUES ({ph})", list(row.values()))
+        return cur.lastrowid
+
+
+def decisions(limit: int = 100) -> List[Dict[str, Any]]:
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT * FROM decision_log ORDER BY ts DESC, id DESC LIMIT ?", (limit,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def decision_summary() -> Dict[str, Any]:
+    """Counts by verdict — the discipline scorecard (NO-TRADE rejection rate)."""
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT verdict, COUNT(*) n FROM decision_log GROUP BY verdict").fetchall()
+    counts = {r["verdict"]: r["n"] for r in rows}
+    total = sum(counts.values())
+    rejected = total - counts.get("CANDIDATE", 0)
+    return {
+        "total": total, "counts": counts,
+        "candidates": counts.get("CANDIDATE", 0),
+        "rejected": rejected,
+        "rejection_rate": round(rejected / total * 100, 1) if total else None,
+    }
 
 
 def _expectancy(rows: List[sqlite3.Row]) -> Dict[str, Any]:

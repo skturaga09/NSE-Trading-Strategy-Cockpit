@@ -16,6 +16,7 @@ import type {
   MarketSession,
   AttributionResponse,
   JournalRecentResponse,
+  DecisionsResponse,
 } from "./types";
 
 // All requests go to /api/* and are proxied to the Python backend (see vite.config.ts).
@@ -89,4 +90,10 @@ export const api = {
   importKiteTrades: () =>
     postJSON<Record<string, never>, { success: boolean; message: string; imported?: number }>(
       "/api/journal/import-kite", {}),
+
+  logDecision: (d: Record<string, unknown>) =>
+    postJSON<Record<string, unknown>, { success: boolean; id: number }>("/api/journal/decision", d),
+
+  getDecisions: () =>
+    getJSON<DecisionsResponse>(`/api/journal/decisions?_t=${Date.now()}`),
 };

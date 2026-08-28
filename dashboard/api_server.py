@@ -89,6 +89,19 @@ def journal_import_kite() -> JSONResponse:
     return JSONResponse(res, status_code=200 if res.get("success") else 400)
 
 
+@app.post("/api/journal/decision")
+async def journal_decision(request: Request) -> JSONResponse:
+    """Log one intraday-console decision (any verdict, including NO TRADE/WAIT)."""
+    d = await request.json()
+    rid = journal.record_decision(d)
+    return JSONResponse({"success": True, "id": rid})
+
+
+@app.get("/api/journal/decisions")
+def journal_decisions() -> Dict[str, Any]:
+    return {"decisions": journal.decisions(), "summary": journal.decision_summary()}
+
+
 @app.get("/api/strategy/recommendations")
 def recommendations() -> Dict[str, Any]:
     return core.build_trade_recommendations()

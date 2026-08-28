@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import type { AttributionResponse, ExpectancyStat, JournalTrade } from "../types";
+import type { AttributionResponse, ExpectancyStat, JournalTrade, DecisionsResponse } from "../types";
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${inr(n)}`;
@@ -20,6 +20,11 @@ export function Journal() {
   const recent = useQuery({
     queryKey: ["journal-recent"],
     queryFn: api.getJournalRecent,
+    refetchInterval: 5000,
+  });
+  const decisions = useQuery({
+    queryKey: ["journal-decisions"],
+    queryFn: api.getDecisions,
     refetchInterval: 5000,
   });
 
@@ -44,6 +49,72 @@ export function Journal() {
       </div>
       <EquityCurve trades={trades} />
       <RecentTrades trades={trades} />
+      <DecisionLog data={decisions.data} />
+    </div>
+  );
+}
+
+/* ---------------- Intraday decision log (process quality) ---------------- */
+
+function DecisionLog({ data }: { data: DecisionsResponse | undefined }) {
+  if (!data || data.summary.total === 0) {
+    return (
+      <div className="panel rounded-lg p-6">
+        <h3 className="font-display text-sm font-bold text-ink">
+          🛈 Intraday Decision Log <span className="font-mono text-[11px] font-normal text-muted">— from the Intraday tab</span>
+        </h3>
+        <p className="mt-2 font-mono text-[11px] text-muted">
+          No decisions logged yet. Run an assessment on the Intraday tab and hit "Log decision to Journal" — every
+          NO-TRADE and WAIT counts as process quality, not just executed trades.
+        </p>
+      </div>
+    );
+  }
+  const s = data.summary;
+  const V_COLOR: Record<string, string> = {
+    CANDIDATE: "var(--green)", WAIT: "var(--gold)", NO_TRADE: "var(--red)",
+    INSUFFICIENT_DATA: "var(--red)", STOP_DAY: "var(--red)",
+  };
+  return (
+    <div className="panel space-y-3 rounded-lg p-6">
+      <h3 className="font-display text-sm font-bold text-ink">
+        🛈 Intraday Decision Log <span className="font-mono text-[11px] font-normal text-muted">— discipline scorecard</span>
+      </h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MiniStat k="Decisions logged" v={String(s.total)} />
+        <MiniStat k="Trade candidates" v={String(s.candidates)} color="var(--green)" />
+        <MiniStat k="Rejected (disciplined)" v={String(s.rejected)} color="var(--gold)" />
+        <MiniStat k="Rejection rate" v={s.rejection_rate === null ? "—" : `${s.rejection_rate}%`} color="var(--cyan)" />
+      </div>
+      <div className="overflow-x-auto rounded-md border border-line">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-raised/50 font-mono text-[10px] uppercase tracking-wider text-muted">
+            <tr>{["Time", "Underlying", "Regime", "Setup", "Verdict", "Gates failed", "Risk ₹"].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-line font-mono">
+            {data.decisions.map((d) => (
+              <tr key={d.id} className="hover:bg-raised/40">
+                <td className="px-3 py-2 text-[10px] text-muted">{d.ts}</td>
+                <td className="px-3 py-2 text-ink/90">{d.underlying ?? "—"}</td>
+                <td className="px-3 py-2 text-muted">{d.regime ?? "—"}</td>
+                <td className="px-3 py-2 text-muted">{d.setup ?? "—"}{d.direction ? ` ${d.direction}` : ""}</td>
+                <td className="px-3 py-2 font-bold" style={{ color: V_COLOR[d.verdict ?? ""] ?? "var(--muted)" }}>{d.decision ?? d.verdict}</td>
+                <td className="px-3 py-2 text-[10px] text-muted">{d.gates_failed ?? "—"}</td>
+                <td className="px-3 py-2 text-right tnum text-muted">{d.planned_risk ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function MiniStat({ k, v, color }: { k: string; v: string; color?: string }) {
+  return (
+    <div className="rounded-md border border-line bg-raised/40 px-3 py-2">
+      <div className="font-mono text-[9px] uppercase tracking-wider text-muted">{k}</div>
+      <div className="tnum text-base font-bold" style={{ color: color ?? "var(--ink)" }}>{v}</div>
     </div>
   );
 }

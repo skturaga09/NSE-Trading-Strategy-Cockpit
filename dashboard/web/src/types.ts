@@ -372,3 +372,32 @@ export interface JournalTrade {
 export interface JournalRecentResponse {
   trades: JournalTrade[];
 }
+
+// --- Intraday decision log ---
+export interface DecisionRow {
+  id: number;
+  ts: string;
+  underlying: string | null;
+  expiry: string | null;
+  regime: string | null;
+  setup: string | null;
+  direction: string | null;
+  verdict: string | null;
+  decision: string | null;
+  gates_failed: string | null;
+  planned_entry: number | null;
+  planned_stop: number | null;
+  planned_target: number | null;
+  planned_risk: number | null;
+  permitted_lots: number | null;
+}
+export interface DecisionsResponse {
+  decisions: DecisionRow[];
+  summary: {
+    total: number;
+    counts: Record<string, number>;
+    candidates: number;
+    rejected: number;
+    rejection_rate: number | null;
+  };
+}

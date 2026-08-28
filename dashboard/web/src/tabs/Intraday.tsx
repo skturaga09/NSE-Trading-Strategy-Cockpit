@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { api } from "../api";
 
 /* =============================================================================
    Intraday Index-Options DISCIPLINE CONSOLE  (NIFTY / BANKNIFTY, intraday only)
@@ -124,6 +125,9 @@ export function Intraday() {
   const [mGates, setMGates] = useState<Gate[]>(Array(14).fill("UNKNOWN"));
   const setGate = (i: number, g: Gate) => setMGates((p) => p.map((x, j) => (j === i ? g : x)));
 
+  const [logMsg, setLogMsg] = useState<string | null>(null);
+  const [logging, setLogging] = useState(false);
+
   // ---- hard rules ----
   const pnl = num(realisedPnl) ?? 0;
   const entriesN = num(entriesToday) ?? 0;
@@ -185,6 +189,28 @@ export function Intraday() {
     if (allPass) return "CANDIDATE";
     return "NO_TRADE";
   }, [dailyPermitted, dataComplete, regime, sizing, anyFail, anyUnknown, allPass]);
+
+  const logDecision = async () => {
+    setLogging(true);
+    setLogMsg(null);
+    const notPass = GATE_LABELS.map((_l, i) => ({ n: i + 1, g: gates[i] })).filter((x) => x.g !== "PASS");
+    const decisionLabel = verdict === "CANDIDATE" ? "Trade (conditional)" : verdict === "WAIT" ? "Wait"
+      : verdict === "STOP_DAY" ? "Stop for the day" : "No trade";
+    try {
+      await api.logDecision({
+        underlying, expiry, regime, setup, direction, verdict, decision: decisionLabel,
+        gates_failed: notPass.length ? notPass.map((x) => `${x.n}[${x.g}]`).join(", ") : "none",
+        planned_entry: num(entry), planned_stop: num(stop), planned_target: num(target),
+        planned_risk: sizing.ready ? Math.round(sizing.maxLoss) : null,
+        permitted_lots: sizing.ready ? sizing.permittedLots : null,
+      });
+      setLogMsg(`✅ ${decisionLabel} logged to Journal (decision log).`);
+    } catch (e) {
+      setLogMsg("⚠ " + (e instanceof Error ? e.message : "log failed"));
+    } finally {
+      setLogging(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -355,7 +381,8 @@ export function Intraday() {
 
       {/* G · JOURNAL RECORD */}
       <JournalRecord ist={ist} underlying={underlying} expiry={expiry} regime={regime} setup={setup}
-        direction={direction} verdict={verdict} gates={gates} sizing={sizing} entry={entry} stop={stop} target={target} />
+        direction={direction} verdict={verdict} gates={gates} sizing={sizing} entry={entry} stop={stop} target={target}
+        onLog={logDecision} logging={logging} logMsg={logMsg} />
     </div>
   );
 }
@@ -505,9 +532,10 @@ function VerdictBox({ verdict, stopDayReasons, missing, regime, anyFail, anyUnkn
   );
 }
 
-function JournalRecord({ ist, underlying, expiry, regime, setup, direction, verdict, gates, sizing, entry, stop, target }: {
+function JournalRecord({ ist, underlying, expiry, regime, setup, direction, verdict, gates, sizing, entry, stop, target, onLog, logging, logMsg }: {
   ist: string; underlying: string; expiry: string; regime: string; setup: keyof typeof SETUPS; direction: string;
   verdict: Verdict; gates: Gate[]; sizing: Sizing; entry: string; stop: string; target: string;
+  onLog: () => void; logging: boolean; logMsg: string | null;
 }) {
   const notPass = GATE_LABELS.map((_l, i) => ({ n: i + 1, g: gates[i] })).filter((x) => x.g !== "PASS");
   const decision = verdict === "CANDIDATE" ? "Trade (conditional)" : verdict === "WAIT" ? "Wait"
@@ -531,8 +559,15 @@ function JournalRecord({ ist, underlying, expiry, regime, setup, direction, verd
   return (
     <Panel title="G · Journal Record" tag="copy into your log — result fields blank until filled">
       <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border border-line bg-bg/60 p-3 font-mono text-[11px] text-ink/90">{text}</pre>
-      <button onClick={() => navigator.clipboard?.writeText(text)}
-        className="rounded-md border border-cyan/40 bg-cyan/10 px-3 py-1.5 font-mono text-[11px] font-bold text-cyan hover:bg-cyan/20">⧉ Copy journal record</button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button onClick={onLog} disabled={logging}
+          className="rounded-md border border-gold/50 bg-gold/15 px-3 py-1.5 font-mono text-[11px] font-bold text-gold hover:bg-gold/25 disabled:opacity-50">
+          {logging ? "⏳ Logging…" : "▸ Log decision to Journal"}
+        </button>
+        <button onClick={() => navigator.clipboard?.writeText(text)}
+          className="rounded-md border border-cyan/40 bg-cyan/10 px-3 py-1.5 font-mono text-[11px] font-bold text-cyan hover:bg-cyan/20">⧉ Copy journal record</button>
+        {logMsg && <span className="font-mono text-[11px] text-muted">{logMsg}</span>}
+      </div>
     </Panel>
   );
 }
