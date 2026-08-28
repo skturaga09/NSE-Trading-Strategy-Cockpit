@@ -85,4 +85,8 @@ export const api = {
   refreshZerodha: () =>
     postJSON<Record<string, never>, { success: boolean; message: string }>(
       "/api/zerodha/refresh", {}),
+
+  importKiteTrades: () =>
+    postJSON<Record<string, never>, { success: boolean; message: string; imported?: number }>(
+      "/api/journal/import-kite", {}),
 };

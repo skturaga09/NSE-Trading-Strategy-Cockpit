@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type { AttributionResponse, ExpectancyStat, JournalTrade } from "../types";
 
@@ -53,19 +53,58 @@ export function Journal() {
 function HeroExpectancy({ a }: { a: AttributionResponse }) {
   const o = a.overall;
   const n = o.trades ?? 0;
-  const exp = o.expectancy_r ?? 0;
+  const exp = o.expectancy_r ?? null;
+  const qc = useQueryClient();
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+
+  const importKite = async () => {
+    setImporting(true);
+    setImportMsg("Pulling live trades from Zerodha…");
+    try {
+      const r = await api.importKiteTrades();
+      setImportMsg((r.success ? "✅ " : "⚠ ") + r.message);
+      if (r.success) {
+        qc.invalidateQueries({ queryKey: ["journal-attribution"] });
+        qc.invalidateQueries({ queryKey: ["journal-recent"] });
+      }
+    } catch (e) {
+      setImportMsg("⚠ " + (e instanceof Error ? e.message : "import failed"));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div className="panel space-y-4 rounded-lg p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
           🧾 Trade Journal <span className="font-mono text-[11px] font-normal text-muted">— realized edge, in R</span>
         </h2>
-        <span className="font-mono text-[10px] text-muted">
-          {a.open_trades} open · {n} closed · updated {a.generated_at.split(" ")[1] ?? ""}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-[10px] text-muted">
+            {a.open_trades} open · {n} closed · updated {a.generated_at.split(" ")[1] ?? ""}
+          </span>
+          <button
+            onClick={importKite}
+            disabled={importing}
+            title="Pull today's real F&O/intraday trades from your Zerodha account into the journal"
+            className="rounded-md border border-cyan/40 bg-cyan/10 px-3 py-1.5 font-mono text-[11px] font-bold text-cyan hover:bg-cyan/20 disabled:opacity-50"
+          >
+            {importing ? "⏳ Importing…" : "⟳ Import Kite trades"}
+          </button>
+        </div>
       </div>
+      {importMsg && (
+        <div className="rounded-md border border-line bg-raised/40 px-3 py-2 font-mono text-[11px] text-muted">
+          {importMsg}
+          <span className="ml-2 text-[10px] text-muted/70">
+            (Kite only keeps the current day's trades — import same-day, before the session rolls.)
+          </span>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-        <Stat label="Expectancy / trade" value={r2(exp)} color={posColor(exp)} big />
+        <Stat label="Expectancy / trade" value={exp === null ? "—" : r2(exp)} color={posColor(exp)} big />
         <Stat label="Win rate" value={n ? `${o.win_rate}%` : "—"} color="var(--ink)" />
         <Stat label="Avg win" value={r2(o.avg_win_r)} color="var(--green)" />
         <Stat label="Avg loss" value={r2(o.avg_loss_r)} color="var(--red)" />

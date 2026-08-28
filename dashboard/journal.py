@@ -156,25 +156,64 @@ def finalize(order_id: str, exit_price: float, exit_reason: str) -> None:
         )
 
 
+def record_external(order_id: str, symbol: str, source: str, entry_price: float,
+                    qty: int, is_option: bool, status: str, plan_type: str = "positional",
+                    exit_price: Optional[float] = None, net_pnl: Optional[float] = None,
+                    ts_entry: Optional[str] = None) -> None:
+    """Upsert a trade sourced from the live broker (real fills imported from Kite),
+    where the entry SIGNAL features and the protective STOP are unknown. net_pnl and
+    win/loss are exact; r_multiple / MFE / MAE are left NULL (risk unknown) so these
+    never pollute the R-based expectancy that dashboard signals feed. Re-importing
+    updates the same row (idempotent on order_id)."""
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    outcome = net_pnl_pct = ts_exit = None
+    if status == "CLOSED" and exit_price is not None:
+        outcome = "WIN" if (net_pnl or 0) > 0 else ("LOSS" if (net_pnl or 0) < 0 else "BREAKEVEN")
+        net_pnl_pct = round((exit_price / entry_price - 1.0) * 100.0, 3) if entry_price else None
+        ts_exit = now
+    with _LOCK, _conn() as c:
+        c.execute(
+            """INSERT INTO trade_journal
+                 (order_id, ts_entry, source, symbol, is_option, plan_type, entry_price, qty,
+                  status, ts_exit, exit_price, exit_reason, net_pnl, net_pnl_pct, outcome)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(order_id) DO UPDATE SET
+                  status=excluded.status, ts_exit=excluded.ts_exit, exit_price=excluded.exit_price,
+                  exit_reason=excluded.exit_reason, net_pnl=excluded.net_pnl,
+                  net_pnl_pct=excluded.net_pnl_pct, outcome=excluded.outcome""",
+            (order_id, ts_entry or now, source, symbol, int(is_option), plan_type,
+             entry_price, qty, status, ts_exit, exit_price, "BROKER" if status == "CLOSED" else None,
+             net_pnl, net_pnl_pct, outcome),
+        )
+
+
 def _expectancy(rows: List[sqlite3.Row]) -> Dict[str, Any]:
-    """Realized edge stats (in R) for a set of closed trades."""
+    """Realized edge stats for a set of closed trades. Win-rate and net P&L cover
+    ALL rows; R-based stats (expectancy_r, avg win/loss R, MFE/MAE) are computed
+    ONLY over rows with a known R — imported broker trades have no stop, so their
+    R is NULL and must not pollute the R metrics. `r_sample` = the R-known count."""
     n = len(rows)
     if n == 0:
         return {"trades": 0}
     wins = [r for r in rows if r["outcome"] == "WIN"]
     losses = [r for r in rows if r["outcome"] == "LOSS"]
     win_rate = round(len(wins) / n * 100, 1)
-    avg_win_r = round(sum(r["r_multiple"] for r in wins) / len(wins), 3) if wins else 0.0
-    avg_loss_r = round(sum(r["r_multiple"] for r in losses) / len(losses), 3) if losses else 0.0
-    exp_r = round(sum(r["r_multiple"] for r in rows) / n, 3)  # expectancy in R per trade
+    # R-based stats only over trades that actually have an R (a known risk).
+    rk = [r for r in rows if r["r_multiple"] is not None]
+    rk_wins = [r for r in rk if r["outcome"] == "WIN"]
+    rk_losses = [r for r in rk if r["outcome"] == "LOSS"]
+    avg_win_r = round(sum(r["r_multiple"] for r in rk_wins) / len(rk_wins), 3) if rk_wins else 0.0
+    avg_loss_r = round(sum(r["r_multiple"] for r in rk_losses) / len(rk_losses), 3) if rk_losses else 0.0
+    exp_r = round(sum(r["r_multiple"] for r in rk) / len(rk), 3) if rk else None  # expectancy in R
     return {
         "trades": n,
+        "r_sample": len(rk),
         "win_rate": win_rate,
         "avg_win_r": avg_win_r,
         "avg_loss_r": avg_loss_r,
         "expectancy_r": exp_r,
-        "avg_mfe_r": round(sum((r["mfe_r"] or 0) for r in rows) / n, 3),
-        "avg_mae_r": round(sum((r["mae_r"] or 0) for r in rows) / n, 3),
+        "avg_mfe_r": round(sum(r["mfe_r"] for r in rk) / len(rk), 3) if rk else None,
+        "avg_mae_r": round(sum(r["mae_r"] for r in rk) / len(rk), 3) if rk else None,
         "net_pnl": round(sum((r["net_pnl"] or 0) for r in rows), 2),
     }
 
@@ -200,7 +239,8 @@ def attribution(min_sample: int = 50) -> Dict[str, Any]:
             stat["group"] = k
             stat["sufficient"] = stat["trades"] >= min_sample
             out.append(stat)
-        return sorted(out, key=lambda s: s.get("expectancy_r", 0), reverse=True)
+        # expectancy_r may be None (R-unknown groups) — sort those last.
+        return sorted(out, key=lambda s: (s.get("expectancy_r") is not None, s.get("expectancy_r") or 0), reverse=True)
 
     def conv_bucket(r) -> str:
         c_ = r["conviction"]

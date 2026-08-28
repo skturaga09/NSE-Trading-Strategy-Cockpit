@@ -81,6 +81,14 @@ def journal_recent() -> Dict[str, Any]:
     return {"trades": journal.recent()}
 
 
+@app.post("/api/journal/import-kite")
+def journal_import_kite() -> JSONResponse:
+    """Pull real F&O/intraday positions from the live Kite account into the journal."""
+    from dashboard import kite_import
+    res = kite_import.import_positions()
+    return JSONResponse(res, status_code=200 if res.get("success") else 400)
+
+
 @app.get("/api/strategy/recommendations")
 def recommendations() -> Dict[str, Any]:
     return core.build_trade_recommendations()
