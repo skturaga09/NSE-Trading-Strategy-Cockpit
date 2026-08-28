@@ -16,10 +16,14 @@ export function BreakoutRadar() {
     refetchInterval: 15_000,
   });
   const seen = useRef<Set<string>>(new Set());
+  const live = data?.is_live ?? false;
 
-  // Flash a toast the first time a symbol actually breaks out.
+  // Flash a toast the first time a symbol actually breaks out — but ONLY for the
+  // live screen. Modeled placeholders (shown while the real screen warms up) must
+  // not announce fake breakouts.
   useEffect(() => {
-    for (const b of data?.breakouts ?? []) {
+    if (!data?.is_live) return;
+    for (const b of data.breakouts) {
       const key = `${b.symbol}:${b.state}`;
       if (b.state === "BROKEN_OUT" && !seen.current.has(key)) {
         toast.push(`🚀 BREAKOUT · ${b.symbol} crossed ₹${b.pivot}\nEntry ₹${b.positional.entry} → T1 ₹${b.positional.target1} (R:R ${b.positional.gross_rr})`, "success");
@@ -55,20 +59,24 @@ export function BreakoutRadar() {
   return (
     <div className="panel rounded-lg p-4">
       <div className="mb-3 flex items-center gap-2">
-        <span className="pip h-2 w-2 rounded-full bg-signalgreen" style={{ color: "var(--green)" }} />
-        <h3 className="font-mono text-xs font-bold uppercase tracking-widest text-signalgreen">Breakout Radar</h3>
-        <span className="font-mono text-[10px] text-muted">{list.length} live · {data?.source}</span>
+        <span className="pip h-2 w-2 rounded-full" style={{ background: live ? "var(--green)" : "var(--gold)", color: live ? "var(--green)" : "var(--gold)" }} />
+        <h3 className="font-mono text-xs font-bold uppercase tracking-widest" style={{ color: live ? "var(--green)" : "var(--gold)" }}>Breakout Radar</h3>
+        {live ? (
+          <span className="font-mono text-[10px] text-muted">{list.length} live · {data?.source}</span>
+        ) : (
+          <span className="font-mono text-[10px] text-gold">screening universe… showing a modeled preview (not real breakouts yet)</span>
+        )}
       </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" style={{ opacity: live ? 1 : 0.55 }}>
         <AnimatePresence>
-          {list.map((b) => <BreakoutCard key={b.symbol} b={b} onTrade={(intraday) => place.mutate({ b, intraday })} pending={place.isPending} />)}
+          {list.map((b) => <BreakoutCard key={b.symbol} b={b} live={live} onTrade={(intraday) => place.mutate({ b, intraday })} pending={place.isPending} />)}
         </AnimatePresence>
       </div>
     </div>
   );
 }
 
-function BreakoutCard({ b, onTrade, pending }: { b: Breakout; onTrade: (intraday: boolean) => void; pending: boolean }) {
+function BreakoutCard({ b, live, onTrade, pending }: { b: Breakout; live: boolean; onTrade: (intraday: boolean) => void; pending: boolean }) {
   const broke = b.state === "BROKEN_OUT";
   const accent = broke ? "var(--green)" : "var(--gold)";
   return (
@@ -88,6 +96,7 @@ function BreakoutCard({ b, onTrade, pending }: { b: Breakout; onTrade: (intraday
           <span className="rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase" style={{ background: `color-mix(in srgb, ${accent} 15%, transparent)`, color: accent }}>
             {broke ? "● broke out" : "◇ imminent"}
           </span>
+          {!live && <span className="rounded bg-gold/15 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase text-gold">modeled</span>}
         </div>
         <span className="font-mono text-[10px] text-muted">score {b.composite_score}</span>
       </div>
@@ -98,16 +107,16 @@ function BreakoutCard({ b, onTrade, pending }: { b: Breakout; onTrade: (intraday
 
       <div className="relative mt-2 grid grid-cols-2 gap-2">
         <Leg title="POSITIONAL" entry={b.positional.entry} stop={b.positional.stop} target={b.positional.target1!}
-          rr={b.positional.gross_rr} net={b.positional.net_profit_pct} onTrade={() => onTrade(false)} pending={pending} />
+          rr={b.positional.gross_rr} net={b.positional.net_profit_pct} onTrade={() => onTrade(false)} pending={pending} disabled={!live} />
         <Leg title="INTRADAY" entry={b.intraday.entry} stop={b.intraday.stop} target={b.intraday.target!}
-          rr={b.intraday.gross_rr} net={b.intraday.net_profit_pct} onTrade={() => onTrade(true)} pending={pending} />
+          rr={b.intraday.gross_rr} net={b.intraday.net_profit_pct} onTrade={() => onTrade(true)} pending={pending} disabled={!live} />
       </div>
     </motion.div>
   );
 }
 
-function Leg({ title, entry, stop, target, rr, net, onTrade, pending }: {
-  title: string; entry: number; stop: number; target: number; rr: number | null; net: number; onTrade: () => void; pending: boolean;
+function Leg({ title, entry, stop, target, rr, net, onTrade, pending, disabled }: {
+  title: string; entry: number; stop: number; target: number; rr: number | null; net: number; onTrade: () => void; pending: boolean; disabled?: boolean;
 }) {
   return (
     <div className="rounded border border-line bg-panel/60 p-2">
@@ -119,9 +128,10 @@ function Leg({ title, entry, stop, target, rr, net, onTrade, pending }: {
         E <span className="tnum text-ink">{entry}</span> · SL <span className="tnum text-signalred">{stop}</span> · T <span className="tnum text-signalgreen">{target}</span>
       </div>
       <div className="font-mono text-[10px] text-muted">net <span className="tnum" style={{ color: net >= 0 ? "var(--green)" : "var(--red)" }}>{net >= 0 ? "+" : ""}{net}%</span></div>
-      <button onClick={onTrade} disabled={pending}
-        className="mt-1.5 w-full rounded border border-gold/40 bg-gold/10 py-1 font-mono text-[10px] font-bold uppercase text-gold hover:bg-gold/20 disabled:opacity-50">
-        ⚡ trade {title.toLowerCase()}
+      <button onClick={onTrade} disabled={pending || disabled}
+        title={disabled ? "Screening — modeled preview, not tradeable until the live screen loads" : undefined}
+        className="mt-1.5 w-full rounded border border-gold/40 bg-gold/10 py-1 font-mono text-[10px] font-bold uppercase text-gold hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-40">
+        {disabled ? "screening…" : `⚡ trade ${title.toLowerCase()}`}
       </button>
     </div>
   );

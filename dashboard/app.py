@@ -589,6 +589,7 @@ def compute_breakouts(universe: str = "nifty50") -> Dict[str, Any]:
     return {
         "generated_at": _dt.now().strftime("%Y-%m-%d %H:%M:%S"),
         "source": src,
+        "is_live": src != "modeled",   # modeled = placeholder while the live screen warms up
         "count": len(breakouts),
         "breakouts": breakouts,
     }

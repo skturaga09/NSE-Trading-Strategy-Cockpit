@@ -207,6 +207,7 @@ export interface Breakout {
 export interface BreakoutsResponse {
   generated_at: string;
   source: string;
+  is_live?: boolean;
   count: number;
   breakouts: Breakout[];
 }
