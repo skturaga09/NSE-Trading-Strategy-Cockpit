@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
-import type { IntradayContext, OptionChain, OptionLeg } from "../types";
+import type { IntradayContext, OptionChain, OptionLeg, FnoScan, FnoCandidate } from "../types";
 
 /* =============================================================================
    Intraday Index-Options DISCIPLINE CONSOLE  (NIFTY / BANKNIFTY, intraday only)
@@ -131,10 +131,10 @@ export function Intraday() {
 
   const [ctx, setCtx] = useState<IntradayContext | null>(null);
   const [loadingCtx, setLoadingCtx] = useState(false);
-  const autofill = async () => {
+  const autofill = async (u: string = underlying) => {
     setLoadingCtx(true);
     try {
-      const c = await api.getIntradayContext(underlying);
+      const c = await api.getIntradayContext(u);
       setCtx(c);
       if (c.is_live) {
         setDataStatus("live");
@@ -150,10 +150,10 @@ export function Intraday() {
 
   const [chain, setChain] = useState<OptionChain | null>(null);
   const [loadingChain, setLoadingChain] = useState(false);
-  const fetchChain = async () => {
+  const fetchChain = async (u: string = underlying) => {
     setLoadingChain(true);
     try {
-      const c = await api.getOptionChain(underlying);
+      const c = await api.getOptionChain(u);
       setChain(c);
       if (c.is_live) {
         if (c.lot_size !== null) setLotSize(String(c.lot_size));
@@ -172,6 +172,26 @@ export function Intraday() {
     if (!leg || leg.ltp === null) return;
     setEntry(String(leg.ltp));
     setDirection(dir);
+  };
+
+  const [scan, setScan] = useState<FnoScan | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const runScan = async () => {
+    setScanning(true);
+    try {
+      setScan(await api.getFnoScan());
+    } catch {
+      setScan(null);
+    } finally {
+      setScanning(false);
+    }
+  };
+  // Pick a scanned candidate → load its underlying, direction bias, context & chain.
+  const loadCandidate = (symbol: string, bias: "LONG" | "SHORT") => {
+    setUnderlying(symbol);
+    setDirection(bias);
+    void autofill(symbol);
+    void fetchChain(symbol);
   };
 
   // ---- hard rules ----
@@ -262,13 +282,17 @@ export function Intraday() {
     <div className="space-y-6">
       <Disclaimer />
 
+      {/* Live F&O candidate scanner */}
+      <FnoCandidates scan={scan} scanning={scanning} onScan={runScan} onPick={loadCandidate} selected={underlying} />
+
+
       {/* Auto-fill live data */}
       <div className="flex flex-wrap items-center gap-3">
-        <button onClick={autofill} disabled={loadingCtx}
+        <button onClick={() => autofill()} disabled={loadingCtx}
           className="rounded-md border border-cyan/50 bg-cyan/15 px-4 py-2 font-mono text-xs font-bold text-cyan hover:bg-cyan/25 disabled:opacity-50">
           {loadingCtx ? "⏳ Fetching…" : `⟳ Auto-fill live ${underlying} data`}
         </button>
-        <button onClick={fetchChain} disabled={loadingChain}
+        <button onClick={() => fetchChain()} disabled={loadingChain}
           className="rounded-md border border-cyan/50 bg-cyan/15 px-4 py-2 font-mono text-xs font-bold text-cyan hover:bg-cyan/25 disabled:opacity-50">
           {loadingChain ? "⏳ Loading chain…" : "⟳ Auto-fill ATM option chain"}
         </button>
@@ -457,6 +481,66 @@ type Sizing =
   | { ready: true; riskPerUnit: number; maxUnits: number; permittedLots: number; maxLoss: number; lot: number; rr: number | null; ok: boolean };
 
 const GATE_COLOR: Record<Gate, string> = { PASS: "var(--green)", FAIL: "var(--red)", UNKNOWN: "var(--gold)" };
+
+function FnoCandidates({ scan, scanning, onScan, onPick, selected }: {
+  scan: FnoScan | null; scanning: boolean; onScan: () => void;
+  onPick: (symbol: string, bias: "LONG" | "SHORT") => void; selected: string;
+}) {
+  const col = (list: FnoCandidate[], title: string, color: string) => (
+    <div className="space-y-1">
+      <div className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color }}>{title}</div>
+      {list.length === 0 ? <div className="font-mono text-[10px] text-muted">—</div> : list.map((c) => (
+        <button key={c.symbol} onClick={() => onPick(c.symbol, c.bias)}
+          className={`flex w-full items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-left font-mono text-[11px] transition-colors ${
+            selected === c.symbol ? "border-cyan/60 bg-cyan/10" : "border-line bg-raised/30 hover:bg-raised/60"
+          }`}>
+          <span className="text-ink/90">{c.symbol}</span>
+          <span className="flex items-center gap-2 tnum">
+            <span className="text-muted">{c.ltp}</span>
+            <span style={{ color: c.pct_change >= 0 ? "var(--green)" : "var(--red)" }}>{c.pct_change >= 0 ? "+" : ""}{c.pct_change}%</span>
+            <span className="text-[9px] text-muted">{c.range_pos !== null ? `rng ${c.range_pos}` : ""}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+  return (
+    <div className="panel space-y-3 rounded-lg p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
+          🎯 F&amp;O Candidates <span className="font-mono text-[11px] font-normal text-muted">— live intraday momentum scan; a screen, not advice</span>
+        </h2>
+        <button onClick={onScan} disabled={scanning}
+          className="rounded-md border border-cyan/50 bg-cyan/15 px-4 py-2 font-mono text-xs font-bold text-cyan hover:bg-cyan/25 disabled:opacity-50">
+          {scanning ? "⏳ Scanning F&O universe…" : "⟳ Scan F&O stocks now"}
+        </button>
+      </div>
+      {!scan ? (
+        <p className="font-mono text-[11px] text-muted">
+          Click "Scan F&amp;O stocks now" to rank all ~200 F&amp;O stocks by live intraday momentum (position vs day VWAP,
+          where in the day's range, % move). Pick a candidate → its underlying, direction, live data and option chain
+          auto-load below, then run the discipline gates. Best used during market hours.
+        </p>
+      ) : !scan.is_live ? (
+        <p className="font-mono text-[11px] text-gold">⚠ Scan unavailable — {scan.source}. Connect Kite (System Check), then retry.</p>
+      ) : (
+        <>
+          <div className="font-mono text-[10px] text-muted">
+            ● {scan.source} · {scan.scanned}/{scan.universe} scanned · {scan.timestamp} · click a name to load it below
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {col(scan.longs, "▲ Strongest (long bias)", "var(--green)")}
+            {col(scan.shorts, "▼ Weakest (short bias)", "var(--red)")}
+          </div>
+          <p className="font-mono text-[9px] text-muted">
+            Ranked by momentum only (above/below day VWAP + range position + % change) — it shows where the movement is,
+            not that a trade has edge. Confirm the setup and pass every gate before acting.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
 
 function OptionChainPanel({ chain, onPick }: { chain: OptionChain; onPick: (leg: OptionLeg | null, dir: "LONG" | "SHORT") => void }) {
   if (!chain.is_live) {

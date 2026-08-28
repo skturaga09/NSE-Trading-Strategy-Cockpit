@@ -19,6 +19,7 @@ import type {
   DecisionsResponse,
   IntradayContext,
   OptionChain,
+  FnoScan,
 } from "./types";
 
 // All requests go to /api/* and are proxied to the Python backend (see vite.config.ts).
@@ -104,4 +105,7 @@ export const api = {
 
   getOptionChain: (underlying: string) =>
     getJSON<OptionChain>(`/api/intraday/optionchain?underlying=${underlying}&_t=${Date.now()}`),
+
+  getFnoScan: () =>
+    getJSON<FnoScan>(`/api/intraday/fno-scan?_t=${Date.now()}`),
 };

@@ -138,6 +138,14 @@ def intraday_context(underlying: str = "NIFTY") -> Dict[str, Any]:
     return out
 
 
+@app.get("/api/intraday/fno-scan")
+def intraday_fno_scan() -> Dict[str, Any]:
+    """Live intraday F&O stock scan — ranked long/short candidates by objective
+    momentum (vs day VWAP, range position, % change). A screen, not advice."""
+    from dashboard import fno_scanner
+    return fno_scanner.scan()
+
+
 @app.get("/api/intraday/optionchain")
 def intraday_optionchain(underlying: str = "NIFTY") -> Dict[str, Any]:
     """Live ATM ±3 option chain (LTP, bid/ask/spread, volume, OI, computed IV),

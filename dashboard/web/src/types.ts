@@ -445,3 +445,25 @@ export interface OptionChain {
   lot_size: number | null;
   rows: OptionChainRow[];
 }
+
+// --- Intraday F&O scanner (recommendations) ---
+export interface FnoCandidate {
+  symbol: string;
+  ltp: number;
+  pct_change: number;
+  vs_vwap_pct: number | null;
+  range_pos: number | null;
+  gap_pct: number | null;
+  volume: number | null;
+  score: number;
+  bias: "LONG" | "SHORT";
+}
+export interface FnoScan {
+  timestamp: string;
+  is_live: boolean;
+  source: string;
+  universe: number;
+  scanned?: number;
+  longs: FnoCandidate[];
+  shorts: FnoCandidate[];
+}
