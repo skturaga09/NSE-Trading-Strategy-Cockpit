@@ -416,3 +416,32 @@ export interface IntradayContext {
   vix: number | null;
   gap: number | null;
 }
+
+// --- Intraday ATM option chain (auto-fill) ---
+export interface OptionLeg {
+  symbol: string;
+  ltp: number | null;
+  bid: number | null;
+  ask: number | null;
+  spread: number | null;
+  volume: number | null;
+  oi: number | null;
+  iv: number | null;
+}
+export interface OptionChainRow {
+  strike: number;
+  atm: boolean;
+  call: OptionLeg | null;
+  put: OptionLeg | null;
+}
+export interface OptionChain {
+  underlying: string;
+  timestamp: string;
+  is_live: boolean;
+  source: string;
+  spot: number | null;
+  atm: number | null;
+  expiry: string | null;
+  lot_size: number | null;
+  rows: OptionChainRow[];
+}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
-import type { IntradayContext } from "../types";
+import type { IntradayContext, OptionChain, OptionLeg } from "../types";
 
 /* =============================================================================
    Intraday Index-Options DISCIPLINE CONSOLE  (NIFTY / BANKNIFTY, intraday only)
@@ -148,6 +148,32 @@ export function Intraday() {
     }
   };
 
+  const [chain, setChain] = useState<OptionChain | null>(null);
+  const [loadingChain, setLoadingChain] = useState(false);
+  const fetchChain = async () => {
+    setLoadingChain(true);
+    try {
+      const c = await api.getOptionChain(underlying);
+      setChain(c);
+      if (c.is_live) {
+        if (c.lot_size !== null) setLotSize(String(c.lot_size));
+        if (c.expiry) setExpiry(c.expiry);
+        if (c.spot !== null) setSpot(String(c.spot));
+        setDataStatus("live");
+      }
+    } catch {
+      setChain({ underlying, timestamp: nowIST(), is_live: false, source: "request failed", spot: null, atm: null, expiry: null, lot_size: null, rows: [] });
+    } finally {
+      setLoadingChain(false);
+    }
+  };
+  // Clicking an option premium seeds the sizing inputs.
+  const pickLeg = (leg: OptionLeg | null, dir: "LONG" | "SHORT") => {
+    if (!leg || leg.ltp === null) return;
+    setEntry(String(leg.ltp));
+    setDirection(dir);
+  };
+
   // ---- hard rules ----
   const pnl = num(realisedPnl) ?? 0;
   const entriesN = num(entriesToday) ?? 0;
@@ -240,13 +266,18 @@ export function Intraday() {
       <div className="flex flex-wrap items-center gap-3">
         <button onClick={autofill} disabled={loadingCtx}
           className="rounded-md border border-cyan/50 bg-cyan/15 px-4 py-2 font-mono text-xs font-bold text-cyan hover:bg-cyan/25 disabled:opacity-50">
-          {loadingCtx ? "⏳ Fetching live data…" : `⟳ Auto-fill live ${underlying} data`}
+          {loadingCtx ? "⏳ Fetching…" : `⟳ Auto-fill live ${underlying} data`}
+        </button>
+        <button onClick={fetchChain} disabled={loadingChain}
+          className="rounded-md border border-cyan/50 bg-cyan/15 px-4 py-2 font-mono text-xs font-bold text-cyan hover:bg-cyan/25 disabled:opacity-50">
+          {loadingChain ? "⏳ Loading chain…" : "⟳ Auto-fill ATM option chain"}
         </button>
         <span className="font-mono text-[10px] text-muted">
-          Pulls spot, day high/low, previous close & India VIX from Kite — so you don't type them by hand.
+          Spot / VIX / day levels + the ATM ±3 chain (LTP, spread, OI, IV) & verified lot size — from Kite, not typed.
         </span>
       </div>
       {ctx && <LiveContextStrip ctx={ctx} />}
+      {chain && <OptionChainPanel chain={chain} onPick={pickLeg} />}
 
       {/* A · DATA STATUS */}
       <Panel title="A · Data Status" tag="mark every input; never invented">
@@ -254,7 +285,7 @@ export function Intraday() {
           <Field label="Timestamp (IST)"><span className="tnum text-cyan">{ist}</span></Field>
           <Select label="Data source" value={dataStatus} onChange={setDataStatus}
             opts={[["live", "Live"], ["delayed", "Delayed"], ["user-supplied", "User-supplied"], ["estimated", "Estimated"], ["missing", "Missing"]]} />
-          <Select label="Underlying" value={underlying} onChange={setUnderlying} opts={[["NIFTY", "NIFTY"], ["BANKNIFTY", "BANKNIFTY"]]} />
+          <UnderlyingField value={underlying} onChange={setUnderlying} />
           <Input label="Expiry" value={expiry} onChange={setExpiry} placeholder="e.g. 04-Sep" />
           <Input label="Spot" value={spot} onChange={setSpot} />
           <Input label="Futures" value={futures} onChange={setFutures} />
@@ -427,6 +458,64 @@ type Sizing =
 
 const GATE_COLOR: Record<Gate, string> = { PASS: "var(--green)", FAIL: "var(--red)", UNKNOWN: "var(--gold)" };
 
+function OptionChainPanel({ chain, onPick }: { chain: OptionChain; onPick: (leg: OptionLeg | null, dir: "LONG" | "SHORT") => void }) {
+  if (!chain.is_live) {
+    return (
+      <div className="rounded-md border border-gold/30 bg-gold/10 px-4 py-2 font-mono text-[11px] text-gold">
+        ⚠ Option chain unavailable — {chain.source}. Connect Kite (System Check), then retry.
+      </div>
+    );
+  }
+  const fmt = (n: number | null, unit = "") => (n === null || n === undefined ? "—" : `${n}${unit}`);
+  const oiK = (n: number | null) => (n === null ? "—" : n >= 1000 ? `${(n / 1000).toFixed(0)}k` : String(n));
+  // liquidity flag by spread as % of LTP
+  const spreadColor = (leg: OptionLeg | null) => {
+    if (!leg || leg.spread === null || !leg.ltp) return "var(--muted)";
+    const pct = (leg.spread / leg.ltp) * 100;
+    return pct <= 1 ? "var(--green)" : pct <= 3 ? "var(--gold)" : "var(--red)";
+  };
+  return (
+    <div className="space-y-2 rounded-lg border border-cyan/20 bg-cyan/[0.04] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[10px]">
+        <span className="text-cyan">● LIVE CHAIN · {chain.underlying} · exp {chain.expiry} · lot {chain.lot_size} · ATM {chain.atm} · spot {chain.spot} · {chain.timestamp}</span>
+        <span className="text-muted">click a premium ▸ sets entry & direction. IV computed; change-in-OI not in Kite quote.</span>
+      </div>
+      <div className="overflow-x-auto rounded-md border border-line">
+        <table className="w-full text-center text-[11px]">
+          <thead className="bg-raised/50 font-mono text-[9px] uppercase tracking-wider text-muted">
+            <tr>
+              <th className="px-2 py-1.5 text-cyan" colSpan={4}>CALLS (buy = LONG)</th>
+              <th className="px-2 py-1.5">Strike</th>
+              <th className="px-2 py-1.5 text-cyan" colSpan={4}>PUTS (buy = SHORT)</th>
+            </tr>
+            <tr>
+              {["OI", "IV", "Spread", "LTP"].map((h) => <th key={"c" + h} className="px-2 py-1">{h}</th>)}
+              <th className="px-2 py-1"></th>
+              {["LTP", "Spread", "IV", "OI"].map((h) => <th key={"p" + h} className="px-2 py-1">{h}</th>)}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line font-mono">
+            {chain.rows.map((r) => (
+              <tr key={r.strike} className={r.atm ? "bg-gold/10" : "hover:bg-raised/40"}>
+                <td className="px-2 py-1.5 tnum text-muted">{oiK(r.call?.oi ?? null)}</td>
+                <td className="px-2 py-1.5 tnum text-muted">{fmt(r.call?.iv ?? null, "%")}</td>
+                <td className="px-2 py-1.5 tnum" style={{ color: spreadColor(r.call) }}>{fmt(r.call?.spread ?? null)}</td>
+                <td className="cursor-pointer px-2 py-1.5 tnum font-bold text-ink hover:text-cyan" onClick={() => onPick(r.call, "LONG")}>{fmt(r.call?.ltp ?? null)}</td>
+                <td className="px-2 py-1.5 tnum font-bold" style={{ color: r.atm ? "var(--gold)" : "var(--ink)" }}>{r.strike}{r.atm ? " ·ATM" : ""}</td>
+                <td className="cursor-pointer px-2 py-1.5 tnum font-bold text-ink hover:text-cyan" onClick={() => onPick(r.put, "SHORT")}>{fmt(r.put?.ltp ?? null)}</td>
+                <td className="px-2 py-1.5 tnum" style={{ color: spreadColor(r.put) }}>{fmt(r.put?.spread ?? null)}</td>
+                <td className="px-2 py-1.5 tnum text-muted">{fmt(r.put?.iv ?? null, "%")}</td>
+                <td className="px-2 py-1.5 tnum text-muted">{oiK(r.put?.oi ?? null)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="font-mono text-[9px] text-muted">Spread colour: green ≤1% of LTP · gold ≤3% · red &gt;3% (liquidity/gate-9 hint). Lot size &amp; expiry auto-filled below.</div>
+    </div>
+  );
+}
+
 function LiveContextStrip({ ctx }: { ctx: IntradayContext }) {
   if (!ctx.is_live) {
     return (
@@ -498,6 +587,25 @@ function Input({ label, value, onChange, placeholder }: { label: string; value: 
       <span className="font-mono text-[9px] uppercase tracking-wider text-muted">{label}</span>
       <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
         className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
+    </label>
+  );
+}
+
+const FNO_NAMES = [
+  "NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY",
+  "RELIANCE", "HDFCBANK", "ICICIBANK", "INFY", "TCS", "SBIN", "AXISBANK", "KOTAKBANK",
+  "TATAMOTORS", "TATASTEEL", "HINDALCO", "MARUTI", "BAJFINANCE", "ADANIENT", "ITC",
+  "LT", "HCLTECH", "WIPRO", "SUNPHARMA", "TITAN", "ULTRACEMCO", "DIVISLAB", "BAJAJ-AUTO",
+];
+
+function UnderlyingField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="block">
+      <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Underlying (index or F&amp;O stock)</span>
+      <input list="fno-names" value={value} onChange={(e) => onChange(e.target.value.toUpperCase())}
+        placeholder="e.g. RELIANCE"
+        className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs uppercase text-ink outline-none focus:border-cyan/50" />
+      <datalist id="fno-names">{FNO_NAMES.map((n) => <option key={n} value={n} />)}</datalist>
     </label>
   );
 }

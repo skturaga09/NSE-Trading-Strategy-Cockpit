@@ -18,6 +18,7 @@ import type {
   JournalRecentResponse,
   DecisionsResponse,
   IntradayContext,
+  OptionChain,
 } from "./types";
 
 // All requests go to /api/* and are proxied to the Python backend (see vite.config.ts).
@@ -100,4 +101,7 @@ export const api = {
 
   getIntradayContext: (underlying: string) =>
     getJSON<IntradayContext>(`/api/intraday/context?underlying=${underlying}&_t=${Date.now()}`),
+
+  getOptionChain: (underlying: string) =>
+    getJSON<OptionChain>(`/api/intraday/optionchain?underlying=${underlying}&_t=${Date.now()}`),
 };

@@ -102,7 +102,8 @@ def intraday_context(underlying: str = "NIFTY") -> Dict[str, Any]:
     except Exception:
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    index_sym = "NSE:NIFTY BANK" if underlying.upper() == "BANKNIFTY" else "NSE:NIFTY 50"
+    from dashboard.option_chain import spot_symbol
+    index_sym = spot_symbol(underlying)
     vix_sym = "NSE:INDIA VIX"
     kc = core.KITE_CONFIG
     out: Dict[str, Any] = {"timestamp_ist": ts, "underlying": underlying.upper(),
@@ -135,6 +136,14 @@ def intraday_context(underlying: str = "NIFTY") -> Dict[str, Any]:
     except Exception as e:
         out["source"] = f"Kite request failed: {e}"
     return out
+
+
+@app.get("/api/intraday/optionchain")
+def intraday_optionchain(underlying: str = "NIFTY") -> Dict[str, Any]:
+    """Live ATM ±3 option chain (LTP, bid/ask/spread, volume, OI, computed IV),
+    plus verified lot size and nearest expiry from the Kite instrument master."""
+    from dashboard import option_chain
+    return option_chain.chain(underlying)
 
 
 @app.post("/api/journal/decision")
