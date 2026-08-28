@@ -450,6 +450,7 @@ export interface OptionChain {
 export interface FnoCandidate {
   symbol: string;
   ltp: number;
+  prev_close: number;
   pct_change: number;
   vs_vwap_pct: number | null;
   range_pos: number | null;
@@ -457,6 +458,9 @@ export interface FnoCandidate {
   volume: number | null;
   score: number;
   bias: "LONG" | "SHORT";
+  lot_size: number | null;
+  move: number;
+  pnl_per_lot: number | null;
 }
 export interface FnoScan {
   timestamp: string;

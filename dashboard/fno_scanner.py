@@ -56,6 +56,14 @@ def scan(top: int = 12) -> Dict[str, Any]:
     try:
         names = fno_universe()
         out["universe"] = len(names)
+        # name -> futures lot size, for per-lot P&L on the day's move.
+        lot_map: Dict[str, int] = {}
+        for r in _instruments():
+            if r.get("instrument_type") == "FUT" and r.get("segment") == "NFO-FUT" and r.get("name"):
+                try:
+                    lot_map[r["name"]] = int(float(r["lot_size"]))
+                except Exception:
+                    pass
         quotes: Dict[str, Any] = {}
         for group in _chunk([f"NSE:{n}" for n in names], 200):
             r = requests.get("https://api.kite.trade/quote",
@@ -87,13 +95,20 @@ def scan(top: int = 12) -> Dict[str, Any]:
                 score += vs_vwap
             if rng_pos is not None:
                 score += (rng_pos - 0.5) * 4.0
+            bias = "LONG" if score > 0 else "SHORT"
+            lot = lot_map.get(n)
+            move = ltp - prev_close  # per share, since yesterday's close
+            # P&L of 1 lot of stock futures held in the bias direction (the move that
+            # already happened, sized to a lot — hindsight, not a forecast).
+            pnl_per_lot = round((move if bias == "LONG" else -move) * lot) if lot else None
             rows.append({
-                "symbol": n, "ltp": ltp, "pct_change": round(pct, 2),
+                "symbol": n, "ltp": ltp, "prev_close": prev_close,
+                "pct_change": round(pct, 2),
                 "vs_vwap_pct": round(vs_vwap, 2) if vs_vwap is not None else None,
                 "range_pos": round(rng_pos, 2) if rng_pos is not None else None,
                 "gap_pct": round(gap, 2) if gap is not None else None,
-                "volume": vol, "score": round(score, 2),
-                "bias": "LONG" if score > 0 else "SHORT",
+                "volume": vol, "score": round(score, 2), "bias": bias,
+                "lot_size": lot, "move": round(move, 2), "pnl_per_lot": pnl_per_lot,
             })
 
         longs = sorted([r for r in rows if r["vs_vwap_pct"] is None or r["vs_vwap_pct"] > 0],

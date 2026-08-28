@@ -488,17 +488,25 @@ function FnoCandidates({ scan, scanning, onScan, onPick, selected }: {
 }) {
   const col = (list: FnoCandidate[], title: string, color: string) => (
     <div className="space-y-1">
-      <div className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color }}>{title}</div>
+      <div className="flex items-baseline justify-between">
+        <span className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color }}>{title}</span>
+        <span className="font-mono text-[8px] uppercase tracking-wider text-muted">name ×lot · %chg · ₹/lot</span>
+      </div>
       {list.length === 0 ? <div className="font-mono text-[10px] text-muted">—</div> : list.map((c) => (
         <button key={c.symbol} onClick={() => onPick(c.symbol, c.bias)}
           className={`flex w-full items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-left font-mono text-[11px] transition-colors ${
             selected === c.symbol ? "border-cyan/60 bg-cyan/10" : "border-line bg-raised/30 hover:bg-raised/60"
           }`}>
-          <span className="text-ink/90">{c.symbol}</span>
+          <span className="flex min-w-0 items-baseline gap-1.5">
+            <span className="text-ink/90">{c.symbol}</span>
+            <span className="text-[9px] text-muted">×{c.lot_size ?? "?"}</span>
+          </span>
           <span className="flex items-center gap-2 tnum">
-            <span className="text-muted">{c.ltp}</span>
             <span style={{ color: c.pct_change >= 0 ? "var(--green)" : "var(--red)" }}>{c.pct_change >= 0 ? "+" : ""}{c.pct_change}%</span>
-            <span className="text-[9px] text-muted">{c.range_pos !== null ? `rng ${c.range_pos}` : ""}</span>
+            <span className="w-[72px] text-right font-bold" style={{ color: (c.pnl_per_lot ?? 0) >= 0 ? "var(--green)" : "var(--red)" }}
+              title="P&L of 1 lot in the bias direction, on the move since yesterday's close (hindsight)">
+              {c.pnl_per_lot === null ? "—" : `${c.pnl_per_lot >= 0 ? "+" : ""}₹${Math.abs(c.pnl_per_lot).toLocaleString("en-IN")}`}
+            </span>
           </span>
         </button>
       ))}
@@ -532,9 +540,12 @@ function FnoCandidates({ scan, scanning, onScan, onPick, selected }: {
             {col(scan.longs, "▲ Strongest (long bias)", "var(--green)")}
             {col(scan.shorts, "▼ Weakest (short bias)", "var(--red)")}
           </div>
-          <p className="font-mono text-[9px] text-muted">
-            Ranked by momentum only (above/below day VWAP + range position + % change) — it shows where the movement is,
-            not that a trade has edge. Confirm the setup and pass every gate before acting.
+          <p className="font-mono text-[9px] leading-relaxed text-muted">
+            <span className="text-ink/80">₹/lot</span> = P&amp;L of one lot of the stock future held in the bias direction on the
+            move from <span className="text-ink/80">yesterday's close → now</span> (1 lot = the ×lot shares shown). This is the
+            move that <span className="text-gold">already happened</span> — a hindsight sizing of the day's move, NOT a forecast;
+            a large ₹/lot often means the easy move is done. Ranked by momentum only (vs day VWAP + range position + % change) —
+            it shows where the movement is, not that a trade has edge. Confirm the setup and pass every gate before acting.
           </p>
         </>
       )}
