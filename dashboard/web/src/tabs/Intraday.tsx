@@ -193,6 +193,8 @@ export function Intraday() {
     void autofill(symbol);
     void fetchChain(symbol);
   };
+  // Auto-run the F&O scan once when the tab opens (no manual button needed).
+  useEffect(() => { void runScan(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   // ---- hard rules ----
   const pnl = num(realisedPnl) ?? 0;
@@ -282,27 +284,23 @@ export function Intraday() {
     <div className="space-y-6">
       <Disclaimer />
 
-      {/* Live F&O candidate scanner */}
+      {/* Selected-stock details — rendered ABOVE the scan table when a stock loads */}
+      {(loadingCtx || loadingChain || ctx || chain) && (
+        <div className="space-y-4 rounded-lg border border-cyan/25 p-1">
+          <div className="flex items-center justify-between px-2 pt-1">
+            <span className="font-mono text-[11px] font-bold text-cyan">▸ {underlying} — live detail{(loadingCtx || loadingChain) ? " · loading…" : ""}</span>
+            <button onClick={() => { void autofill(); void fetchChain(); }} disabled={loadingCtx || loadingChain}
+              className="rounded border border-cyan/40 bg-cyan/10 px-2.5 py-1 font-mono text-[10px] font-bold text-cyan hover:bg-cyan/20 disabled:opacity-50">↻ refresh</button>
+          </div>
+          {ctx && <LiveContextStrip ctx={ctx} />}
+          {chain?.is_live && <ExpectedMove chain={chain} ctx={ctx} />}
+          {chain?.is_live && <MissedProfit chain={chain} ctx={ctx} direction={direction} />}
+          {chain && <OptionChainPanel chain={chain} onPick={pickLeg} />}
+        </div>
+      )}
+
+      {/* Live F&O candidate scanner (auto-runs on open; click a name → detail loads above) */}
       <FnoCandidates scan={scan} scanning={scanning} onScan={runScan} onPick={loadCandidate} selected={underlying} />
-
-
-      {/* Auto-fill live data */}
-      <div className="flex flex-wrap items-center gap-3">
-        <button onClick={() => autofill()} disabled={loadingCtx}
-          className="rounded-md border border-cyan/50 bg-cyan/15 px-4 py-2 font-mono text-xs font-bold text-cyan hover:bg-cyan/25 disabled:opacity-50">
-          {loadingCtx ? "⏳ Fetching…" : `⟳ Auto-fill live ${underlying} data`}
-        </button>
-        <button onClick={() => fetchChain()} disabled={loadingChain}
-          className="rounded-md border border-cyan/50 bg-cyan/15 px-4 py-2 font-mono text-xs font-bold text-cyan hover:bg-cyan/25 disabled:opacity-50">
-          {loadingChain ? "⏳ Loading chain…" : "⟳ Auto-fill ATM option chain"}
-        </button>
-        <span className="font-mono text-[10px] text-muted">
-          Spot / VIX / day levels + the ATM ±3 chain (LTP, spread, OI, IV) & verified lot size — from Kite, not typed.
-        </span>
-      </div>
-      {ctx && <LiveContextStrip ctx={ctx} />}
-      {chain?.is_live && <MissedProfit chain={chain} ctx={ctx} direction={direction} />}
-      {chain && <OptionChainPanel chain={chain} onPick={pickLeg} />}
 
       {/* A · DATA STATUS */}
       <Panel title="A · Data Status" tag="mark every input; never invented">
@@ -310,7 +308,13 @@ export function Intraday() {
           <Field label="Timestamp (IST)"><span className="tnum text-cyan">{ist}</span></Field>
           <Select label="Data source" value={dataStatus} onChange={setDataStatus}
             opts={[["live", "Live"], ["delayed", "Delayed"], ["user-supplied", "User-supplied"], ["estimated", "Estimated"], ["missing", "Missing"]]} />
-          <UnderlyingField value={underlying} onChange={setUnderlying} />
+          <div className="space-y-1">
+            <UnderlyingField value={underlying} onChange={setUnderlying} />
+            <button onClick={() => { void autofill(); void fetchChain(); }} disabled={loadingCtx || loadingChain}
+              className="w-full rounded border border-cyan/40 bg-cyan/10 py-1 font-mono text-[10px] font-bold text-cyan hover:bg-cyan/20 disabled:opacity-50">
+              ⟳ Load this stock (data + chain)
+            </button>
+          </div>
           <Input label="Expiry" value={expiry} onChange={setExpiry} placeholder="e.g. 04-Sep" />
           <Input label="Spot" value={spot} onChange={setSpot} />
           <Input label="Futures" value={futures} onChange={setFutures} />
@@ -550,6 +554,66 @@ function FnoCandidates({ scan, scanning, onScan, onPick, selected }: {
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+function ExpectedMove({ chain, ctx }: { chain: OptionChain; ctx: IntradayContext | null }) {
+  const spot = chain.spot ?? ctx?.spot ?? null;
+  const atm = chain.rows.find((r) => r.atm);
+  const ivs = [atm?.call?.iv, atm?.put?.iv].filter((x): x is number => x != null && x > 0);
+  const atmIv = ivs.length ? ivs.reduce((a, b) => a + b, 0) / ivs.length : null;
+  const days = chain.expiry ? Math.max(1, Math.ceil((new Date(chain.expiry + "T15:30:00+05:30").getTime() - Date.now()) / 86_400_000)) : null;
+  const move = (T: number) => (spot && atmIv ? spot * (atmIv / 100) * Math.sqrt(T) : null);
+  const emExp = days ? move(days / 365) : null;
+  const em1d = move(1 / 365);
+
+  const withCall = chain.rows.filter((r) => r.call?.oi != null);
+  const withPut = chain.rows.filter((r) => r.put?.oi != null);
+  const resistance = withCall.length ? withCall.reduce((a, b) => (b.call!.oi! > a.call!.oi! ? b : a)) : null;
+  const support = withPut.length ? withPut.reduce((a, b) => (b.put!.oi! > a.put!.oi! ? b : a)) : null;
+  const sumCall = chain.rows.reduce((s, r) => s + (r.call?.oi || 0), 0);
+  const sumPut = chain.rows.reduce((s, r) => s + (r.put?.oi || 0), 0);
+  const pcr = sumCall ? sumPut / sumCall : null;
+
+  const band = (m: number | null) => (spot && m !== null ? `₹${Math.round(spot - m).toLocaleString("en-IN")} — ₹${Math.round(spot + m).toLocaleString("en-IN")}` : "—");
+  const pm = (m: number | null) => (m === null ? "—" : `±₹${Math.round(m).toLocaleString("en-IN")}${spot ? ` (±${((m / spot) * 100).toFixed(1)}%)` : ""}`);
+
+  return (
+    <div className="space-y-2 rounded-lg border border-gold/25 bg-gold/[0.05] p-4">
+      <div className="font-display text-sm font-bold text-ink">
+        🔮 Expected move &amp; OI levels <span className="font-mono text-[11px] font-normal text-muted">— market-implied magnitude, NOT a directional forecast</span>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-md border border-line bg-raised/40 p-3">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Expected move (ATM IV {atmIv ? atmIv.toFixed(1) : "—"}%)</div>
+          <div className="mt-1 font-mono text-[11px] text-ink/80">
+            By expiry ({days ?? "—"}d): <span className="tnum font-bold text-gold">{pm(emExp)}</span> → range <span className="tnum">{band(emExp)}</span>
+          </div>
+          <div className="font-mono text-[11px] text-ink/80">
+            In 1 day: <span className="tnum font-bold text-gold">{pm(em1d)}</span> → range <span className="tnum">{band(em1d)}</span>
+          </div>
+          <div className="mt-1 font-mono text-[9px] text-muted">1σ band — ~68% chance it stays inside; ~32% it breaks out either way. Both directions.</div>
+        </div>
+        <div className="rounded-md border border-line bg-raised/40 p-3">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-muted">OI structure (within ATM ±3)</div>
+          <div className="mt-1 font-mono text-[11px] text-ink/80">
+            Resistance (peak call OI): <span className="tnum font-bold text-signalred">{resistance ? resistance.strike : "—"}</span>
+          </div>
+          <div className="font-mono text-[11px] text-ink/80">
+            Support (peak put OI): <span className="tnum font-bold text-signalgreen">{support ? support.strike : "—"}</span>
+          </div>
+          <div className="font-mono text-[11px] text-ink/80">
+            PCR: <span className="tnum font-bold">{pcr ? pcr.toFixed(2) : "—"}</span> <span className="text-[9px] text-muted">{pcr ? (pcr > 1 ? "(more puts — supportive, not a signal alone)" : "(more calls — capping, not a signal alone)") : ""}</span>
+          </div>
+        </div>
+      </div>
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        This is what the <span className="text-gold">options market is pricing</span>, derived from ATM implied volatility and open interest — it tells you the
+        likely <span className="text-ink/80">size</span> of the move and the strikes where positioning clusters, <span className="text-gold">not which way it will go</span>.
+        Expected move is a probability band, never a promise; OI support/resistance can break, especially on events/volume. Use only as supporting
+        evidence alongside price, VWAP and structure — the gates still decide.
+      </p>
     </div>
   );
 }
