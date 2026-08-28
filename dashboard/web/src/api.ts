@@ -17,6 +17,7 @@ import type {
   AttributionResponse,
   JournalRecentResponse,
   DecisionsResponse,
+  IntradayContext,
 } from "./types";
 
 // All requests go to /api/* and are proxied to the Python backend (see vite.config.ts).
@@ -96,4 +97,7 @@ export const api = {
 
   getDecisions: () =>
     getJSON<DecisionsResponse>(`/api/journal/decisions?_t=${Date.now()}`),
+
+  getIntradayContext: (underlying: string) =>
+    getJSON<IntradayContext>(`/api/intraday/context?underlying=${underlying}&_t=${Date.now()}`),
 };

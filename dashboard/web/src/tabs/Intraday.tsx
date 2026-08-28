@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import type { IntradayContext } from "../types";
 
 /* =============================================================================
    Intraday Index-Options DISCIPLINE CONSOLE  (NIFTY / BANKNIFTY, intraday only)
@@ -128,6 +129,25 @@ export function Intraday() {
   const [logMsg, setLogMsg] = useState<string | null>(null);
   const [logging, setLogging] = useState(false);
 
+  const [ctx, setCtx] = useState<IntradayContext | null>(null);
+  const [loadingCtx, setLoadingCtx] = useState(false);
+  const autofill = async () => {
+    setLoadingCtx(true);
+    try {
+      const c = await api.getIntradayContext(underlying);
+      setCtx(c);
+      if (c.is_live) {
+        setDataStatus("live");
+        if (c.spot !== null) setSpot(String(c.spot));
+        if (c.gap !== null) setGap(`open ${c.open} vs prev close ${c.prev_close} = ${c.gap >= 0 ? "+" : ""}${c.gap}`);
+      }
+    } catch {
+      setCtx({ timestamp_ist: nowIST(), underlying, is_live: false, source: "request failed", spot: null, open: null, high: null, low: null, prev_close: null, vix: null, gap: null });
+    } finally {
+      setLoadingCtx(false);
+    }
+  };
+
   // ---- hard rules ----
   const pnl = num(realisedPnl) ?? 0;
   const entriesN = num(entriesToday) ?? 0;
@@ -215,6 +235,18 @@ export function Intraday() {
   return (
     <div className="space-y-6">
       <Disclaimer />
+
+      {/* Auto-fill live data */}
+      <div className="flex flex-wrap items-center gap-3">
+        <button onClick={autofill} disabled={loadingCtx}
+          className="rounded-md border border-cyan/50 bg-cyan/15 px-4 py-2 font-mono text-xs font-bold text-cyan hover:bg-cyan/25 disabled:opacity-50">
+          {loadingCtx ? "⏳ Fetching live data…" : `⟳ Auto-fill live ${underlying} data`}
+        </button>
+        <span className="font-mono text-[10px] text-muted">
+          Pulls spot, day high/low, previous close & India VIX from Kite — so you don't type them by hand.
+        </span>
+      </div>
+      {ctx && <LiveContextStrip ctx={ctx} />}
 
       {/* A · DATA STATUS */}
       <Panel title="A · Data Status" tag="mark every input; never invented">
@@ -394,6 +426,40 @@ type Sizing =
   | { ready: true; riskPerUnit: number; maxUnits: number; permittedLots: number; maxLoss: number; lot: number; rr: number | null; ok: boolean };
 
 const GATE_COLOR: Record<Gate, string> = { PASS: "var(--green)", FAIL: "var(--red)", UNKNOWN: "var(--gold)" };
+
+function LiveContextStrip({ ctx }: { ctx: IntradayContext }) {
+  if (!ctx.is_live) {
+    return (
+      <div className="rounded-md border border-gold/30 bg-gold/10 px-4 py-2 font-mono text-[11px] text-gold">
+        ⚠ Live data unavailable — {ctx.source}. Connect Kite (System Check), then retry. Fields stay manual.
+      </div>
+    );
+  }
+  const cell = (k: string, v: number | null, unit = "") => (
+    <div className="rounded-md border border-line bg-raised/40 px-3 py-2">
+      <div className="font-mono text-[9px] uppercase tracking-wider text-muted">{k}</div>
+      <div className="tnum text-sm font-bold text-ink">{v === null ? "—" : `${v}${unit}`}</div>
+    </div>
+  );
+  return (
+    <div className="space-y-2 rounded-lg border border-cyan/20 bg-cyan/[0.04] p-3">
+      <div className="font-mono text-[10px] text-cyan">● LIVE · {ctx.underlying} · {ctx.source} · {ctx.timestamp_ist}</div>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+        {cell("Spot", ctx.spot)}
+        {cell("Open", ctx.open)}
+        {cell("Day High", ctx.high)}
+        {cell("Day Low", ctx.low)}
+        {cell("Prev Close", ctx.prev_close)}
+        {cell("India VIX", ctx.vix)}
+      </div>
+      {ctx.gap !== null && (
+        <div className="font-mono text-[10px] text-muted">
+          Gap: open {ctx.open} vs prev close {ctx.prev_close} = <span style={{ color: ctx.gap >= 0 ? "var(--green)" : "var(--red)" }}>{ctx.gap >= 0 ? "+" : ""}{ctx.gap}</span> pts
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Disclaimer() {
   return (

@@ -401,3 +401,18 @@ export interface DecisionsResponse {
     rejection_rate: number | null;
   };
 }
+
+// --- Intraday live context (auto-fill) ---
+export interface IntradayContext {
+  timestamp_ist: string;
+  underlying: string;
+  is_live: boolean;
+  source: string;
+  spot: number | null;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  prev_close: number | null;
+  vix: number | null;
+  gap: number | null;
+}

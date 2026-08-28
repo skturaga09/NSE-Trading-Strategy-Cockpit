@@ -89,6 +89,54 @@ def journal_import_kite() -> JSONResponse:
     return JSONResponse(res, status_code=200 if res.get("success") else 400)
 
 
+@app.get("/api/intraday/context")
+def intraday_context(underlying: str = "NIFTY") -> Dict[str, Any]:
+    """Live underlying context for the Intraday tab so the user doesn't hand-type
+    it: spot, day OHLC, previous close, and India VIX from Kite /quote. Every value
+    is timestamped and labelled live/unavailable — never invented."""
+    import requests
+    from datetime import datetime
+    try:
+        from zoneinfo import ZoneInfo
+        ts = datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M:%S IST")
+    except Exception:
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    index_sym = "NSE:NIFTY BANK" if underlying.upper() == "BANKNIFTY" else "NSE:NIFTY 50"
+    vix_sym = "NSE:INDIA VIX"
+    kc = core.KITE_CONFIG
+    out: Dict[str, Any] = {"timestamp_ist": ts, "underlying": underlying.upper(),
+                           "is_live": False, "source": "unavailable",
+                           "spot": None, "open": None, "high": None, "low": None,
+                           "prev_close": None, "vix": None, "gap": None}
+    if not (kc.get("api_key") and kc.get("access_token")):
+        out["source"] = "Kite not connected — connect on System Check"
+        return out
+    try:
+        headers = {"Authorization": f"token {kc['api_key']}:{kc['access_token']}", "X-Kite-Version": "3"}
+        r = requests.get("https://api.kite.trade/quote",
+                         params=[("i", index_sym), ("i", vix_sym)], headers=headers, timeout=6)
+        j = r.json()
+        if j.get("status") != "success":
+            out["source"] = f"Kite error: {j.get('message', 'quote failed')}"
+            return out
+        d = j["data"]
+        idx = d.get(index_sym, {})
+        ohlc = idx.get("ohlc", {}) or {}
+        out.update({
+            "is_live": True, "source": "Zerodha Kite live (/quote)",
+            "spot": idx.get("last_price"),
+            "open": ohlc.get("open"), "high": ohlc.get("high"),
+            "low": ohlc.get("low"), "prev_close": ohlc.get("close"),
+            "vix": (d.get(vix_sym, {}) or {}).get("last_price"),
+        })
+        if out["open"] is not None and out["prev_close"]:
+            out["gap"] = round(out["open"] - out["prev_close"], 2)
+    except Exception as e:
+        out["source"] = f"Kite request failed: {e}"
+    return out
+
+
 @app.post("/api/journal/decision")
 async def journal_decision(request: Request) -> JSONResponse:
     """Log one intraday-console decision (any verdict, including NO TRADE/WAIT)."""
