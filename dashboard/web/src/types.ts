@@ -421,6 +421,7 @@ export interface IntradayContext {
 export interface OptionLeg {
   symbol: string;
   ltp: number | null;
+  prev_close: number | null;
   bid: number | null;
   ask: number | null;
   spread: number | null;

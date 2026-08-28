@@ -301,6 +301,7 @@ export function Intraday() {
         </span>
       </div>
       {ctx && <LiveContextStrip ctx={ctx} />}
+      {chain?.is_live && <MissedProfit chain={chain} ctx={ctx} direction={direction} />}
       {chain && <OptionChainPanel chain={chain} onPick={pickLeg} />}
 
       {/* A · DATA STATUS */}
@@ -549,6 +550,71 @@ function FnoCandidates({ scan, scanning, onScan, onPick, selected }: {
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+function MissedProfit({ chain, ctx, direction }: { chain: OptionChain; ctx: IntradayContext | null; direction: "LONG" | "SHORT" }) {
+  const lot = chain.lot_size;
+  const atmRow = chain.rows.find((r) => r.atm);
+  const leg = direction === "LONG" ? atmRow?.call : atmRow?.put;
+  const legLabel = direction === "LONG" ? "CALL" : "PUT";
+  const rupee = (n: number) => `${n >= 0 ? "+" : "−"}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`;
+
+  // Futures line (needs underlying prev close from the live-context fetch)
+  const fPrev = ctx?.prev_close ?? null;
+  const fNow = ctx?.spot ?? chain.spot;
+  const fMove = fPrev !== null && fNow !== null ? fNow - fPrev : null;
+  const fPnl = fMove !== null && lot ? (direction === "LONG" ? fMove : -fMove) * lot : null;
+
+  // Option line (buy the ATM option in the bias direction)
+  const oPrev = leg?.prev_close ?? null;
+  const oNow = leg?.ltp ?? null;
+  const oMove = oPrev !== null && oNow !== null ? oNow - oPrev : null;
+  const oPnl = oMove !== null && lot ? oMove * lot : null;
+  const oPct = oMove !== null && oPrev ? (oMove / oPrev) * 100 : null;
+
+  return (
+    <div className="space-y-2 rounded-lg border border-signalgreen/25 bg-signalgreen/[0.05] p-4">
+      <div className="font-display text-sm font-bold text-ink">
+        📊 Missed profit since yesterday's close — {chain.underlying} <span className="font-mono text-[11px] font-normal" style={{ color: direction === "LONG" ? "var(--green)" : "var(--red)" }}>({direction})</span>
+        <span className="ml-2 font-mono text-[10px] font-normal text-muted">had you entered 1 lot at yesterday's close · profit only, cost excluded</span>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Futures */}
+        <div className="rounded-md border border-line bg-raised/40 p-3">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Stock future · 1 lot (×{lot ?? "?"})</div>
+          {fPnl === null ? (
+            <div className="mt-1 font-mono text-[11px] text-gold">Click “Auto-fill live data” for the futures line.</div>
+          ) : (
+            <>
+              <div className="mt-1 font-mono text-[11px] text-ink/80">
+                entry <span className="tnum">₹{fPrev}</span> → now <span className="tnum">₹{fNow}</span> · move <span className="tnum">{fMove! >= 0 ? "+" : ""}{fMove!.toFixed(1)}</span>
+              </div>
+              <div className="tnum text-lg font-bold" style={{ color: fPnl >= 0 ? "var(--green)" : "var(--red)" }}>{rupee(fPnl)} <span className="text-[11px] font-normal text-muted">/ lot</span></div>
+            </>
+          )}
+        </div>
+        {/* Option */}
+        <div className="rounded-md border border-line bg-raised/40 p-3">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-muted">ATM {atmRow?.strike ?? "—"} {legLabel} buy · 1 lot (×{lot ?? "?"})</div>
+          {oPnl === null || oPrev === null ? (
+            <div className="mt-1 font-mono text-[11px] text-gold">Premium history unavailable for the ATM {legLabel}.</div>
+          ) : (
+            <>
+              <div className="mt-1 font-mono text-[11px] text-ink/80">
+                entry <span className="tnum">₹{oPrev}</span> → now <span className="tnum">₹{oNow}</span>{oPct !== null && <span className="tnum" style={{ color: oPct >= 0 ? "var(--green)" : "var(--red)" }}> ({oPct >= 0 ? "+" : ""}{oPct.toFixed(0)}%)</span>}
+              </div>
+              <div className="tnum text-lg font-bold" style={{ color: oPnl >= 0 ? "var(--green)" : "var(--red)" }}>{rupee(oPnl)} <span className="text-[11px] font-normal text-muted">/ lot</span></div>
+            </>
+          )}
+        </div>
+      </div>
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        Hindsight only — this is the move that <span className="text-gold">already happened</span> from yesterday's close to now, not a
+        forecast; entering now chases it. Profit shown excludes brokerage, taxes, slippage & the premium/margin outlay. The option line
+        is the leveraged version (buy the ATM {legLabel}); its % is the premium's move, which is why options amplify both ways.
+      </p>
     </div>
   );
 }

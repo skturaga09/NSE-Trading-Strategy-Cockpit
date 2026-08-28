@@ -180,6 +180,7 @@ def chain(underlying: str = "NIFTY") -> Dict[str, Any]:
                 return None
             d = qd.get(f"NFO:{row['tradingsymbol']}", {})
             ltp = d.get("last_price")
+            prev = (d.get("ohlc", {}) or {}).get("close")  # yesterday's premium close
             depth = d.get("depth", {}) or {}
             buy = (depth.get("buy") or [{}])[0]
             sell = (depth.get("sell") or [{}])[0]
@@ -188,8 +189,9 @@ def chain(underlying: str = "NIFTY") -> Dict[str, Any]:
             spread = round(ask - bid, 2) if (bid and ask) else None
             mid = (bid + ask) / 2 if (bid and ask) else ltp
             iv = _iv(mid, spot, k, T, typ == "CE")
-            return {"symbol": row["tradingsymbol"], "ltp": ltp, "bid": bid, "ask": ask,
-                    "spread": spread, "volume": d.get("volume"), "oi": d.get("oi"), "iv": iv}
+            return {"symbol": row["tradingsymbol"], "ltp": ltp, "prev_close": prev,
+                    "bid": bid, "ask": ask, "spread": spread,
+                    "volume": d.get("volume"), "oi": d.get("oi"), "iv": iv}
 
         rows = []
         for k in strikes:
