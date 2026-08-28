@@ -79,5 +79,20 @@ def import_positions() -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
+    # Run by the EOD launchd job (~15:45 IST) to capture the day's trades before
+    # Kite clears its intraday positions/trades book overnight.
     import json as _json
-    print(_json.dumps(import_positions(), indent=2))
+    import time
+    from pathlib import Path
+
+    res = import_positions()
+    line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {_json.dumps(res)}"
+    print(line)
+    try:
+        log_file = Path(__file__).parent / "logs" / "kite_import.log"
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass
+    raise SystemExit(0 if res.get("success") else 1)
