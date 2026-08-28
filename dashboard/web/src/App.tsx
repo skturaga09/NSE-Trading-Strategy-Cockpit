@@ -4,6 +4,7 @@ import { TabNav, type TabId } from "./components/TabNav";
 import { TradeIdeas } from "./tabs/TradeIdeas";
 import { Plumbing } from "./tabs/Plumbing";
 import { Journal } from "./tabs/Journal";
+import { Intraday } from "./tabs/Intraday";
 import { VcpScreener } from "./tabs/VcpScreener";
 import { Options } from "./tabs/Options";
 import { Backtest } from "./tabs/Backtest";
@@ -34,6 +35,7 @@ export default function App() {
             {tab === "ideas" && <TradeIdeas />}
             {tab === "plumbing" && <Plumbing />}
             {tab === "journal" && <Journal />}
+            {tab === "intraday" && <Intraday />}
             {tab === "vcp" && <VcpScreener />}
             {tab === "options" && <Options />}
             {tab === "fno" && <FnoPlanner />}
