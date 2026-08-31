@@ -23,6 +23,8 @@ export function Exits() {
 
   return (
     <div className="space-y-6">
+      <PnlDashboard positions={positions} ts={data?.timestamp} />
+
       <div className="rounded-md border border-gold/25 bg-gold/5 px-4 py-2.5 font-mono text-[10px] leading-relaxed text-muted">
         ⚖ Rule-based exit signals on your live positions — <span className="text-gold">not discretionary advice</span>. YOU set the
         thresholds below; the monitor fires a mechanical signal when one is hit (stop / target / trailing / time), and you decide.
@@ -63,6 +65,45 @@ export function Exits() {
       </div>
 
       <RulesConfig />
+    </div>
+  );
+}
+
+function PnlDashboard({ positions, ts }: { positions: ExitPosition[]; ts?: string }) {
+  const total = positions.reduce((s, p) => s + p.pnl, 0);
+  const opts = positions.filter((p) => p.is_option);
+  const optTotal = opts.reduce((s, p) => s + p.pnl, 0);
+  const eqTotal = total - optTotal;
+  const winners = positions.filter((p) => p.pnl > 0);
+  const losers = positions.filter((p) => p.pnl < 0);
+  const best = positions.reduce<ExitPosition | null>((b, p) => (!b || p.pnl > b.pnl ? p : b), null);
+  const worst = positions.reduce<ExitPosition | null>((w, p) => (!w || p.pnl < w.pnl ? p : w), null);
+  const grossWin = winners.reduce((s, p) => s + p.pnl, 0);
+  const grossLoss = losers.reduce((s, p) => s + p.pnl, 0);
+
+  const tile = (label: string, value: React.ReactNode, sub?: React.ReactNode, big?: boolean) => (
+    <div className="rounded-md border border-line bg-raised/40 px-3 py-2.5">
+      <div className="font-mono text-[9px] uppercase tracking-wider text-muted">{label}</div>
+      <div className={`tnum font-bold ${big ? "text-2xl" : "text-base"}`}>{value}</div>
+      {sub && <div className="mt-0.5 font-mono text-[10px] text-muted">{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div className="panel space-y-3 rounded-lg p-5" style={{ borderColor: total >= 0 ? "color-mix(in srgb, var(--green) 30%, transparent)" : "color-mix(in srgb, var(--red) 30%, transparent)" }}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-display text-base font-bold text-ink">💰 P&amp;L Dashboard <span className="font-mono text-[11px] font-normal text-muted">— live across all open positions</span></h2>
+        <span className="font-mono text-[10px] text-muted">{ts ?? "loading…"} · 3s</span>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {tile("Total open P&L", <span style={{ color: total >= 0 ? "var(--green)" : "var(--red)" }}>{inr(total)}</span>, `${positions.length} positions`, true)}
+        {tile("Options P&L", <span style={{ color: optTotal >= 0 ? "var(--green)" : "var(--red)" }}>{inr(optTotal)}</span>, `${opts.length} F&O`)}
+        {tile("Equity P&L", <span style={{ color: eqTotal >= 0 ? "var(--green)" : "var(--red)" }}>{inr(eqTotal)}</span>, `${positions.length - opts.length} cash`)}
+        {tile("Winners / Losers", <span><span style={{ color: "var(--green)" }}>{winners.length}</span> / <span style={{ color: "var(--red)" }}>{losers.length}</span></span>,
+          <span><span style={{ color: "var(--green)" }}>{inr(grossWin)}</span> / <span style={{ color: "var(--red)" }}>{inr(grossLoss)}</span></span>)}
+        {tile("Best", best ? <span style={{ color: "var(--green)" }}>{inr(best.pnl)}</span> : "—", best?.symbol)}
+        {tile("Worst", worst ? <span style={{ color: worst.pnl < 0 ? "var(--red)" : "var(--green)" }}>{inr(worst.pnl)}</span> : "—", worst?.symbol)}
+      </div>
     </div>
   );
 }
