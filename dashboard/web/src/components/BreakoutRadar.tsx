@@ -13,7 +13,7 @@ export function BreakoutRadar() {
   const { data } = useQuery({
     queryKey: ["breakouts"],
     queryFn: api.getBreakouts,
-    refetchInterval: 15_000,
+    refetchInterval: 3000,
   });
   const seen = useRef<Set<string>>(new Set());
   const live = data?.is_live ?? false;

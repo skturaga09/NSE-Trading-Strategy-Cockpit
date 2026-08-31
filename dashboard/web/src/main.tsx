@@ -7,7 +7,14 @@ import "./index.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { refetchOnWindowFocus: false, retry: 1 },
+    queries: {
+      retry: 1,
+      // Everything stays live on a 3s poll without manual refresh. Paused while
+      // the browser tab is hidden so it doesn't hammer Kite in the background.
+      refetchInterval: 3000,
+      refetchIntervalInBackground: false,
+      refetchOnWindowFocus: true,
+    },
   },
 });
 

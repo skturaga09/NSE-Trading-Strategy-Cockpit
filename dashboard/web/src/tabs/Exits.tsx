@@ -17,7 +17,7 @@ const SIG_COLOR: Record<string, string> = {
 const SIG_EMOJI: Record<string, string> = { STOP: "🛑", TARGET: "🎯", TRAIL: "📉", TIME: "⏰", HOLD: "·" };
 
 export function Exits() {
-  const { data } = useQuery({ queryKey: ["exits"], queryFn: api.getExitsStatus, refetchInterval: 5000 });
+  const { data } = useQuery({ queryKey: ["exits"], queryFn: api.getExitsStatus, refetchInterval: 3000 });
   const positions = data?.positions ?? [];
   const actionable = data?.actionable ?? [];
 
@@ -44,7 +44,7 @@ export function Exits() {
 
       <div className="panel space-y-3 rounded-lg p-5">
         <h2 className="font-display text-base font-bold text-ink">
-          🚪 Open positions <span className="font-mono text-[11px] font-normal text-muted">— {data?.timestamp ?? "loading…"} · live, polling 5s</span>
+          🚪 Open positions <span className="font-mono text-[11px] font-normal text-muted">— {data?.timestamp ?? "loading…"} · live, polling 3s</span>
         </h2>
         {positions.length === 0 ? (
           <p className="font-mono text-[11px] text-muted">No open positions (or Kite not connected — check System Check).</p>

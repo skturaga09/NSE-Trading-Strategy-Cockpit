@@ -17,7 +17,7 @@ export function Header({
   const c = biasColor(data?.market_bias.bias);
   const [checkOpen, setCheckOpen] = useState(false);
   const { afterHours, setAfterHours } = useMode();
-  const { data: session } = useQuery({ queryKey: ["session"], queryFn: api.getSession, refetchInterval: 60_000 });
+  const { data: session } = useQuery({ queryKey: ["session"], queryFn: api.getSession, refetchInterval: 3000 });
 
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-[color:var(--bg)]/85 backdrop-blur-md">

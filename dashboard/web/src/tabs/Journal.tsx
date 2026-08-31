@@ -15,17 +15,17 @@ export function Journal() {
   const attr = useQuery({
     queryKey: ["journal-attribution"],
     queryFn: api.getAttribution,
-    refetchInterval: 5000,
+    refetchInterval: 3000,
   });
   const recent = useQuery({
     queryKey: ["journal-recent"],
     queryFn: api.getJournalRecent,
-    refetchInterval: 5000,
+    refetchInterval: 3000,
   });
   const decisions = useQuery({
     queryKey: ["journal-decisions"],
     queryFn: api.getDecisions,
-    refetchInterval: 5000,
+    refetchInterval: 3000,
   });
 
   const a = attr.data;
