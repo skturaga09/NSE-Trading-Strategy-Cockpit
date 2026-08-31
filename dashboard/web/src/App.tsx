@@ -6,6 +6,7 @@ import { Plumbing } from "./tabs/Plumbing";
 import { Journal } from "./tabs/Journal";
 import { Intraday } from "./tabs/Intraday";
 import { Swing } from "./tabs/Swing";
+import { Exits } from "./tabs/Exits";
 import { VcpScreener } from "./tabs/VcpScreener";
 import { Options } from "./tabs/Options";
 import { Backtest } from "./tabs/Backtest";
@@ -38,6 +39,7 @@ export default function App() {
             {tab === "journal" && <Journal />}
             {tab === "intraday" && <Intraday />}
             {tab === "swing" && <Swing />}
+            {tab === "exits" && <Exits />}
             {tab === "vcp" && <VcpScreener />}
             {tab === "options" && <Options />}
             {tab === "fno" && <FnoPlanner />}

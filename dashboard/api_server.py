@@ -139,6 +139,31 @@ def intraday_context(underlying: str = "NIFTY") -> Dict[str, Any]:
     return out
 
 
+@app.get("/api/exits/status")
+def exits_status() -> Dict[str, Any]:
+    from dashboard import exit_monitor
+    return exit_monitor.evaluate()
+
+
+@app.get("/api/exits/config")
+def exits_get_config() -> Dict[str, Any]:
+    from dashboard import exit_monitor
+    return exit_monitor.get_config()
+
+
+@app.post("/api/exits/config")
+async def exits_set_config(request: Request) -> Dict[str, Any]:
+    from dashboard import exit_monitor
+    return exit_monitor.set_config(await request.json())
+
+
+@app.post("/api/exits/test-alert")
+def exits_test_alert() -> JSONResponse:
+    from dashboard import exit_monitor
+    res = exit_monitor.notify("✅ Test alert", "Exit alerts are wired up. You'll get exit signals here.")
+    return JSONResponse(res, status_code=200 if res.get("success") else 400)
+
+
 @app.get("/api/swing/scan")
 def swing_scan_ep() -> Dict[str, Any]:
     """EOD overnight-swing positioning scan (close strength + futures OI buildup)."""

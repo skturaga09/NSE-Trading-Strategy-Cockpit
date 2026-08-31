@@ -21,6 +21,8 @@ import type {
   OptionChain,
   FnoScan,
   SwingScan,
+  ExitsStatus,
+  ExitConfig,
 } from "./types";
 
 // All requests go to /api/* and are proxied to the Python backend (see vite.config.ts).
@@ -112,4 +114,16 @@ export const api = {
 
   getSwingScan: () =>
     getJSON<SwingScan>(`/api/swing/scan?_t=${Date.now()}`),
+
+  getExitsStatus: () =>
+    getJSON<ExitsStatus>(`/api/exits/status?_t=${Date.now()}`),
+
+  getExitConfig: () =>
+    getJSON<ExitConfig>(`/api/exits/config?_t=${Date.now()}`),
+
+  setExitConfig: (patch: Partial<ExitConfig>) =>
+    postJSON<Partial<ExitConfig>, ExitConfig>("/api/exits/config", patch),
+
+  testExitAlert: () =>
+    postJSON<Record<string, never>, { success: boolean; channel?: string; message?: string }>("/api/exits/test-alert", {}),
 };

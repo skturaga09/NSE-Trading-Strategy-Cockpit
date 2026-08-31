@@ -23,3 +23,7 @@ dashboard/trade_book.json
 dashboard/fii_dii_cache.json
 dashboard/journal.db
 dashboard/logs/
+
+dashboard/exit_config.json
+dashboard/exit_peaks.json
+dashboard/exit_seen.json

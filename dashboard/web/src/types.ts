@@ -516,3 +516,38 @@ export interface SwingScan {
   constructive: SwingCandidate[];
   weak: SwingCandidate[];
 }
+
+// --- Exit monitor ---
+export interface ExitNotify {
+  channel: "none" | "ntfy" | "telegram";
+  ntfy_topic: string;
+  telegram_token: string;
+  telegram_chat_id: string;
+}
+export interface ExitConfig {
+  target_pct: number;
+  stop_pct: number;
+  trail_pct: number;
+  trail_arm_pct: number;
+  time_exit: string;
+  notify: ExitNotify;
+}
+export interface ExitPosition {
+  symbol: string;
+  qty: number;
+  is_option: boolean;
+  entry: number;
+  ltp: number;
+  pnl: number;
+  pnl_pct: number;
+  peak_pct: number;
+  product: string;
+  signal: "HOLD" | "STOP" | "TARGET" | "TRAIL" | "TIME";
+  reason: string;
+}
+export interface ExitsStatus {
+  timestamp: string;
+  config: ExitConfig;
+  positions: ExitPosition[];
+  actionable: ExitPosition[];
+}

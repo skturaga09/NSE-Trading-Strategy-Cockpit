@@ -1,4 +1,4 @@
-export type TabId = "ideas" | "plumbing" | "journal" | "intraday" | "swing" | "vcp" | "options" | "fno" | "backtest";
+export type TabId = "ideas" | "plumbing" | "journal" | "intraday" | "swing" | "exits" | "vcp" | "options" | "fno" | "backtest";
 
 const TABS: { id: TabId; label: string; no: string }[] = [
   { id: "ideas", label: "Ideas", no: "01" },
@@ -6,10 +6,11 @@ const TABS: { id: TabId; label: string; no: string }[] = [
   { id: "journal", label: "Journal", no: "03" },
   { id: "intraday", label: "Intraday", no: "04" },
   { id: "swing", label: "Swing", no: "05" },
-  { id: "vcp", label: "Screener", no: "06" },
-  { id: "options", label: "Greeks", no: "07" },
-  { id: "fno", label: "F&O Plan", no: "08" },
-  { id: "backtest", label: "Backtest", no: "09" },
+  { id: "exits", label: "Exits", no: "06" },
+  { id: "vcp", label: "Screener", no: "07" },
+  { id: "options", label: "Greeks", no: "08" },
+  { id: "fno", label: "F&O Plan", no: "09" },
+  { id: "backtest", label: "Backtest", no: "10" },
 ];
 
 export function TabNav({ active, onChange }: { active: TabId; onChange: (t: TabId) => void }) {
