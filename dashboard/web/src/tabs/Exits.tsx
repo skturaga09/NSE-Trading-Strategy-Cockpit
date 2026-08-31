@@ -12,9 +12,10 @@ import type { ExitConfig, ExitPosition } from "../types";
 
 const inr = (n: number) => `${n >= 0 ? "+" : "−"}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`;
 const SIG_COLOR: Record<string, string> = {
-  STOP: "var(--red)", TIME: "var(--red)", TARGET: "var(--green)", TRAIL: "var(--gold)", HOLD: "var(--muted)",
+  STOP: "var(--red)", TIME: "var(--red)", TARGET: "var(--green)", TRAIL: "var(--gold)",
+  PULLBACK: "var(--gold)", HOLD: "var(--muted)",
 };
-const SIG_EMOJI: Record<string, string> = { STOP: "🛑", TARGET: "🎯", TRAIL: "📉", TIME: "⏰", HOLD: "·" };
+const SIG_EMOJI: Record<string, string> = { STOP: "🛑", TARGET: "🎯", TRAIL: "📉", TIME: "⏰", PULLBACK: "👀", HOLD: "·" };
 
 export function Exits() {
   const { data } = useQuery({ queryKey: ["exits"], queryFn: api.getExitsStatus, refetchInterval: 3000 });
@@ -174,6 +175,43 @@ function RulesConfig() {
           <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Portfolio summary every (min, 0=off)</span>
           <input value={String(cfg.summary_every_min)} onChange={(e) => setCfg({ ...cfg, summary_every_min: Number(e.target.value) || 0 })} inputMode="numeric"
             className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
+        </label>
+      </div>
+
+      {/* Profit ratchet + peak-pullback heads-up */}
+      <div className="rounded-md border border-line bg-raised/30 p-3">
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={cfg.ratchet_enabled} onChange={(e) => setCfg({ ...cfg, ratchet_enabled: e.target.checked })} className="accent-cyan" />
+          <span className="font-mono text-[11px] font-bold text-ink">📈 Profit ratchet — tighten the trail as profit grows</span>
+        </label>
+        {cfg.ratchet_enabled ? (
+          <>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {cfg.ratchet_tiers.map((t, i) => (
+                <div key={i} className="flex items-center gap-1.5 rounded border border-line bg-bg/40 px-2 py-1.5 font-mono text-[10px]">
+                  <span className="text-muted">above</span>
+                  <input value={String(t.above)} onChange={(e) => { const tiers = [...cfg.ratchet_tiers]; tiers[i] = { ...t, above: Number(e.target.value) || 0 }; setCfg({ ...cfg, ratchet_tiers: tiers }); }}
+                    className="w-12 rounded border border-line bg-bg/60 px-1 py-0.5 tnum text-ink outline-none focus:border-cyan/50" />
+                  <span className="text-muted">% → trail</span>
+                  <input value={String(t.trail)} onChange={(e) => { const tiers = [...cfg.ratchet_tiers]; tiers[i] = { ...t, trail: Number(e.target.value) || 0 }; setCfg({ ...cfg, ratchet_tiers: tiers }); }}
+                    className="w-12 rounded border border-line bg-bg/60 px-1 py-0.5 tnum text-gold outline-none focus:border-cyan/50" />
+                  <span className="text-muted">%</span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-muted">
+              Once profit clears a tier's "above" level, the trail exits on that "trail" give-back from the peak. Bigger runners get room
+              early, then are protected hard near the top. E.g. a +35% peak (in the +25% tier, 8% trail) exits near +27% instead of round-tripping.
+            </p>
+          </>
+        ) : (
+          <p className="mt-1.5 font-mono text-[9px] text-muted">Ratchet off — the flat Trail % / arms-after fields above are used instead.</p>
+        )}
+        <label className="mt-2 block sm:w-1/2">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Peak-pullback heads-up % (0=off)</span>
+          <input value={String(cfg.pullback_alert_pct)} onChange={(e) => setCfg({ ...cfg, pullback_alert_pct: Number(e.target.value) || 0 })} inputMode="decimal"
+            className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
+          <span className="mt-1 block font-mono text-[9px] text-muted">👀 A nudge when a winner first gives back this much from its peak — the early warning before the full trail exit.</span>
         </label>
       </div>
 

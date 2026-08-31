@@ -524,11 +524,18 @@ export interface ExitNotify {
   telegram_token: string;
   telegram_chat_id: string;
 }
+export interface RatchetTier {
+  above: number;
+  trail: number;
+}
 export interface ExitConfig {
   target_pct: number;
   stop_pct: number;
   trail_pct: number;
   trail_arm_pct: number;
+  ratchet_enabled: boolean;
+  ratchet_tiers: RatchetTier[];
+  pullback_alert_pct: number;
   time_exit: string;
   summary_every_min: number;
   kite_link: string;

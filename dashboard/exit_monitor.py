@@ -32,8 +32,17 @@ _SEEN = _DIR / "exit_seen.json"
 DEFAULT_CONFIG: Dict[str, Any] = {
     "target_pct": 40.0,     # take profit at +40% on the position
     "stop_pct": 25.0,       # cut at −25%
-    "trail_pct": 20.0,      # once in profit, exit if it gives back 20% from the peak
-    "trail_arm_pct": 15.0,  # only start trailing after +15% has been reached
+    "trail_pct": 20.0,      # flat give-back used when the ratchet is OFF
+    "trail_arm_pct": 15.0,  # flat-trail arms after +15%
+    # Profit ratchet: the trail tightens as the peak profit grows, so a big runner
+    # keeps room early then is protected hard near the top. Each tier = {above, trail}.
+    "ratchet_enabled": True,
+    "ratchet_tiers": [
+        {"above": 15.0, "trail": 12.0},
+        {"above": 25.0, "trail": 8.0},
+        {"above": 40.0, "trail": 5.0},
+    ],
+    "pullback_alert_pct": 5.0,  # heads-up when a winner gives back this much from peak (0=off)
     "time_exit": "",        # e.g. "15:15" — flag positions to flatten before cut-off (never assumed)
     "summary_every_min": 30,  # periodic portfolio heartbeat during market hours (0 = off)
     # Tapping an alert opens this. Universal link → opens the Kite iOS/Android app
@@ -119,6 +128,18 @@ def _fresh_ltp(positions: List[Dict[str, Any]]) -> Dict[str, float]:
     return out
 
 
+def _effective_trail(peak: float, cfg: Dict[str, Any]) -> Optional[float]:
+    """Give-back % that applies at this peak, or None if the trail isn't armed yet.
+    With the ratchet on, the tightest tier whose threshold the peak has cleared."""
+    if cfg.get("ratchet_enabled", True):
+        gb: Optional[float] = None
+        for t in sorted(cfg.get("ratchet_tiers", []), key=lambda x: x["above"]):
+            if peak >= t["above"]:
+                gb = t["trail"]
+        return gb
+    return cfg.get("trail_pct", 20.0) if peak >= cfg.get("trail_arm_pct", 15.0) else None
+
+
 def evaluate() -> Dict[str, Any]:
     """Compute per-position exit signals from the configured rules. Live, read-only."""
     cfg = get_config()
@@ -144,22 +165,27 @@ def evaluate() -> Dict[str, Any]:
         peak = max(peaks.get(sym, pnl_pct), pnl_pct)
         peaks[sym] = round(peak, 2)
 
+        gb = _effective_trail(peak, cfg)              # armed give-back %, or None
+        giveback = round(peak - pnl_pct, 1)           # how much off the peak, now
+        pb = cfg.get("pullback_alert_pct", 0)
         signal, reason = "HOLD", ""
         if pnl_pct <= -cfg["stop_pct"]:
             signal, reason = "STOP", f"{pnl_pct}% ≤ −{cfg['stop_pct']}% stop"
         elif pnl_pct >= cfg["target_pct"]:
             signal, reason = "TARGET", f"{pnl_pct}% ≥ +{cfg['target_pct']}% target"
-        elif peak >= cfg["trail_arm_pct"] and pnl_pct <= peak - cfg["trail_pct"]:
-            signal, reason = "TRAIL", f"gave back {round(peak - pnl_pct, 1)}% from +{round(peak,1)}% peak"
+        elif gb is not None and giveback >= gb:
+            signal, reason = "TRAIL", f"gave back {giveback}% from +{round(peak,1)}% peak (ratchet trail {gb}%)"
         elif cfg["time_exit"] and now.strftime("%H:%M") >= cfg["time_exit"]:
             signal, reason = "TIME", f"past {cfg['time_exit']} cut-off"
+        elif gb is not None and pb and giveback >= pb:
+            signal, reason = "PULLBACK", f"off {giveback}% from +{round(peak,1)}% peak — trail exits at {gb}%"
 
         rows.append({"symbol": sym, "qty": qty, "is_option": _is_option(sym),
                      "entry": round(entry, 2), "ltp": round(ltp, 2), "pnl": round(pnl, 2),
                      "pnl_pct": pnl_pct, "peak_pct": round(peak, 2), "product": p.get("product"),
                      "signal": signal, "reason": reason})
     _save(_PEAKS, peaks)
-    rows.sort(key=lambda r: ({"STOP": 0, "TIME": 1, "TARGET": 2, "TRAIL": 3, "HOLD": 4}[r["signal"]], -abs(r["pnl"])))
+    rows.sort(key=lambda r: ({"STOP": 0, "TIME": 1, "TARGET": 2, "TRAIL": 3, "PULLBACK": 4, "HOLD": 5}[r["signal"]], -abs(r["pnl"])))
     return {"timestamp": ts, "config": cfg, "positions": rows,
             "actionable": [r for r in rows if r["signal"] != "HOLD"]}
 
@@ -267,24 +293,27 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
     seen = _load(_SEEN, {})
     sent = 0
     SIG = {
-        "STOP": ("🛑", ["octagonal_sign"], 5),
-        "TARGET": ("🎯", ["dart", "tada"], 4),
-        "TRAIL": ("📉", ["chart_with_downwards_trend"], 4),
-        "TIME": ("⏰", ["alarm_clock"], 4),
+        "STOP": ("🛑", ["octagonal_sign"], 5, "EXIT"),
+        "TARGET": ("🎯", ["dart", "tada"], 4, "EXIT"),
+        "TRAIL": ("📉", ["chart_with_downwards_trend"], 4, "EXIT"),
+        "TIME": ("⏰", ["alarm_clock"], 4, "EXIT"),
+        "PULLBACK": ("👀", ["eyes"], 3, "HEADS-UP"),  # a nudge, not a hard exit
     }
     for r in res["actionable"]:
         key = r["symbol"]
         if seen.get(key) == r["signal"]:
             continue  # already alerted for this signal
-        emoji, tags, prio = SIG.get(r["signal"], ("•", ["bell"], 4))
+        emoji, tags, prio, kind = SIG.get(r["signal"], ("•", ["bell"], 4, "EXIT"))
+        tail = ("It's coming off its peak — watch for the trail exit." if r["signal"] == "PULLBACK"
+                else "Your rule triggered — you decide.")
         body = (
             f"P&L: {r['pnl_pct']:+.1f}%  (₹{r['pnl']:+,.0f})\n"
             f"Now ₹{r['ltp']} · entry ₹{r['entry']} · peak {r['peak_pct']:+.1f}%\n"
             f"Rule: {r['reason']}\n"
             f"{_portfolio_line(res)}\n"
-            f"Your rule triggered — you decide."
+            f"{tail}"
         )
-        notify(f"{emoji} EXIT {r['signal']} · {r['symbol']}", body, res["config"], tags=tags, priority=prio)
+        notify(f"{emoji} {kind} {r['signal']} · {r['symbol']}", body, res["config"], tags=tags, priority=prio)
         seen[key] = r["signal"]
         sent += 1
     # clear seen entries for symbols no longer actionable, so a re-trigger alerts again
