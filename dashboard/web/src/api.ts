@@ -126,4 +126,7 @@ export const api = {
 
   testExitAlert: () =>
     postJSON<Record<string, never>, { success: boolean; channel?: string; message?: string }>("/api/exits/test-alert", {}),
+
+  sendExitSummary: () =>
+    postJSON<Record<string, never>, { success: boolean; channel?: string; message?: string }>("/api/exits/summary-now", {}),
 };

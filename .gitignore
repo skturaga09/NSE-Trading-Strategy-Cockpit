@@ -27,3 +27,4 @@ dashboard/logs/
 dashboard/exit_config.json
 dashboard/exit_peaks.json
 dashboard/exit_seen.json
+dashboard/exit_summary.json

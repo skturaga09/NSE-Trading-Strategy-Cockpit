@@ -530,6 +530,8 @@ export interface ExitConfig {
   trail_pct: number;
   trail_arm_pct: number;
   time_exit: string;
+  summary_every_min: number;
+  kite_link: string;
   notify: ExitNotify;
 }
 export interface ExitPosition {

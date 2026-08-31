@@ -35,8 +35,14 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "trail_pct": 20.0,      # once in profit, exit if it gives back 20% from the peak
     "trail_arm_pct": 15.0,  # only start trailing after +15% has been reached
     "time_exit": "",        # e.g. "15:15" — flag positions to flatten before cut-off (never assumed)
+    "summary_every_min": 30,  # periodic portfolio heartbeat during market hours (0 = off)
+    # Tapping an alert opens this. Universal link → opens the Kite iOS/Android app
+    # when installed (else the browser). Change if you find a scheme that opens the app.
+    "kite_link": "https://kite.zerodha.com/positions",
     "notify": {"channel": "none", "ntfy_topic": "", "telegram_token": "", "telegram_chat_id": ""},
 }
+
+_SUMMARY = _DIR / "exit_summary.json"
 
 
 def _load(path: Path, default: Any) -> Any:
@@ -158,9 +164,6 @@ def evaluate() -> Dict[str, Any]:
             "actionable": [r for r in rows if r["signal"] != "HOLD"]}
 
 
-KITE_URL = "https://kite.zerodha.com/positions"
-
-
 def notify(title: str, message: str, cfg: Optional[Dict[str, Any]] = None,
            tags: Optional[List[str]] = None, priority: int = 4,
            actions: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
@@ -171,13 +174,16 @@ def notify(title: str, message: str, cfg: Optional[Dict[str, Any]] = None,
     cfg = cfg or get_config()
     n = cfg["notify"]
     ch = n.get("channel", "none")
+    kite = cfg.get("kite_link") or "https://kite.zerodha.com/positions"
     try:
         if ch == "ntfy" and n.get("ntfy_topic"):
             payload: Dict[str, Any] = {
                 "topic": n["ntfy_topic"], "title": title, "message": message,
                 "tags": tags or ["chart_with_upwards_trend"], "priority": priority,
-                "click": KITE_URL,
-                "actions": actions or [{"action": "view", "label": "Open Kite", "url": KITE_URL, "clear": True}],
+                "click": kite,
+                # `clear:false` lets ntfy hand the URL to the OS (UIApplication.open),
+                # which lets iOS route a Universal Link to the installed Kite app.
+                "actions": actions or [{"action": "view", "label": "Open Kite", "url": kite, "clear": False}],
             }
             requests.post("https://ntfy.sh/", json=payload, timeout=8)
             return {"success": True, "channel": "ntfy"}
@@ -195,6 +201,28 @@ def _portfolio_line(res: Dict[str, Any]) -> str:
     total = sum(p["pnl"] for p in res["positions"])
     wins = sum(1 for p in res["positions"] if p["pnl"] > 0)
     return f"Portfolio: ₹{total:+,.0f} · {wins}/{len(res['positions'])} green"
+
+
+def send_summary(res: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Push a portfolio heartbeat card: total P&L, split, best/worst."""
+    pos = res["positions"]
+    if not pos:
+        return {"success": False, "message": "no positions"}
+    total = sum(p["pnl"] for p in pos)
+    wins = [p for p in pos if p["pnl"] > 0]
+    opts = [p for p in pos if p["is_option"]]
+    opt_total = sum(p["pnl"] for p in opts)
+    best = max(pos, key=lambda p: p["pnl"])
+    worst = min(pos, key=lambda p: p["pnl"])
+    body = (
+        f"Total P&L: ₹{total:+,.0f}  ({len(wins)}/{len(pos)} green)\n"
+        f"Options ₹{opt_total:+,.0f} · Equity ₹{total - opt_total:+,.0f}\n"
+        f"Best: {best['symbol']} ₹{best['pnl']:+,.0f} ({best['pnl_pct']:+.0f}%)\n"
+        f"Worst: {worst['symbol']} ₹{worst['pnl']:+,.0f} ({worst['pnl_pct']:+.0f}%)"
+    )
+    emoji = "📈" if total >= 0 else "📉"
+    return notify(f"{emoji} Portfolio · ₹{total:+,.0f}", body, cfg,
+                  tags=["moneybag"], priority=3)
 
 
 def _market_open() -> bool:
@@ -243,7 +271,25 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
     live = {r["symbol"] for r in res["actionable"]}
     seen = {k: v for k, v in seen.items() if k in live}
     _save(_SEEN, seen)
+
+    # Periodic portfolio heartbeat (market hours only, throttled).
+    every = res["config"].get("summary_every_min", 0)
+    summary_sent = False
+    if every and every > 0 and res["positions"]:
+        st = _load(_SUMMARY, {})
+        due = True
+        if st.get("last"):
+            try:
+                due = (datetime.now() - datetime.strptime(st["last"], "%Y-%m-%d %H:%M:%S")).total_seconds() >= every * 60
+            except Exception:
+                due = True
+        if due:
+            send_summary(res, res["config"])
+            _save(_SUMMARY, {"last": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+            summary_sent = True
+
     res["alerts_sent"] = sent
+    res["summary_sent"] = summary_sent
     return res
 
 

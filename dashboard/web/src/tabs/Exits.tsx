@@ -154,6 +154,11 @@ function RulesConfig() {
     const r = await api.testExitAlert();
     setMsg(r.success ? `✅ Test sent via ${r.channel}. Check your phone.` : `⚠ ${r.message ?? "not configured"}`);
   };
+  const summary = async () => {
+    setMsg("Sending portfolio summary…");
+    const r = await api.sendExitSummary();
+    setMsg(r.success ? `✅ Summary sent via ${r.channel}. Check your phone.` : `⚠ ${r.message ?? "no positions / not configured"}`);
+  };
 
   return (
     <div className="panel space-y-4 rounded-lg p-5">
@@ -163,6 +168,11 @@ function RulesConfig() {
         <label className="block">
           <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Time exit (HH:MM, blank=off)</span>
           <input value={cfg.time_exit} onChange={(e) => setCfg({ ...cfg, time_exit: e.target.value })} placeholder="15:15"
+            className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
+        </label>
+        <label className="block">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Portfolio summary every (min, 0=off)</span>
+          <input value={String(cfg.summary_every_min)} onChange={(e) => setCfg({ ...cfg, summary_every_min: Number(e.target.value) || 0 })} inputMode="numeric"
             className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
         </label>
       </div>
@@ -205,11 +215,21 @@ function RulesConfig() {
             : "Pick a channel to get exit signals pushed to your phone when you're away from the screen."}
           {"  "}Your trade data is sent to the chosen service — keep credentials private.
         </p>
+        <label className="mt-2 block">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-muted">“Open Kite” link (tap target)</span>
+          <input value={cfg.kite_link} onChange={(e) => setCfg({ ...cfg, kite_link: e.target.value })} placeholder="https://kite.zerodha.com/positions"
+            className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
+          <span className="mt-1 block font-mono text-[9px] leading-relaxed text-muted">
+            On iPhone with the Kite app installed, this Universal Link should open the app (iOS routes kite.zerodha.com to it). If it opens Safari
+            instead, that's Zerodha's Universal-Links setup — paste a scheme here if you find one that opens the app.
+          </span>
+        </label>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <button onClick={save} disabled={saving} className="rounded-md border border-cyan/50 bg-cyan/15 px-4 py-2 font-mono text-xs font-bold text-cyan hover:bg-cyan/25 disabled:opacity-50">{saving ? "Saving…" : "Save rules"}</button>
         <button onClick={test} className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25">Send test alert</button>
+        <button onClick={summary} className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25">Send summary now</button>
         {msg && <span className="font-mono text-[11px] text-muted">{msg}</span>}
       </div>
       <p className="font-mono text-[9px] text-muted">Background pushes need the exit-monitor job installed (dashboard/scripts). Signals are mechanical rule triggers you set — the decision to exit stays yours.</p>

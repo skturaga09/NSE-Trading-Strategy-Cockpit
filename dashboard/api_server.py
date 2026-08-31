@@ -176,6 +176,13 @@ def exits_test_alert() -> JSONResponse:
     return JSONResponse(res, status_code=200 if res.get("success") else 400)
 
 
+@app.post("/api/exits/summary-now")
+def exits_summary_now() -> JSONResponse:
+    from dashboard import exit_monitor
+    res = exit_monitor.send_summary(exit_monitor.evaluate(), exit_monitor.get_config())
+    return JSONResponse(res, status_code=200 if res.get("success") else 400)
+
+
 @app.get("/api/swing/scan")
 def swing_scan_ep() -> Dict[str, Any]:
     """EOD overnight-swing positioning scan (close strength + futures OI buildup)."""
