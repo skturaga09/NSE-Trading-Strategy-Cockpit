@@ -160,7 +160,19 @@ async def exits_set_config(request: Request) -> Dict[str, Any]:
 @app.post("/api/exits/test-alert")
 def exits_test_alert() -> JSONResponse:
     from dashboard import exit_monitor
-    res = exit_monitor.notify("✅ Test alert", "Exit alerts are wired up. You'll get exit signals here.")
+    # Send a realistic sample card (with a live portfolio line if positions exist).
+    try:
+        line = exit_monitor._portfolio_line(exit_monitor.evaluate())
+    except Exception:
+        line = "Portfolio: —"
+    body = ("This is how an exit alert will look.\n"
+            "P&L: +42.0%  (₹8,600)\n"
+            "Now ₹40.5 · entry ₹28.5 · peak +48.0%\n"
+            "Rule: gave back 6% from +48% peak\n"
+            f"{line}\n"
+            "Tap ‘Open Kite’ to act — you decide.")
+    res = exit_monitor.notify("🎯 EXIT TARGET · CAMS26SEP760CE (sample)", body,
+                              tags=["dart", "tada"], priority=4)
     return JSONResponse(res, status_code=200 if res.get("success") else 400)
 
 

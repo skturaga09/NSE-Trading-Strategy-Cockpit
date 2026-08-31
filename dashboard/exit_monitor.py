@@ -158,28 +158,43 @@ def evaluate() -> Dict[str, Any]:
             "actionable": [r for r in rows if r["signal"] != "HOLD"]}
 
 
-def notify(title: str, message: str, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Push a message to the configured mobile channel (ntfy or Telegram)."""
+KITE_URL = "https://kite.zerodha.com/positions"
+
+
+def notify(title: str, message: str, cfg: Optional[Dict[str, Any]] = None,
+           tags: Optional[List[str]] = None, priority: int = 4,
+           actions: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    """Push a rich card to the configured mobile channel (ntfy or Telegram).
+
+    Uses ntfy JSON publishing so emoji render in the title (no latin-1 header
+    limit), with tags, priority, a tap-to-open action and action buttons."""
     cfg = cfg or get_config()
     n = cfg["notify"]
     ch = n.get("channel", "none")
     try:
         if ch == "ntfy" and n.get("ntfy_topic"):
-            # HTTP headers must be latin-1, so emoji can't go in the Title header.
-            # Strip the header to a safe ASCII title and carry the full emoji-rich
-            # text in the UTF-8 body (where emoji render fine).
-            safe_title = title.encode("latin-1", "ignore").decode("latin-1").strip() or "NSE Exit Alert"
-            requests.post(f"https://ntfy.sh/{n['ntfy_topic']}",
-                          data=f"{title}\n{message}".encode("utf-8"),
-                          headers={"Title": safe_title, "Priority": "high", "Tags": "rotating_light"}, timeout=8)
+            payload: Dict[str, Any] = {
+                "topic": n["ntfy_topic"], "title": title, "message": message,
+                "tags": tags or ["chart_with_upwards_trend"], "priority": priority,
+                "click": KITE_URL,
+                "actions": actions or [{"action": "view", "label": "Open Kite", "url": KITE_URL, "clear": True}],
+            }
+            requests.post("https://ntfy.sh/", json=payload, timeout=8)
             return {"success": True, "channel": "ntfy"}
         if ch == "telegram" and n.get("telegram_token") and n.get("telegram_chat_id"):
             requests.get(f"https://api.telegram.org/bot{n['telegram_token']}/sendMessage",
-                         params={"chat_id": n["telegram_chat_id"], "text": f"{title}\n{message}"}, timeout=8)
+                         params={"chat_id": n["telegram_chat_id"], "text": f"{title}\n{message}",
+                                 "parse_mode": "Markdown"}, timeout=8)
             return {"success": True, "channel": "telegram"}
     except Exception as e:
         return {"success": False, "message": str(e)}
     return {"success": False, "message": "No notification channel configured."}
+
+
+def _portfolio_line(res: Dict[str, Any]) -> str:
+    total = sum(p["pnl"] for p in res["positions"])
+    wins = sum(1 for p in res["positions"] if p["pnl"] > 0)
+    return f"Portfolio: ₹{total:+,.0f} · {wins}/{len(res['positions'])} green"
 
 
 def _market_open() -> bool:
@@ -203,13 +218,25 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
     res = evaluate()
     seen = _load(_SEEN, {})
     sent = 0
+    SIG = {
+        "STOP": ("🛑", ["octagonal_sign"], 5),
+        "TARGET": ("🎯", ["dart", "tada"], 4),
+        "TRAIL": ("📉", ["chart_with_downwards_trend"], 4),
+        "TIME": ("⏰", ["alarm_clock"], 4),
+    }
     for r in res["actionable"]:
         key = r["symbol"]
         if seen.get(key) == r["signal"]:
             continue  # already alerted for this signal
-        emoji = {"STOP": "🛑", "TARGET": "🎯", "TRAIL": "📉", "TIME": "⏰"}.get(r["signal"], "•")
-        notify(f"{emoji} EXIT {r['signal']} · {r['symbol']}",
-               f"{r['pnl_pct']:+.1f}% (₹{r['pnl']:+,.0f}) — {r['reason']}. Your rule triggered; you decide.", res["config"])
+        emoji, tags, prio = SIG.get(r["signal"], ("•", ["bell"], 4))
+        body = (
+            f"P&L: {r['pnl_pct']:+.1f}%  (₹{r['pnl']:+,.0f})\n"
+            f"Now ₹{r['ltp']} · entry ₹{r['entry']} · peak {r['peak_pct']:+.1f}%\n"
+            f"Rule: {r['reason']}\n"
+            f"{_portfolio_line(res)}\n"
+            f"Your rule triggered — you decide."
+        )
+        notify(f"{emoji} EXIT {r['signal']} · {r['symbol']}", body, res["config"], tags=tags, priority=prio)
         seen[key] = r["signal"]
         sent += 1
     # clear seen entries for symbols no longer actionable, so a re-trigger alerts again
