@@ -139,6 +139,13 @@ def intraday_context(underlying: str = "NIFTY") -> Dict[str, Any]:
     return out
 
 
+@app.get("/api/swing/scan")
+def swing_scan_ep() -> Dict[str, Any]:
+    """EOD overnight-swing positioning scan (close strength + futures OI buildup)."""
+    from dashboard import swing_scan
+    return swing_scan.scan()
+
+
 @app.get("/api/intraday/fno-scan")
 def intraday_fno_scan() -> Dict[str, Any]:
     """Live intraday F&O stock scan — ranked long/short candidates by objective

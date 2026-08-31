@@ -473,3 +473,46 @@ export interface FnoScan {
   longs: FnoCandidate[];
   shorts: FnoCandidate[];
 }
+
+// --- Overnight swing scan ---
+export interface OiBuildup {
+  label: string;
+  lean: "bullish" | "bearish";
+  oi: number;
+  oi_chg_pct: number | null;
+}
+export interface SwingPlan {
+  entry: number;
+  stop: number;
+  target: number;
+  stop_pct: number;
+  per_lot_risk: number;
+  max_lots: number;
+  notional_1lot: number;
+  fits: boolean;
+}
+export interface SwingCandidate {
+  symbol: string;
+  ltp: number;
+  prev_close: number;
+  pct_change: number;
+  range_pos: number;
+  vs_vwap_pct: number;
+  range_pct: number;
+  score: number;
+  lot_size: number;
+  expiry: string;
+  bias: "LONG" | "SHORT";
+  buildup: OiBuildup | null;
+  plan: SwingPlan;
+}
+export interface SwingScan {
+  timestamp: string;
+  is_live: boolean;
+  source: string;
+  risk: number;
+  universe: number;
+  scanned?: number;
+  constructive: SwingCandidate[];
+  weak: SwingCandidate[];
+}
