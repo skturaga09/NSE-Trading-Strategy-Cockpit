@@ -294,6 +294,7 @@ export function Intraday() {
           </div>
           {ctx && <LiveContextStrip ctx={ctx} />}
           {chain?.is_live && <ExpectedMove chain={chain} ctx={ctx} />}
+          {chain?.is_live && <TomorrowScenarios chain={chain} ctx={ctx} direction={direction} />}
           {chain?.is_live && <MissedProfit chain={chain} ctx={ctx} direction={direction} />}
           {chain && <OptionChainPanel chain={chain} onPick={pickLeg} />}
         </div>
@@ -554,6 +555,86 @@ function FnoCandidates({ scan, scanning, onScan, onPick, selected }: {
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+// --- Black-Scholes (for projecting option premium at a landing price) ---
+function erf(x: number): number {
+  const t = 1 / (1 + 0.3275911 * Math.abs(x));
+  const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return x >= 0 ? y : -y;
+}
+const _N = (x: number) => 0.5 * (1 + erf(x / Math.SQRT2));
+function bsPrice(S: number, K: number, T: number, sigma: number, isCall: boolean, r = 0.065): number {
+  if (T <= 0 || sigma <= 0) return Math.max(0, isCall ? S - K : K - S);
+  const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
+  const d2 = d1 - sigma * Math.sqrt(T);
+  return isCall ? S * _N(d1) - K * Math.exp(-r * T) * _N(d2) : K * Math.exp(-r * T) * _N(-d2) - S * _N(-d1);
+}
+
+function TomorrowScenarios({ chain, ctx, direction }: { chain: OptionChain; ctx: IntradayContext | null; direction: "LONG" | "SHORT" }) {
+  const spot = chain.spot ?? ctx?.spot ?? null;
+  const atm = chain.rows.find((r) => r.atm);
+  const leg = direction === "LONG" ? atm?.call : atm?.put;
+  const ivs = [atm?.call?.iv, atm?.put?.iv].filter((x): x is number => x != null && x > 0);
+  const iv = ivs.length ? ivs.reduce((a, b) => a + b, 0) / ivs.length : null;
+  const days = chain.expiry ? Math.max(1, Math.ceil((new Date(chain.expiry + "T15:30:00+05:30").getTime() - Date.now()) / 86_400_000)) : null;
+  const lot = chain.lot_size;
+  if (!spot || !atm || !iv || !days || !lot || leg?.ltp == null) return null;
+
+  const em1d = spot * (iv / 100) * Math.sqrt(1 / 365);
+  const K = atm.strike, isCall = direction === "LONG", sigma = iv / 100;
+  const Tnow = days / 365, Tland = Math.max(days - 1, 0) / 365;
+  const bsNow = bsPrice(spot, K, Tnow, sigma, isCall);
+  const legLabel = isCall ? "CALL" : "PUT";
+
+  const scen = (label: string, S: number) => {
+    const fut = (direction === "LONG" ? S - spot : spot - S) * lot;
+    const opt = (bsPrice(S, K, Tland, sigma, isCall) - bsNow) * lot;
+    const projPrem = leg.ltp! + (bsPrice(S, K, Tland, sigma, isCall) - bsNow);
+    return { label, S, fut, opt, projPrem };
+  };
+  const rows = [scen("▲ +1σ up", spot + em1d), scen("● base / flat", spot), scen("▼ −1σ down", spot - em1d)];
+  const rupee = (n: number) => `${n >= 0 ? "+" : "−"}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`;
+  const col = (n: number) => (n > 0 ? "var(--green)" : n < 0 ? "var(--red)" : "var(--muted)");
+
+  return (
+    <div className="space-y-2 rounded-lg border border-cyan/25 bg-cyan/[0.04] p-4">
+      <div className="font-display text-sm font-bold text-ink">
+        🧭 If you enter tomorrow — where you'd land <span className="font-mono text-[11px] font-normal text-muted">— {chain.underlying} ({direction}) · 1σ scenarios, not a forecast</span>
+      </div>
+      <div className="overflow-x-auto rounded-md border border-line">
+        <table className="w-full text-left text-[11px]">
+          <thead className="bg-raised/50 font-mono text-[9px] uppercase tracking-wider text-muted">
+            <tr>
+              <th className="px-3 py-2">Scenario (by tomorrow)</th>
+              <th className="px-3 py-2 text-right">Underlying lands</th>
+              <th className="px-3 py-2 text-right">Future P&L / lot</th>
+              <th className="px-3 py-2 text-right">ATM {atm.strike} {legLabel} · premium → P&L / lot</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line font-mono">
+            {rows.map((r) => (
+              <tr key={r.label} className={r.label.includes("base") ? "bg-raised/30" : ""}>
+                <td className="px-3 py-2 text-ink/90">{r.label}</td>
+                <td className="px-3 py-2 text-right tnum">₹{Math.round(r.S).toLocaleString("en-IN")}</td>
+                <td className="px-3 py-2 text-right tnum font-bold" style={{ color: col(r.fut) }}>{rupee(r.fut)}</td>
+                <td className="px-3 py-2 text-right tnum">
+                  <span className="text-muted">₹{leg.ltp!.toFixed(1)}→₹{Math.max(0, r.projPrem).toFixed(1)}</span>{"  "}
+                  <span className="font-bold" style={{ color: col(r.opt) }}>{rupee(r.opt)}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        Entry ≈ today's price ({spot}); “lands” = where the underlying could be by tomorrow's close if it moves ±1σ (~68% chance it's within this
+        band — it can also break beyond, either way). Future P&L = move × lot ({lot}). Option P&L reprices the ATM {legLabel} with Black-Scholes at the
+        landing price after one day of <span className="text-gold">time decay</span> (same IV). Real fills, IV shifts, spread &amp; costs will differ. This is a
+        <span className="text-gold"> range of outcomes, not a prediction</span> of which one happens — the gates still decide whether to take it.
+      </p>
     </div>
   );
 }

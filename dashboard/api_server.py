@@ -102,7 +102,8 @@ def intraday_context(underlying: str = "NIFTY") -> Dict[str, Any]:
     except Exception:
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    from dashboard.option_chain import spot_symbol
+    from dashboard.option_chain import spot_symbol, ensure_fresh_config
+    ensure_fresh_config()
     index_sym = spot_symbol(underlying)
     vix_sym = "NSE:INDIA VIX"
     kc = core.KITE_CONFIG

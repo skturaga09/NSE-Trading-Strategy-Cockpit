@@ -14,6 +14,7 @@ live/unavailable flag.
 import csv
 import io
 import math
+import os
 import threading
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
@@ -21,6 +22,22 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from dashboard import app as core
+
+# The daily 08:00 launchd job rewrites kite_config.json, but a long-running server
+# holds the old token in memory. Reload it whenever the file changes on disk so a
+# freshly-refreshed token is picked up without restarting the server.
+_CFG_MTIME = [0.0]
+
+
+def ensure_fresh_config() -> None:
+    try:
+        m = os.path.getmtime(core.KITE_CONFIG_FILE)
+        if m > _CFG_MTIME[0]:
+            core.KITE_CONFIG.clear()
+            core.KITE_CONFIG.update(core.load_kite_config())
+            _CFG_MTIME[0] = m
+    except Exception:
+        pass
 
 RATE = 0.065  # India risk-free (approx)
 # Index underlyings quote under special spot names; stocks quote as NSE:<symbol>.
@@ -39,11 +56,13 @@ def spot_symbol(underlying: str) -> str:
 
 
 def _headers() -> Dict[str, str]:
+    ensure_fresh_config()
     kc = core.KITE_CONFIG
     return {"Authorization": f"token {kc.get('api_key','')}:{kc.get('access_token','')}", "X-Kite-Version": "3"}
 
 
 def _connected() -> bool:
+    ensure_fresh_config()
     kc = core.KITE_CONFIG
     return bool(kc.get("api_key") and kc.get("access_token"))
 
