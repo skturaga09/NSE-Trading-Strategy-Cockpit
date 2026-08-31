@@ -97,21 +97,43 @@ def _is_option(sym: str) -> bool:
     return s.endswith("CE") or s.endswith("PE")
 
 
+def _fresh_ltp(positions: List[Dict[str, Any]]) -> Dict[str, float]:
+    """Kite /portfolio/positions last_price lags; fetch real-time LTP via /quote."""
+    insts = [f"{p.get('exchange', 'NSE')}:{p['tradingsymbol']}" for p in positions]
+    out: Dict[str, float] = {}
+    for i in range(0, len(insts), 200):
+        grp = insts[i:i + 200]
+        try:
+            j = requests.get("https://api.kite.trade/quote/ltp",
+                             params=[("i", s) for s in grp], headers=_headers(), timeout=8).json()
+            if j.get("status") == "success":
+                out.update({k: v.get("last_price") for k, v in j["data"].items() if v.get("last_price")})
+        except Exception:
+            pass
+    return out
+
+
 def evaluate() -> Dict[str, Any]:
     """Compute per-position exit signals from the configured rules. Live, read-only."""
     cfg = get_config()
     peaks = _load(_PEAKS, {})
     now = datetime.now()
     ts = now.strftime("%Y-%m-%d %H:%M:%S")
+    positions = _positions()
+    fresh = _fresh_ltp(positions)
     rows: List[Dict[str, Any]] = []
-    for p in _positions():
+    for p in positions:
         sym = p["tradingsymbol"]
         qty = p.get("quantity", 0)
-        ltp = p.get("last_price")
         entry = p.get("buy_price") if qty > 0 else p.get("sell_price")
+        kite_ltp = p.get("last_price")
+        # Prefer the real-time /quote LTP; fall back to the (laggy) positions LTP.
+        live = fresh.get(f"{p.get('exchange', 'NSE')}:{sym}")
+        ltp = live or kite_ltp
         if not ltp or not entry:
             continue
-        pnl = p.get("pnl", 0.0)
+        # Kite's pnl is on the stale LTP — adjust it for the fresher price.
+        pnl = p.get("pnl", 0.0) + ((live - kite_ltp) * qty if (live and kite_ltp) else 0.0)
         pnl_pct = round((ltp / entry - 1.0) * 100.0 * (1 if qty > 0 else -1), 2)
         peak = max(peaks.get(sym, pnl_pct), pnl_pct)
         peaks[sym] = round(peak, 2)
@@ -143,8 +165,13 @@ def notify(title: str, message: str, cfg: Optional[Dict[str, Any]] = None) -> Di
     ch = n.get("channel", "none")
     try:
         if ch == "ntfy" and n.get("ntfy_topic"):
-            requests.post(f"https://ntfy.sh/{n['ntfy_topic']}", data=message.encode("utf-8"),
-                          headers={"Title": title, "Priority": "high", "Tags": "chart_with_upwards_trend"}, timeout=8)
+            # HTTP headers must be latin-1, so emoji can't go in the Title header.
+            # Strip the header to a safe ASCII title and carry the full emoji-rich
+            # text in the UTF-8 body (where emoji render fine).
+            safe_title = title.encode("latin-1", "ignore").decode("latin-1").strip() or "NSE Exit Alert"
+            requests.post(f"https://ntfy.sh/{n['ntfy_topic']}",
+                          data=f"{title}\n{message}".encode("utf-8"),
+                          headers={"Title": safe_title, "Priority": "high", "Tags": "rotating_light"}, timeout=8)
             return {"success": True, "channel": "ntfy"}
         if ch == "telegram" and n.get("telegram_token") and n.get("telegram_chat_id"):
             requests.get(f"https://api.telegram.org/bot{n['telegram_token']}/sendMessage",
