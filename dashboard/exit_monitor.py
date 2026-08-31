@@ -203,26 +203,46 @@ def _portfolio_line(res: Dict[str, Any]) -> str:
     return f"Portfolio: ₹{total:+,.0f} · {wins}/{len(res['positions'])} green"
 
 
+CAPITAL = 200_000
+
+
+def _short(sym: str) -> str:
+    """DIVISLAB26SEP9000CE → DIVISLAB 9000CE for a cleaner card."""
+    import re
+    m = re.match(r"^([A-Z&-]+?)\d{2}[A-Z]{3}(\d+)(CE|PE)$", sym)
+    return f"{m.group(1)} {m.group(2)}{m.group(3)}" if m else sym
+
+
 def send_summary(res: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
-    """Push a portfolio heartbeat card: total P&L, split, best/worst."""
+    """Push a scannable portfolio heartbeat card: total, breakdown, top movers."""
     pos = res["positions"]
     if not pos:
         return {"success": False, "message": "no positions"}
     total = sum(p["pnl"] for p in pos)
     wins = [p for p in pos if p["pnl"] > 0]
+    losers = [p for p in pos if p["pnl"] < 0]
     opts = [p for p in pos if p["is_option"]]
     opt_total = sum(p["pnl"] for p in opts)
-    best = max(pos, key=lambda p: p["pnl"])
-    worst = min(pos, key=lambda p: p["pnl"])
-    body = (
-        f"Total P&L: ₹{total:+,.0f}  ({len(wins)}/{len(pos)} green)\n"
-        f"Options ₹{opt_total:+,.0f} · Equity ₹{total - opt_total:+,.0f}\n"
-        f"Best: {best['symbol']} ₹{best['pnl']:+,.0f} ({best['pnl_pct']:+.0f}%)\n"
-        f"Worst: {worst['symbol']} ₹{worst['pnl']:+,.0f} ({worst['pnl_pct']:+.0f}%)"
-    )
-    emoji = "📈" if total >= 0 else "📉"
-    return notify(f"{emoji} Portfolio · ₹{total:+,.0f}", body, cfg,
-                  tags=["moneybag"], priority=3)
+    on_cap = total / CAPITAL * 100
+    ranked = sorted(pos, key=lambda p: p["pnl"], reverse=True)
+    up, down = "📈" if total >= 0 else "📉", ""
+
+    lines = [
+        f"💰 ₹{total:+,.0f}   ({on_cap:+.1f}% on ₹2L)",
+        f"🟢 {len(wins)} green   🔴 {len(losers)} red   ·   {len(pos)} open",
+        f"📊 Options ₹{opt_total:+,.0f}  ·  Equity ₹{total - opt_total:+,.0f}",
+        "",
+        "Top movers",
+    ]
+    for p in ranked[:3]:
+        lines.append(f"  🟢 {_short(p['symbol'])}  ₹{p['pnl']:+,.0f} ({p['pnl_pct']:+.0f}%)")
+    if losers:
+        w = ranked[-1]
+        lines.append(f"  🔴 {_short(w['symbol'])}  ₹{w['pnl']:+,.0f} ({w['pnl_pct']:+.0f}%)")
+    lines.append(f"\n🕒 {res['timestamp'].split(' ')[1]}")
+
+    return notify(f"{up}{down} Portfolio  ₹{total:+,.0f}  ({on_cap:+.1f}%)",
+                  "\n".join(lines), cfg, tags=["moneybag"], priority=3)
 
 
 def _market_open() -> bool:
