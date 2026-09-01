@@ -187,6 +187,26 @@ export function Intraday() {
     setDirection(dir);
   };
 
+  // Translate the underlying structure plan into ATM-option premiums (via BS) and
+  // fill the discipline console so the gates + sizing run on the structure levels.
+  const applyStructure = () => {
+    if (!plan?.is_live || !chain?.is_live) return;
+    const lv = direction === "LONG" ? plan.long : plan.short;
+    const atm = chain.rows.find((r) => r.atm);
+    const leg = direction === "LONG" ? atm?.call : atm?.put;
+    const spot = chain.spot ?? plan.spot ?? ctx?.spot ?? null;
+    if (!lv || !atm || !leg || leg.ltp == null || !chain.lot_size || !spot) return;
+    const K = atm.strike, isCall = direction === "LONG", iv = (leg.iv ?? 20) / 100;
+    const days = chain.expiry ? Math.max(1, Math.ceil((new Date(chain.expiry + "T15:30:00+05:30").getTime() - Date.now()) / 86_400_000)) : 5;
+    const T = days / 365, bsNow = bsPrice(spot, K, T, iv, isCall);
+    const optAt = (S: number) => leg.ltp! + (bsPrice(S, K, T, iv, isCall) - bsNow);
+    setEntry(String(leg.ltp));
+    setStop(String(Math.max(0.05, Math.round(optAt(lv.stop) * 10) / 10)));
+    setTarget(String(Math.round(optAt(lv.target) * 10) / 10));
+    setLotSize(String(chain.lot_size));
+    setExpiry(chain.expiry ?? expiry);
+  };
+
   const [scan, setScan] = useState<FnoScan | null>(null);
   const [scanning, setScanning] = useState(false);
   const runScan = async () => {
@@ -307,7 +327,7 @@ export function Intraday() {
               className="rounded border border-cyan/40 bg-cyan/10 px-2.5 py-1 font-mono text-[10px] font-bold text-cyan hover:bg-cyan/20 disabled:opacity-50">↻ refresh</button>
           </div>
           {ctx && <LiveContextStrip ctx={ctx} />}
-          {(loadingPlan || plan) && <StructurePlan plan={plan} loading={loadingPlan} direction={direction} />}
+          {(loadingPlan || plan) && <StructurePlan plan={plan} loading={loadingPlan} direction={direction} onApply={chain?.is_live ? applyStructure : undefined} />}
           {chain?.is_live && <ExpectedMove chain={chain} ctx={ctx} />}
           {chain?.is_live && <TomorrowScenarios chain={chain} ctx={ctx} direction={direction} />}
           {chain?.is_live && <MissedProfit chain={chain} ctx={ctx} direction={direction} />}
@@ -654,7 +674,7 @@ function TomorrowScenarios({ chain, ctx, direction }: { chain: OptionChain; ctx:
   );
 }
 
-function StructurePlan({ plan, loading, direction }: { plan: IntradayPlan | null; loading: boolean; direction: "LONG" | "SHORT" }) {
+function StructurePlan({ plan, loading, direction, onApply }: { plan: IntradayPlan | null; loading: boolean; direction: "LONG" | "SHORT"; onApply?: () => void }) {
   if (loading && !plan) return <div className="rounded-lg border border-cyan/20 bg-cyan/[0.04] p-3 font-mono text-[11px] text-muted">Loading intraday structure levels…</div>;
   if (!plan) return null;
   if (!plan.is_live) {
@@ -674,10 +694,20 @@ function StructurePlan({ plan, loading, direction }: { plan: IntradayPlan | null
         <div className="rounded-md border border-line bg-raised/40 px-3 py-2"><div className="font-mono text-[9px] uppercase tracking-wider text-muted">Target</div><div className="tnum text-base font-bold" style={{ color: "var(--green)" }}>₹{lv.target}</div></div>
         <div className="rounded-md border border-line bg-raised/40 px-3 py-2"><div className="font-mono text-[9px] uppercase tracking-wider text-muted">Reward : Risk</div><div className="tnum text-base font-bold" style={{ color: rrColor }}>{lv.rr ?? "—"}</div></div>
       </div>
-      <div className="font-mono text-[9px] text-muted">stop: {lv.stop_basis} · target: {lv.target_basis}</div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="font-mono text-[9px] text-muted">stop: {lv.stop_basis} · target: {lv.target_basis}</div>
+        {onApply && (
+          <button onClick={onApply}
+            title="Translate these underlying levels to ATM-option premiums (Black-Scholes) and fill the sizing/gates below"
+            className="rounded-md border border-cyan/50 bg-cyan/15 px-3 py-1 font-mono text-[10px] font-bold text-cyan hover:bg-cyan/25">
+            ▸ Fill sizing from this plan (as ATM option)
+          </button>
+        )}
+      </div>
       <p className="font-mono text-[9px] leading-relaxed text-muted">
         Levels on the <span className="text-ink/80">underlying</span>, from 15-min swing pivots over recent sessions (volatility fallback where no clean level).
-        These are a risk frame for your option trade — translate to the premium and confirm against the chart; not advice.
+        “Fill sizing” reprices the ATM {direction === "LONG" ? "call" : "put"} at the stop/target via Black-Scholes and loads the console — a risk frame,
+        not advice; confirm against the chart. (Option premium can move less than 1:1 with the underlying, so the option R:R differs from the underlying's.)
       </p>
     </div>
   );
