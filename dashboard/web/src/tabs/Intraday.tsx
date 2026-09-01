@@ -89,17 +89,10 @@ export function Intraday() {
   const [consecLosses, setConsecLosses] = useState("0");
   const [openPos, setOpenPos] = useState("");
 
-  // B · regime
+  // B · regime  (free-text structure fields removed — the live detail strip + structure
+  // plan above already carry VWAP/structure/gap/S-R; here we keep only the two judgments
+  // the verdict actually consumes: the regime class and the event-risk window.)
   const [regime, setRegime] = useState("");
-  const [struct15, setStruct15] = useState("");
-  const [struct5, setStruct5] = useState("");
-  const [vwap, setVwap] = useState("");
-  const [orRange, setOrRange] = useState("");
-  const [relVol, setRelVol] = useState("");
-  const [gap, setGap] = useState("");
-  const [support, setSupport] = useState("");
-  const [resistance, setResistance] = useState("");
-  const [breadth, setBreadth] = useState("");
   const [eventRisk, setEventRisk] = useState("unknown");   // clear | restricted | unknown
 
   // setup + direction
@@ -112,12 +105,6 @@ export function Intraday() {
   const [perUnitCost, setPerUnitCost] = useState("");
   const [lotSize, setLotSize] = useState("");
   const [target, setTarget] = useState("");
-
-  // F · alternative-if-no-trade notes
-  const [reassess, setReassess] = useState("");
-  const [confirmReq, setConfirmReq] = useState("");
-  const [invalidation, setInvalidation] = useState("");
-  const [nextReview, setNextReview] = useState("");
 
   // evidence gate
   const [hasSample, setHasSample] = useState(false);
@@ -139,7 +126,6 @@ export function Intraday() {
       if (c.is_live) {
         setDataStatus("live");
         if (c.spot !== null) setSpot(String(c.spot));
-        if (c.gap !== null) setGap(`open ${c.open} vs prev close ${c.prev_close} = ${c.gap >= 0 ? "+" : ""}${c.gap}`);
       }
     } catch {
       setCtx({ timestamp_ist: nowIST(), underlying, is_live: false, source: "request failed", spot: null, open: null, high: null, low: null, prev_close: null, vix: null, gap: null });
@@ -395,21 +381,16 @@ export function Intraday() {
 
       {/* B · MARKET REGIME */}
       <Panel title="B · Market Regime" tag="classify before any trade — unclear ⇒ NO TRADE">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select label="Regime classification" value={regime} onChange={setRegime}
             opts={[["", "— select —"], ...REGIMES]} />
           <Select label="Event-risk status" value={eventRisk} onChange={setEventRisk}
             opts={[["clear", "Clear — no event window"], ["restricted", "In restricted event window"], ["unknown", "Unknown / unverified"]]} />
-          <Input label="Relative volume" value={relVol} onChange={setRelVol} placeholder="vs comparable candles" />
-          <Input label="15-min structure" value={struct15} onChange={setStruct15} placeholder="HH/HL, LL/LH…" />
-          <Input label="5-min structure" value={struct5} onChange={setStruct5} />
-          <Input label="VWAP condition & slope" value={vwap} onChange={setVwap} placeholder="above/below, slope, crosses" />
-          <Input label="Opening-range condition" value={orRange} onChange={setOrRange} placeholder="09:15–09:30 hi/lo" />
-          <Input label="Gap context" value={gap} onChange={setGap} />
-          <Input label="Breadth / index alignment" value={breadth} onChange={setBreadth} />
-          <Input label="Nearest support" value={support} onChange={setSupport} />
-          <Input label="Nearest resistance" value={resistance} onChange={setResistance} />
         </div>
+        <p className="font-mono text-[9px] leading-relaxed text-muted">
+          Read VWAP, 15/5-min structure, gap, opening range and nearest support/resistance from the
+          <span className="text-cyan"> live detail &amp; structure plan above</span> — classify the regime here, then let the gates decide.
+        </p>
         {eventRisk === "restricted" && (
           <div className="font-mono text-[11px] text-signalred">✕ Inside a high-impact event window — no fresh position (unless a separately tested event rule exists).</div>
         )}
@@ -500,7 +481,6 @@ export function Intraday() {
             <Kv k="Entry (premium)" v={inr(num(entry)!)} />
             <Kv k="Structural stop / invalidation" v={inr(num(stop)!)} />
             <Kv k="Target" v={target ? inr(num(target)!) : "define before entry"} />
-            <Kv k="Support / resistance" v={`${support || "—"} / ${resistance || "—"}`} />
             <Kv k="Verified lot size" v={String(sizing.lot)} />
             <Kv k="Risk / unit (incl. costs)" v={inr(sizing.riskPerUnit)} />
             <Kv k="Max permitted lots" v={String(sizing.permittedLots)} />
@@ -515,22 +495,9 @@ export function Intraday() {
         </Panel>
       )}
 
-      {/* F · ALTERNATIVE IF NO TRADE / WAIT */}
-      {verdict !== "CANDIDATE" && verdict !== "STOP_DAY" && (
-        <Panel title="F · Alternative if NO TRADE / WAIT" tag="what would change the decision">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input label="Level/behavior that justifies reassessment" value={reassess} onChange={setReassess} />
-            <Input label="Exact confirmation required" value={confirmReq} onChange={setConfirmReq} />
-            <Input label="What fully invalidates the idea" value={invalidation} onChange={setInvalidation} />
-            <Input label="Next review time / trigger" value={nextReview} onChange={setNextReview} />
-          </div>
-        </Panel>
-      )}
-
       {/* G · JOURNAL RECORD */}
-      <JournalRecord ist={ist} underlying={underlying} expiry={expiry} regime={regime} setup={setup}
-        direction={direction} verdict={verdict} gates={gates} sizing={sizing} entry={entry} stop={stop} target={target}
-        onLog={logDecision} logging={logging} logMsg={logMsg} />
+      <JournalRecord underlying={underlying} setup={setup} direction={direction}
+        verdict={verdict} sizing={sizing} onLog={logDecision} logging={logging} logMsg={logMsg} />
     </div>
   );
 }
@@ -1106,40 +1073,24 @@ function VerdictBox({ verdict, stopDayReasons, missing, regime, anyFail, anyUnkn
   );
 }
 
-function JournalRecord({ ist, underlying, expiry, regime, setup, direction, verdict, gates, sizing, entry, stop, target, onLog, logging, logMsg }: {
-  ist: string; underlying: string; expiry: string; regime: string; setup: keyof typeof SETUPS; direction: string;
-  verdict: Verdict; gates: Gate[]; sizing: Sizing; entry: string; stop: string; target: string;
-  onLog: () => void; logging: boolean; logMsg: string | null;
+function JournalRecord({ underlying, setup, direction, verdict, sizing, onLog, logging, logMsg }: {
+  underlying: string; setup: keyof typeof SETUPS; direction: string;
+  verdict: Verdict; sizing: Sizing; onLog: () => void; logging: boolean; logMsg: string | null;
 }) {
-  const notPass = GATE_LABELS.map((_l, i) => ({ n: i + 1, g: gates[i] })).filter((x) => x.g !== "PASS");
   const decision = verdict === "CANDIDATE" ? "Trade (conditional)" : verdict === "WAIT" ? "Wait"
     : verdict === "STOP_DAY" ? "Stop for the day" : "No trade";
-  const text = [
-    `Date/Time (IST): ${ist}`,
-    `Underlying: ${underlying}  Expiry: ${expiry || "—"}`,
-    `Market regime: ${REGIMES.find((r) => r[0] === regime)?.[1] ?? "—"}`,
-    `Setup evaluated: ${setup} — ${SETUPS[setup]} (${direction})`,
-    `Decision: ${decision}`,
-    `Gate failures/unknown: ${notPass.length ? notPass.map((x) => `${x.n}[${x.g}]`).join(", ") : "none"}`,
-    `Planned entry: ${entry || "—"}   Planned stop: ${stop || "—"}   Planned target: ${target || "—"}`,
-    `Planned risk (₹): ${sizing.ready ? Math.round(sizing.maxLoss) : "—"} (cap 1000)   Planned risk (R): 1.0`,
-    `Permitted lots: ${sizing.ready ? sizing.permittedLots : "—"}`,
-    `Actual fill price: ______   Actual exit price: ______`,
-    `Gross P&L: ______   Costs & slippage: ______   Net P&L: ______   Actual result (R): ______`,
-    `Rule adherence: ______`,
-    `Classification: PAPER-TRADE RESULT`,
-    `Review note: ______`,
-  ].join("\n");
   return (
-    <Panel title="G · Journal Record" tag="copy into your log — result fields blank until filled">
-      <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border border-line bg-bg/60 p-3 font-mono text-[11px] text-ink/90">{text}</pre>
-      <div className="flex flex-wrap items-center gap-2">
+    <Panel title="G · Log decision" tag="save this decision + gate outcome to the Journal">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-mono text-[11px] text-muted">
+          {underlying} · {setup} {SETUPS[setup]} ({direction}) →{" "}
+          <span className="font-bold" style={{ color: VERDICT_META[verdict].color }}>{decision}</span>
+          {sizing.ready ? ` · ${sizing.permittedLots} lot(s), risk ${inr(sizing.maxLoss)}` : ""}
+        </span>
         <button onClick={onLog} disabled={logging}
           className="rounded-md border border-gold/50 bg-gold/15 px-3 py-1.5 font-mono text-[11px] font-bold text-gold hover:bg-gold/25 disabled:opacity-50">
           {logging ? "⏳ Logging…" : "▸ Log decision to Journal"}
         </button>
-        <button onClick={() => navigator.clipboard?.writeText(text)}
-          className="rounded-md border border-cyan/40 bg-cyan/10 px-3 py-1.5 font-mono text-[11px] font-bold text-cyan hover:bg-cyan/20">⧉ Copy journal record</button>
         {logMsg && <span className="font-mono text-[11px] text-muted">{logMsg}</span>}
       </div>
     </Panel>
