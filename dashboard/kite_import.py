@@ -73,53 +73,58 @@ def import_positions() -> Dict[str, Any]:
 
 
 def import_trades() -> Dict[str, Any]:
-    """Reconstruct the day's CLOSED round-trips from actual Kite fills (/trades),
-    grouping buys/sells per symbol. More accurate than the positions snapshot and
-    catches multi-fill exits. Same-day only (Kite /trades is today's fills)."""
+    """Reconstruct CLOSED round-trips from Kite NET POSITIONS (a flat position — net
+    quantity 0 with fills on both sides — is a fully round-tripped trade).
+
+    Why positions and not /trades: /trades holds only *today's* fills, so a trade
+    OPENED on a prior day and CLOSED today shows just its closing leg there and was
+    silently dropped (it's neither a same-day round-trip nor a still-open position).
+    The net-positions endpoint carries the overnight opening leg in its buy/sell
+    quantities and values, so this captures both same-day and multi-day closes.
+    P&L = sell_value − buy_value, from Kite's own figures.
+
+    A partially-closed position (still net non-zero) stays OPEN and is journaled as a
+    closed trade only once it is fully flat."""
     kc = core.KITE_CONFIG
     if not (kc.get("api_key") and kc.get("access_token")):
         return {"success": False, "message": "Kite not connected.", "closed": 0}
     try:
-        j = requests.get("https://api.kite.trade/trades", headers=_headers(), timeout=15).json()
+        j = requests.get("https://api.kite.trade/portfolio/positions",
+                         headers=_headers(), timeout=15).json()
     except Exception as e:
         return {"success": False, "message": f"Kite request failed: {e}", "closed": 0}
     if j.get("status") != "success":
         return {"success": False, "message": j.get("message", "Kite error"), "closed": 0}
 
-    # Aggregate fills per symbol: buy/sell qty, value (qty*price), and product.
-    agg: Dict[str, Dict[str, Any]] = {}
-    for t in j["data"]:
-        sym = t["tradingsymbol"]
-        qty = float(t.get("quantity") or 0)
-        px = float(t.get("average_price") or 0)
-        a = agg.setdefault(sym, {"bq": 0.0, "bv": 0.0, "sq": 0.0, "sv": 0.0, "product": t.get("product", "")})
-        if t.get("transaction_type") == "BUY":
-            a["bq"] += qty; a["bv"] += qty * px
-        else:
-            a["sq"] += qty; a["sv"] += qty * px
-
     from datetime import date as _date
     today = _date.today().isoformat().replace("-", "")
     closed = 0
-    for sym, a in agg.items():
-        cq = min(a["bq"], a["sq"])            # fully round-tripped quantity today
-        if cq <= 0 or a["bq"] <= 0 or a["sq"] <= 0:
-            continue                          # one-sided (carry-in/carry-out) — skip
-        entry = a["bv"] / a["bq"]
-        exit_ = a["sv"] / a["sq"]
-        pnl = cq * (exit_ - entry)
+    for p in j["data"].get("net", []):
+        sym = p["tradingsymbol"]
+        bq = float(p.get("buy_quantity") or 0)
+        sq = float(p.get("sell_quantity") or 0)
+        # Flat (net 0) and traded on BOTH sides = a fully round-tripped closed trade,
+        # regardless of whether the opening leg was today or a prior session.
+        if p.get("quantity", 0) != 0 or bq <= 0 or sq <= 0:
+            continue
+        bv = float(p.get("buy_value") or 0)
+        sv = float(p.get("sell_value") or 0)
+        qty = int(min(bq, sq))
+        entry = bv / bq if bq else 0.0
+        exit_ = sv / sq if sq else 0.0
+        pnl = sv - bv                          # Kite's own values; == its `pnl` field
         # Carry over the entry-feature snapshot (regime etc.) the monitor captured
         # on the open row, so the closed trade is learnable by the calibration brain.
         feats = journal.get_entry_features(f"KITE_{sym}")
         journal.record_external(
             order_id=f"KITETRADE_{sym}_{today}", symbol=sym, source="Zerodha (live)",
-            entry_price=round(entry, 2), qty=int(cq), is_option=_is_option(sym),
-            status="CLOSED", plan_type="intraday" if a["product"] == "MIS" else "positional",
+            entry_price=round(entry, 2), qty=qty, is_option=_is_option(sym),
+            status="CLOSED", plan_type="intraday" if p.get("product") == "MIS" else "positional",
             exit_price=round(exit_, 2), net_pnl=round(pnl, 2),
             regime=feats.get("regime"), sector=feats.get("sector"), bias_score=feats.get("bias_score"))
         closed += 1
     return {"success": True, "closed": closed,
-            "message": f"Reconstructed {closed} closed round-trips from today's fills."}
+            "message": f"Reconstructed {closed} closed round-trips from net positions."}
 
 
 def run_eod() -> Dict[str, Any]:
