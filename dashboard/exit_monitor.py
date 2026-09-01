@@ -201,17 +201,14 @@ def notify(title: str, message: str, cfg: Optional[Dict[str, Any]] = None,
     cfg = cfg or get_config()
     n = cfg["notify"]
     ch = n.get("channel", "none")
-    kite = cfg.get("kite_link") or "https://kite.zerodha.com/positions"
     try:
         if ch == "ntfy" and n.get("ntfy_topic"):
             payload: Dict[str, Any] = {
                 "topic": n["ntfy_topic"], "title": title, "message": message,
                 "tags": tags or ["chart_with_upwards_trend"], "priority": priority,
-                "click": kite,
-                # `clear:false` lets ntfy hand the URL to the OS (UIApplication.open),
-                # which lets iOS route a Universal Link to the installed Kite app.
-                "actions": actions or [{"action": "view", "label": "Open Kite", "url": kite, "clear": False}],
             }
+            if actions:  # no default button — plain informational card
+                payload["actions"] = actions
             requests.post("https://ntfy.sh/", json=payload, timeout=8)
             return {"success": True, "channel": "ntfy"}
         if ch == "telegram" and n.get("telegram_token") and n.get("telegram_chat_id"):
@@ -325,8 +322,24 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
     # Thesis-drift alerts: when an open option's underlying newly flips against
     # the bet (status → DRIFT), nudge once. A heads-up, not an exit.
     try:
-        from dashboard import thesis
+        from dashboard import thesis, journal
         align = thesis.alignment()
+        amap = {p["symbol"]: p for p in align.get("positions", [])}
+        # Snapshot ENTRY features onto each open option (idempotent; preserved on
+        # close) so the closed-trade sample carries the regime it was taken in.
+        for r in res["positions"]:
+            if not r.get("is_option"):
+                continue
+            a = amap.get(r["symbol"])
+            if not a:
+                continue
+            regime = ("BULLISH" if a.get("lean") == "bullish" else "BEARISH" if a.get("lean") == "bearish"
+                      else ("BULLISH" if (a.get("day_pct") or 0) > 0 else "BEARISH"))
+            journal.record_external(
+                order_id=f"KITE_{r['symbol']}", symbol=r["symbol"], source="Zerodha (live)",
+                entry_price=r["entry"], qty=abs(int(r["qty"])), is_option=True, status="OPEN",
+                plan_type="intraday" if r.get("product") == "MIS" else "positional",
+                regime=regime, sector=a.get("underlying"), bias_score=a.get("agree"))
         tseen = _load(_THESIS_SEEN, {})
         drift_syms = set()
         for p in align.get("positions", []):

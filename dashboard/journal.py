@@ -180,12 +180,13 @@ def finalize(order_id: str, exit_price: float, exit_reason: str) -> None:
 def record_external(order_id: str, symbol: str, source: str, entry_price: float,
                     qty: int, is_option: bool, status: str, plan_type: str = "positional",
                     exit_price: Optional[float] = None, net_pnl: Optional[float] = None,
-                    ts_entry: Optional[str] = None) -> None:
-    """Upsert a trade sourced from the live broker (real fills imported from Kite),
-    where the entry SIGNAL features and the protective STOP are unknown. net_pnl and
-    win/loss are exact; r_multiple / MFE / MAE are left NULL (risk unknown) so these
-    never pollute the R-based expectancy that dashboard signals feed. Re-importing
-    updates the same row (idempotent on order_id)."""
+                    ts_entry: Optional[str] = None, regime: Optional[str] = None,
+                    sector: Optional[str] = None, bias_score: Optional[float] = None) -> None:
+    """Upsert a trade sourced from the live broker (real fills imported from Kite).
+    net_pnl and win/loss are exact; r_multiple/MFE/MAE stay NULL (no stop known).
+    Optional ENTRY features (regime/sector/bias_score) are set on first insert and
+    PRESERVED on later updates — so an entry-time snapshot survives the close, giving
+    the calibration brain something to learn from. Idempotent on order_id."""
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     outcome = net_pnl_pct = ts_exit = None
     if status == "CLOSED" and exit_price is not None:
@@ -196,15 +197,20 @@ def record_external(order_id: str, symbol: str, source: str, entry_price: float,
         c.execute(
             """INSERT INTO trade_journal
                  (order_id, ts_entry, source, symbol, is_option, plan_type, entry_price, qty,
-                  status, ts_exit, exit_price, exit_reason, net_pnl, net_pnl_pct, outcome)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                  status, ts_exit, exit_price, exit_reason, net_pnl, net_pnl_pct, outcome,
+                  regime, sector, bias_score)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(order_id) DO UPDATE SET
                   status=excluded.status, ts_exit=excluded.ts_exit, exit_price=excluded.exit_price,
                   exit_reason=excluded.exit_reason, net_pnl=excluded.net_pnl,
-                  net_pnl_pct=excluded.net_pnl_pct, outcome=excluded.outcome""",
+                  net_pnl_pct=excluded.net_pnl_pct, outcome=excluded.outcome,
+                  -- keep the entry-time features; only fill if not already captured
+                  regime=COALESCE(trade_journal.regime, excluded.regime),
+                  sector=COALESCE(trade_journal.sector, excluded.sector),
+                  bias_score=COALESCE(trade_journal.bias_score, excluded.bias_score)""",
             (order_id, ts_entry or now, source, symbol, int(is_option), plan_type,
              entry_price, qty, status, ts_exit, exit_price, "BROKER" if status == "CLOSED" else None,
-             net_pnl, net_pnl_pct, outcome),
+             net_pnl, net_pnl_pct, outcome, regime, sector, _num(bias_score)),
         )
 
 
@@ -276,6 +282,13 @@ def record_decision(d: Dict[str, Any]) -> int:
     with _LOCK, _conn() as c:
         cur = c.execute(f"INSERT INTO decision_log ({cols}) VALUES ({ph})", list(row.values()))
         return cur.lastrowid
+
+
+def get_entry_features(order_id: str) -> Dict[str, Any]:
+    """Read the entry-feature snapshot (regime/sector/bias_score) for a row, if any."""
+    with _LOCK, _conn() as c:
+        r = c.execute("SELECT regime, sector, bias_score FROM trade_journal WHERE order_id=?", (order_id,)).fetchone()
+    return {"regime": r["regime"], "sector": r["sector"], "bias_score": r["bias_score"]} if r else {}
 
 
 def close_stale_external(open_symbols: List[str]) -> int:

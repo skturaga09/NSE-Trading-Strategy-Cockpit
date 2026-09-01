@@ -108,11 +108,15 @@ def import_trades() -> Dict[str, Any]:
         entry = a["bv"] / a["bq"]
         exit_ = a["sv"] / a["sq"]
         pnl = cq * (exit_ - entry)
+        # Carry over the entry-feature snapshot (regime etc.) the monitor captured
+        # on the open row, so the closed trade is learnable by the calibration brain.
+        feats = journal.get_entry_features(f"KITE_{sym}")
         journal.record_external(
             order_id=f"KITETRADE_{sym}_{today}", symbol=sym, source="Zerodha (live)",
             entry_price=round(entry, 2), qty=int(cq), is_option=_is_option(sym),
             status="CLOSED", plan_type="intraday" if a["product"] == "MIS" else "positional",
-            exit_price=round(exit_, 2), net_pnl=round(pnl, 2))
+            exit_price=round(exit_, 2), net_pnl=round(pnl, 2),
+            regime=feats.get("regime"), sector=feats.get("sector"), bias_score=feats.get("bias_score"))
         closed += 1
     return {"success": True, "closed": closed,
             "message": f"Reconstructed {closed} closed round-trips from today's fills."}
