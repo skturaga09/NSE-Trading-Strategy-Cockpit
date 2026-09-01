@@ -227,8 +227,14 @@ export function Intraday() {
     void fetchChain(symbol);
     void fetchPlan(symbol);
   };
-  // Auto-run the F&O scan once when the tab opens (no manual button needed).
-  useEffect(() => { void runScan(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  // Auto-run the F&O scan on open, then keep it live with a silent 3s refresh
+  // (one /quote batch — cheap). The visible "Scanning…" flag only shows on manual runs.
+  useEffect(() => {
+    void runScan();
+    const id = setInterval(() => { api.getFnoScan().then(setScan).catch(() => {}); }, 3000);
+    return () => clearInterval(id);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
 
   // ---- hard rules ----
   const pnl = num(realisedPnl) ?? 0;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
-import type { ExitConfig, ExitPosition, ThesisPosition } from "../types";
+import type { ExitConfig, ExitPosition, ThesisPosition, TargetCalcRow } from "../types";
 
 /* =============================================================================
    EXIT MONITOR — rule-based exit signals on your LIVE Kite positions + phone
@@ -65,10 +65,63 @@ export function Exits() {
         )}
       </div>
 
+      <TargetCalculator />
+
       <ThesisMonitor />
 
       <RulesConfig />
     </div>
+  );
+}
+
+function TargetCalculator() {
+  const { data } = useQuery({ queryKey: ["target-calc"], queryFn: api.getTargetCalc, refetchInterval: 3000 });
+  const rows = data?.positions ?? [];
+  const withTarget = rows.filter((r) => r.target);
+  return (
+    <div className="panel space-y-3 rounded-lg p-5">
+      <h2 className="flex flex-wrap items-center gap-2 font-display text-base font-bold text-ink">
+        🎯 Target → Stock Price <span className="font-mono text-[11px] font-normal text-muted">— what the stock must reach for your sell order to fill · live 3s</span>
+      </h2>
+      {rows.length === 0 ? (
+        <p className="font-mono text-[11px] text-muted">{data && !data.is_live ? `Unavailable — ${data.source}` : "No open option positions."}</p>
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-md border border-line">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-raised/50 font-mono text-[10px] uppercase tracking-wider text-muted">
+                <tr>{["Option", "Spot", "Premium", "Δ", "Your target", "Stock must reach", "% move"].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
+              </thead>
+              <tbody className="divide-y divide-line font-mono">
+                {rows.map((p) => <TargetRow key={p.symbol} p={p} />)}
+              </tbody>
+            </table>
+          </div>
+          <p className="font-mono text-[9px] leading-relaxed text-muted">
+            "Your target" is your live pending SELL order (incl. AMOs). The required stock price is solved with Black-Scholes using IV
+            <span className="text-ink/80"> calibrated to the option's live premium</span> — so it matches the real market, not an assumed vol. Δ (delta) is the
+            option's ₹ move per ₹1 of stock. Assumes the move happens <span className="text-gold">soon</span>: with days of delay, time decay/IV drop mean the stock must go a bit higher.
+            {withTarget.length === 0 && " (No pending sell orders found — place a target order and it appears here.)"}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TargetRow({ p }: { p: TargetCalcRow }) {
+  return (
+    <tr className={p.target ? "" : "opacity-60"}>
+      <td className="px-3 py-2 text-ink/90">{p.symbol}</td>
+      <td className="px-3 py-2 tnum text-ink">₹{p.spot}</td>
+      <td className="px-3 py-2 tnum text-muted">₹{p.premium}</td>
+      <td className="px-3 py-2 tnum text-muted">{p.delta ?? "—"}</td>
+      <td className="px-3 py-2 tnum" style={{ color: p.target ? "var(--gold)" : "var(--muted)" }}>{p.target ? `₹${p.target}` : "no order"}</td>
+      <td className="px-3 py-2 tnum font-bold text-ink">{p.required_spot ? `₹${p.required_spot.toLocaleString("en-IN")}` : "—"}</td>
+      <td className="px-3 py-2 tnum font-bold" style={{ color: (p.pct_move ?? 0) >= 0 ? "var(--green)" : "var(--red)" }}>
+        {p.pct_move === null ? "—" : `${p.pct_move >= 0 ? "+" : ""}${p.pct_move}%`}
+      </td>
+    </tr>
   );
 }
 

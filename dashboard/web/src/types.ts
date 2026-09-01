@@ -628,3 +628,28 @@ export interface IntradayPlan {
   long: StructLevels | null;
   short: StructLevels | null;
 }
+
+// --- Target-premium → stock-price calculator ---
+export interface TargetCalcRow {
+  symbol: string;
+  underlying: string;
+  strike: number;
+  direction: "CALL" | "PUT";
+  spot: number;
+  premium: number;
+  ltp: number | null;
+  bid: number | null;
+  ask: number | null;
+  iv_pct: number | null;
+  delta: number | null;
+  days: number;
+  target: number | null;
+  required_spot: number | null;
+  pct_move: number | null;
+}
+export interface TargetCalc {
+  timestamp: string;
+  is_live: boolean;
+  source: string;
+  positions: TargetCalcRow[];
+}

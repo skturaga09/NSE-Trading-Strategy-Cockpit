@@ -183,6 +183,13 @@ def exits_candidates_now() -> JSONResponse:
     return JSONResponse(res, status_code=200 if res.get("success") else 400)
 
 
+@app.get("/api/exits/target-calc")
+def exits_target_calc() -> Dict[str, Any]:
+    """For each open option: the stock price needed to hit your pending sell target."""
+    from dashboard import target_calc
+    return target_calc.compute()
+
+
 @app.get("/api/exits/thesis")
 def exits_thesis() -> Dict[str, Any]:
     """Thesis-drift: does each open option's underlying still agree with the bet."""

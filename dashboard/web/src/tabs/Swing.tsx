@@ -59,7 +59,15 @@ export function Swing() {
       setLoading(false);
     }
   };
-  useEffect(() => { void run(); /* eslint-disable-next-line */ }, []);
+  // Auto-run on open, then a silent 30s refresh — the swing scan fires ~16 futures
+  // OI-history calls per run, so 3s would hit Kite's rate limits; 30s is safe and
+  // EOD-positioning data changes slowly anyway.
+  useEffect(() => {
+    void run();
+    const id = setInterval(() => { api.getSwingScan().then(setScan).catch(() => {}); }, 30000);
+    return () => clearInterval(id);
+    /* eslint-disable-next-line */
+  }, []);
 
   return (
     <div className="space-y-6">
