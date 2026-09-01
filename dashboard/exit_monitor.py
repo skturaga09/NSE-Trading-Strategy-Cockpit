@@ -292,18 +292,22 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
     sent = 0
     SIG = {
         "STOP": ("🛑", ["octagonal_sign"], 5, "EXIT"),
-        "TARGET": ("🎯", ["dart", "tada"], 4, "EXIT"),
+        "TARGET": ("🎯", ["dart", "tada"], 5, "BOOK IT"),   # max priority — hit the target
         "TRAIL": ("📉", ["chart_with_downwards_trend"], 4, "EXIT"),
         "TIME": ("⏰", ["alarm_clock"], 4, "EXIT"),
         "PULLBACK": ("👀", ["eyes"], 3, "HEADS-UP"),  # a nudge, not a hard exit
+    }
+    TAIL = {
+        "TARGET": "🎯 Target hit — BOOK IT NOW (place the exit in Kite yourself).",
+        "PULLBACK": "It's coming off its peak — watch for the trail exit.",
+        "STOP": "Stop breached — your rule says cut it. You place the order.",
     }
     for r in res["actionable"]:
         key = r["symbol"]
         if seen.get(key) == r["signal"]:
             continue  # already alerted for this signal
         emoji, tags, prio, kind = SIG.get(r["signal"], ("•", ["bell"], 4, "EXIT"))
-        tail = ("It's coming off its peak — watch for the trail exit." if r["signal"] == "PULLBACK"
-                else "Your rule triggered — you decide.")
+        tail = TAIL.get(r["signal"], "Your rule triggered — you decide.")
         body = (
             f"P&L: {r['pnl_pct']:+.1f}%  (₹{r['pnl']:+,.0f})\n"
             f"Now ₹{r['ltp']} · entry ₹{r['entry']} · peak {r['peak_pct']:+.1f}%\n"
