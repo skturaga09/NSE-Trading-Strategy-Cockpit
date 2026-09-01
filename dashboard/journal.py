@@ -14,6 +14,7 @@ honest edge metric; win rate alone is not.
 """
 
 import sqlite3
+from contextlib import contextmanager
 import threading
 import time
 from datetime import datetime
@@ -84,13 +85,21 @@ CREATE TABLE IF NOT EXISTS decision_log (
 """
 
 
-def _conn() -> sqlite3.Connection:
+@contextmanager
+def _conn():
+    """Open a SQLite connection, commit on clean exit, and ALWAYS close it.
+    (sqlite3's own `with conn` commits but never closes — that leaked a file
+    descriptor per call and eventually crashed the server with Errno 24.)"""
     c = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=5)
     c.row_factory = sqlite3.Row
     # Ensure the schema on every connection (idempotent) so the journal stays
     # resilient if journal.db is deleted/reset while the server is running.
     c.executescript(_SCHEMA)
-    return c
+    try:
+        yield c
+        c.commit()
+    finally:
+        c.close()
 
 
 def init() -> None:
