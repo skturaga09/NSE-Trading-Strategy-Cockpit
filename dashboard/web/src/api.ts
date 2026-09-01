@@ -137,4 +137,7 @@ export const api = {
 
   getThesis: () =>
     getJSON<ThesisAlignment>(`/api/exits/thesis?_t=${Date.now()}`),
+
+  sendCandidates: () =>
+    postJSON<Record<string, never>, { success: boolean; channel?: string; message?: string }>("/api/exits/candidates-now", {}),
 };

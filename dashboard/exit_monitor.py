@@ -45,6 +45,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "pullback_alert_pct": 5.0,  # heads-up when a winner gives back this much from peak (0=off)
     "time_exit": "",        # e.g. "15:15" — flag positions to flatten before cut-off (never assumed)
     "summary_every_min": 30,  # periodic portfolio heartbeat during market hours (0 = off)
+    "candidate_every_min": 60,  # periodic "top F&O candidates" digest (0 = off)
+    "candidate_top": 5,         # how many longs/shorts to list
     # Tapping an alert opens this. Universal link → opens the Kite iOS/Android app
     # when installed (else the browser). Change if you find a scheme that opens the app.
     "kite_link": "https://kite.zerodha.com/positions",
@@ -53,6 +55,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
 _SUMMARY = _DIR / "exit_summary.json"
 _THESIS_SEEN = _DIR / "exit_thesis_seen.json"
+_CANDIDATE_LAST = _DIR / "exit_candidate_last.json"
 
 
 def _load(path: Path, default: Any) -> Any:
@@ -269,6 +272,28 @@ def send_summary(res: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
                   "\n".join(lines), cfg, tags=["moneybag"], priority=3)
 
 
+def send_candidates(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Push a 'top F&O candidates' card from the live momentum scan — a SCREEN you
+    review, not a recommendation. So you know what to look at even when away."""
+    cfg = cfg or get_config()
+    from dashboard import fno_scanner
+    top = int(cfg.get("candidate_top", 5) or 5)
+    r = fno_scanner.scan(top=top)
+    if not r.get("is_live"):
+        return {"success": False, "message": r.get("source", "scan unavailable")}
+    longs, shorts = r.get("longs", []), r.get("shorts", [])
+    if not longs and not shorts:
+        return {"success": False, "message": "no candidates"}
+    fmt = lambda x: f"{x['symbol']} {x['pct_change']:+.1f}%"
+    body = (
+        "▲ Longs: " + (", ".join(fmt(x) for x in longs) or "—") + "\n"
+        "▼ Shorts: " + (", ".join(fmt(x) for x in shorts) or "—") + "\n"
+        "Ranked by momentum (screen, NOT advice). Review each, check the gates, "
+        "and mind you're not chasing an extended move — you decide."
+    )
+    return notify("📊 Top F&O candidates", body, cfg, tags=["mag_right"], priority=3)
+
+
 def _market_open() -> bool:
     """NSE cash/F&O hours, weekdays (no holiday calendar). IST assumed = local."""
     try:
@@ -377,8 +402,25 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
             _save(_SUMMARY, {"last": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
             summary_sent = True
 
+    # Periodic "top candidates" digest (market hours only, throttled).
+    cand_every = res["config"].get("candidate_every_min", 0)
+    cand_sent = False
+    if cand_every and cand_every > 0:
+        st = _load(_CANDIDATE_LAST, {})
+        due = True
+        if st.get("last"):
+            try:
+                due = (datetime.now() - datetime.strptime(st["last"], "%Y-%m-%d %H:%M:%S")).total_seconds() >= cand_every * 60
+            except Exception:
+                due = True
+        if due:
+            send_candidates(res["config"])
+            _save(_CANDIDATE_LAST, {"last": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+            cand_sent = True
+
     res["alerts_sent"] = sent
     res["summary_sent"] = summary_sent
+    res["candidates_sent"] = cand_sent
     return res
 
 

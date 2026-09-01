@@ -29,3 +29,4 @@ dashboard/exit_peaks.json
 dashboard/exit_seen.json
 dashboard/exit_summary.json
 dashboard/exit_thesis_seen.json
+dashboard/exit_candidate_last.json

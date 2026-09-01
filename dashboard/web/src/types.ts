@@ -538,6 +538,8 @@ export interface ExitConfig {
   pullback_alert_pct: number;
   time_exit: string;
   summary_every_min: number;
+  candidate_every_min: number;
+  candidate_top: number;
   kite_link: string;
   notify: ExitNotify;
 }

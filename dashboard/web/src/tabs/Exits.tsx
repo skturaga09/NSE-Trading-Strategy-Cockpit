@@ -225,6 +225,11 @@ function RulesConfig() {
     const r = await api.sendExitSummary();
     setMsg(r.success ? `✅ Summary sent via ${r.channel}. Check your phone.` : `⚠ ${r.message ?? "no positions / not configured"}`);
   };
+  const candidates = async () => {
+    setMsg("Sending top candidates…");
+    const r = await api.sendCandidates();
+    setMsg(r.success ? `✅ Candidates sent via ${r.channel}. Check your phone.` : `⚠ ${r.message ?? "scan unavailable / not configured"}`);
+  };
 
   return (
     <div className="panel space-y-4 rounded-lg p-5">
@@ -239,6 +244,16 @@ function RulesConfig() {
         <label className="block">
           <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Portfolio summary every (min, 0=off)</span>
           <input value={String(cfg.summary_every_min)} onChange={(e) => setCfg({ ...cfg, summary_every_min: Number(e.target.value) || 0 })} inputMode="numeric"
+            className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
+        </label>
+        <label className="block">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Candidate digest every (min, 0=off)</span>
+          <input value={String(cfg.candidate_every_min)} onChange={(e) => setCfg({ ...cfg, candidate_every_min: Number(e.target.value) || 0 })} inputMode="numeric"
+            className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
+        </label>
+        <label className="block">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Candidates listed (each side)</span>
+          <input value={String(cfg.candidate_top)} onChange={(e) => setCfg({ ...cfg, candidate_top: Number(e.target.value) || 0 })} inputMode="numeric"
             className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
         </label>
       </div>
@@ -333,6 +348,7 @@ function RulesConfig() {
         <button onClick={save} disabled={saving} className="rounded-md border border-cyan/50 bg-cyan/15 px-4 py-2 font-mono text-xs font-bold text-cyan hover:bg-cyan/25 disabled:opacity-50">{saving ? "Saving…" : "Save rules"}</button>
         <button onClick={test} className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25">Send test alert</button>
         <button onClick={summary} className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25">Send summary now</button>
+        <button onClick={candidates} className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25">Send candidates now</button>
         {msg && <span className="font-mono text-[11px] text-muted">{msg}</span>}
       </div>
       <p className="font-mono text-[9px] text-muted">Background pushes need the exit-monitor job installed (dashboard/scripts). Signals are mechanical rule triggers you set — the decision to exit stays yours.</p>
