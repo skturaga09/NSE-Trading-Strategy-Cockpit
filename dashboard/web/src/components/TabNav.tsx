@@ -1,6 +1,12 @@
 export type TabId = "ideas" | "plumbing" | "journal" | "intraday" | "swing" | "exits" | "vcp" | "options" | "fno" | "backtest";
 
-// Ordered by the daily workflow: take trades → manage → review → find → tools.
+// Ordered by the daily workflow: take trades → manage → review → find.
+// Greeks/F&O Plan/Backtest/Plumbing are HIDDEN (low-value for the live workflow) but
+// their code + routes remain — to restore one, add its row back here:
+//   { id: "options", label: "Greeks", no: "..", hint: "option pricing" },
+//   { id: "fno", label: "F&O Plan", no: "..", hint: "weekly plan" },
+//   { id: "backtest", label: "Backtest", no: "..", hint: "grade a system" },
+//   { id: "plumbing", label: "Plumbing", no: "..", hint: "orders / diag" },
 const TABS: { id: TabId; label: string; no: string; hint: string }[] = [
   { id: "intraday", label: "Today", no: "01", hint: "trade now" },
   { id: "swing", label: "Swing", no: "02", hint: "hold overnight" },
@@ -8,10 +14,6 @@ const TABS: { id: TabId; label: string; no: string; hint: string }[] = [
   { id: "journal", label: "Journal", no: "04", hint: "review + costs" },
   { id: "ideas", label: "Ideas", no: "05", hint: "trade ideas" },
   { id: "vcp", label: "Screener", no: "06", hint: "VCP setups" },
-  { id: "options", label: "Greeks", no: "07", hint: "option pricing" },
-  { id: "fno", label: "F&O Plan", no: "08", hint: "weekly plan" },
-  { id: "backtest", label: "Backtest", no: "09", hint: "grade a system" },
-  { id: "plumbing", label: "Plumbing", no: "10", hint: "orders / diag" },
 ];
 
 export function TabNav({ active, onChange }: { active: TabId; onChange: (t: TabId) => void }) {
