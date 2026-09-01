@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
-import type { ExitConfig, ExitPosition } from "../types";
+import type { ExitConfig, ExitPosition, ThesisPosition } from "../types";
 
 /* =============================================================================
    EXIT MONITOR — rule-based exit signals on your LIVE Kite positions + phone
@@ -65,8 +65,73 @@ export function Exits() {
         )}
       </div>
 
+      <ThesisMonitor />
+
       <RulesConfig />
     </div>
+  );
+}
+
+const TH_COLOR: Record<string, string> = {
+  ALIGNED: "var(--green)", MIXED: "var(--gold)", DRIFT: "var(--red)", UNKNOWN: "var(--muted)",
+};
+const TH_EMOJI: Record<string, string> = { ALIGNED: "🟢", MIXED: "🟠", DRIFT: "🔴", UNKNOWN: "·" };
+
+function ThesisMonitor() {
+  const { data } = useQuery({ queryKey: ["thesis"], queryFn: api.getThesis, refetchInterval: 30000 });
+  const rows = data?.positions ?? [];
+  const drift = rows.filter((r) => r.status === "DRIFT");
+  return (
+    <div className="panel space-y-3 rounded-lg p-5">
+      <h2 className="flex flex-wrap items-center gap-2 font-display text-base font-bold text-ink">
+        🧭 Thesis-Drift Monitor <span className="font-mono text-[11px] font-normal text-muted">— does the underlying still agree with your bet? (30s · a nudge, not advice)</span>
+      </h2>
+      {rows.length === 0 ? (
+        <p className="font-mono text-[11px] text-muted">{data && !data.is_live ? `Unavailable — ${data.source}` : "No open option positions to check."}</p>
+      ) : (
+        <>
+          {drift.length > 0 && (
+            <div className="rounded-md border border-signalred/30 bg-signalred/[0.06] px-3 py-2 font-mono text-[11px] text-signalred">
+              ⚠ {drift.length} position(s) drifting — the underlying has turned against the bet: {drift.map((d) => d.symbol).join(", ")}
+            </div>
+          )}
+          <div className="overflow-x-auto rounded-md border border-line">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-raised/50 font-mono text-[10px] uppercase tracking-wider text-muted">
+                <tr>{["Position", "Bet", "Underlying", "Day %", "vs VWAP", "OI buildup", "Agreement"].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
+              </thead>
+              <tbody className="divide-y divide-line font-mono">
+                {rows.map((p) => <ThesisRow key={p.symbol} p={p} />)}
+              </tbody>
+            </table>
+          </div>
+          <p className="font-mono text-[9px] leading-relaxed text-muted">
+            Agreement = how many of 3 objective signals (today's move, position vs day VWAP, futures OI buildup) still back your direction.
+            🟢 aligned · 🟠 mixed · 🔴 drift (reason to hold has weakened). This flags where your entry thesis broke — it does <span className="text-gold">not</span> predict
+            or say sell; you decide. DRIFT also pushes a phone nudge once (with the exit monitor armed).
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ThesisRow({ p }: { p: ThesisPosition }) {
+  const c = TH_COLOR[p.status];
+  return (
+    <tr style={{ background: p.status === "DRIFT" ? "color-mix(in srgb, var(--red) 7%, transparent)" : undefined }}>
+      <td className="px-3 py-2 text-ink/90">{p.symbol}</td>
+      <td className="px-3 py-2 text-muted">{p.direction}</td>
+      <td className="px-3 py-2 text-ink/80">{p.underlying ?? "—"}</td>
+      <td className="px-3 py-2 tnum" style={{ color: (p.day_pct ?? 0) >= 0 ? "var(--green)" : "var(--red)" }}>{p.day_pct === null ? "—" : `${p.day_pct >= 0 ? "+" : ""}${p.day_pct}%`}</td>
+      <td className="px-3 py-2 tnum" style={{ color: (p.vs_vwap_pct ?? 0) >= 0 ? "var(--green)" : "var(--red)" }}>{p.vs_vwap_pct === null ? "—" : `${p.vs_vwap_pct >= 0 ? "+" : ""}${p.vs_vwap_pct}%`}</td>
+      <td className="px-3 py-2 text-[10px]" style={{ color: p.lean === "bullish" ? "var(--green)" : p.lean === "bearish" ? "var(--red)" : "var(--muted)" }}>{p.buildup ?? "—"}</td>
+      <td className="px-3 py-2">
+        <span className="rounded px-2 py-0.5 font-bold uppercase text-[10px]" style={{ background: `color-mix(in srgb, ${c} 15%, transparent)`, color: c }}>
+          {TH_EMOJI[p.status]} {p.status} {p.total > 0 ? `${p.agree}/${p.total}` : ""}
+        </span>
+      </td>
+    </tr>
   );
 }
 

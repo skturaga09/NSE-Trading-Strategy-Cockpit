@@ -52,6 +52,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 }
 
 _SUMMARY = _DIR / "exit_summary.json"
+_THESIS_SEEN = _DIR / "exit_thesis_seen.json"
 
 
 def _load(path: Path, default: Any) -> Any:
@@ -320,6 +321,28 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
     live = {r["symbol"] for r in res["actionable"]}
     seen = {k: v for k, v in seen.items() if k in live}
     _save(_SEEN, seen)
+
+    # Thesis-drift alerts: when an open option's underlying newly flips against
+    # the bet (status → DRIFT), nudge once. A heads-up, not an exit.
+    try:
+        from dashboard import thesis
+        align = thesis.alignment()
+        tseen = _load(_THESIS_SEEN, {})
+        drift_syms = set()
+        for p in align.get("positions", []):
+            if p["status"] == "DRIFT":
+                drift_syms.add(p["symbol"])
+                if tseen.get(p["symbol"]) != "DRIFT":
+                    notify(f"👀 THESIS DRIFT · {p['symbol']}",
+                           f"Underlying {p['underlying']} turned against your {p['direction']}:\n"
+                           f"day {p['day_pct']}% · vs VWAP {p['vs_vwap_pct']}% · {p['buildup']}\n"
+                           f"The reason you entered has weakened — you decide.",
+                           res["config"], tags=["eyes"], priority=3)
+                    tseen[p["symbol"]] = "DRIFT"
+        tseen = {k: v for k, v in tseen.items() if k in drift_syms}
+        _save(_THESIS_SEEN, tseen)
+    except Exception:
+        pass
 
     # Periodic portfolio heartbeat (market hours only, throttled).
     every = res["config"].get("summary_every_min", 0)

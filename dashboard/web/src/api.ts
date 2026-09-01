@@ -24,6 +24,7 @@ import type {
   SwingScan,
   ExitsStatus,
   ExitConfig,
+  ThesisAlignment,
 } from "./types";
 
 // All requests go to /api/* and are proxied to the Python backend (see vite.config.ts).
@@ -133,4 +134,7 @@ export const api = {
 
   sendExitSummary: () =>
     postJSON<Record<string, never>, { success: boolean; channel?: string; message?: string }>("/api/exits/summary-now", {}),
+
+  getThesis: () =>
+    getJSON<ThesisAlignment>(`/api/exits/thesis?_t=${Date.now()}`),
 };

@@ -583,3 +583,23 @@ export interface CostsSummary {
   net_after_costs: number;
   per_trade: CostPerTrade[];
 }
+
+// --- Thesis-drift monitor ---
+export interface ThesisPosition {
+  symbol: string;
+  underlying: string | null;
+  direction: "CALL" | "PUT";
+  day_pct: number | null;
+  vs_vwap_pct: number | null;
+  buildup: string | null;
+  lean: "bullish" | "bearish" | null;
+  agree: number;
+  total: number;
+  status: "ALIGNED" | "MIXED" | "DRIFT" | "UNKNOWN";
+}
+export interface ThesisAlignment {
+  timestamp: string;
+  is_live: boolean;
+  source: string;
+  positions: ThesisPosition[];
+}

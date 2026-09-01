@@ -176,6 +176,13 @@ def exits_test_alert() -> JSONResponse:
     return JSONResponse(res, status_code=200 if res.get("success") else 400)
 
 
+@app.get("/api/exits/thesis")
+def exits_thesis() -> Dict[str, Any]:
+    """Thesis-drift: does each open option's underlying still agree with the bet."""
+    from dashboard import thesis
+    return thesis.alignment()
+
+
 @app.post("/api/exits/summary-now")
 def exits_summary_now() -> JSONResponse:
     from dashboard import exit_monitor
