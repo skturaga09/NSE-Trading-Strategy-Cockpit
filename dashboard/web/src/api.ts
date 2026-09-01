@@ -17,6 +17,7 @@ import type {
   AttributionResponse,
   JournalRecentResponse,
   DecisionsResponse,
+  CostsSummary,
   IntradayContext,
   OptionChain,
   FnoScan,
@@ -102,6 +103,9 @@ export const api = {
 
   getDecisions: () =>
     getJSON<DecisionsResponse>(`/api/journal/decisions?_t=${Date.now()}`),
+
+  getCosts: () =>
+    getJSON<CostsSummary>(`/api/journal/costs?_t=${Date.now()}`),
 
   getIntradayContext: (underlying: string) =>
     getJSON<IntradayContext>(`/api/intraday/context?underlying=${underlying}&_t=${Date.now()}`),

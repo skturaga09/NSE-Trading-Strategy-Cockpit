@@ -208,6 +208,55 @@ def record_external(order_id: str, symbol: str, source: str, entry_price: float,
         )
 
 
+def estimate_trade_cost(is_option: Any, plan_type: Any, qty: Any, entry: Any, exit_price: Any) -> Optional[Dict[str, float]]:
+    """Estimate the round-trip Zerodha charges for one closed trade (buy leg + sell
+    leg) using the India charge model. An estimate — exact figures are in Kite
+    Console → Reports → Charges."""
+    from dashboard.zerodha_plumbing import (
+        STT_RATES, EXCHANGE_CHARGES_RATES, STAMP_DUTY_RATES, SEBI_TURNOVER_FEE_RATE, GST_RATE)
+    e, x = _num(entry), _num(exit_price)
+    q = abs(int(qty)) if qty else 0
+    if not e or not x or not q:
+        return None
+    cat = "FNO_OPTIONS" if is_option else ("EQUITY_INTRADAY" if plan_type == "intraday" else "EQUITY_DELIVERY")
+    buy_val, sell_val = q * e, q * x
+    if cat == "EQUITY_DELIVERY":
+        brok = 0.0
+        stt = buy_val * STT_RATES["EQUITY_DELIVERY_BUY"] + sell_val * STT_RATES["EQUITY_DELIVERY_SELL"]
+    else:
+        brok = min(20.0, buy_val * 0.0003) + min(20.0, sell_val * 0.0003)
+        stt = sell_val * STT_RATES["EQUITY_INTRADAY_SELL" if cat == "EQUITY_INTRADAY" else "FNO_OPTIONS_SELL"]
+    ex = (buy_val + sell_val) * EXCHANGE_CHARGES_RATES.get(cat, 3.35e-5)
+    stamp = buy_val * STAMP_DUTY_RATES.get(cat, 3e-5)
+    sebi = (buy_val + sell_val) * SEBI_TURNOVER_FEE_RATE
+    gst = (brok + ex + sebi) * GST_RATE
+    total = brok + stt + ex + stamp + sebi + gst
+    return {"brokerage": round(brok, 2), "stt": round(stt, 2), "exchange": round(ex, 2),
+            "stamp": round(stamp, 2), "sebi": round(sebi, 2), "gst": round(gst, 2), "total": round(total, 2)}
+
+
+def costs_summary() -> Dict[str, Any]:
+    """Total estimated Zerodha charges across all CLOSED journaled trades."""
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT symbol, is_option, plan_type, qty, entry_price, exit_price, net_pnl "
+                         "FROM trade_journal WHERE status='CLOSED'").fetchall()
+    tot = {"brokerage": 0.0, "stt": 0.0, "exchange": 0.0, "stamp": 0.0, "sebi": 0.0, "gst": 0.0, "total": 0.0}
+    per: List[Dict[str, Any]] = []
+    gross = 0.0
+    for r in rows:
+        c_ = estimate_trade_cost(r["is_option"], r["plan_type"], r["qty"], r["entry_price"], r["exit_price"])
+        if not c_:
+            continue
+        for k in tot:
+            tot[k] += c_[k]
+        gross += r["net_pnl"] or 0.0
+        per.append({"symbol": r["symbol"], **c_, "net_pnl": r["net_pnl"]})
+    tot = {k: round(v, 2) for k, v in tot.items()}
+    return {"trades": len(per), "breakdown": tot, "total": tot["total"],
+            "gross_pnl": round(gross, 2), "net_after_costs": round(gross - tot["total"], 2),
+            "per_trade": sorted(per, key=lambda p: p["total"], reverse=True)}
+
+
 def record_decision(d: Dict[str, Any]) -> int:
     """Append one intraday-console decision (any verdict) to the decision log.
     Returns the new row id. Result fields stay in the trade journal; this table

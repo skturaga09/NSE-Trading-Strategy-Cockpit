@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import type { AttributionResponse, ExpectancyStat, JournalTrade, DecisionsResponse } from "../types";
+import type { AttributionResponse, ExpectancyStat, JournalTrade, DecisionsResponse, CostsSummary } from "../types";
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${inr(n)}`;
@@ -27,6 +27,11 @@ export function Journal() {
     queryFn: api.getDecisions,
     refetchInterval: 3000,
   });
+  const costs = useQuery({
+    queryKey: ["journal-costs"],
+    queryFn: api.getCosts,
+    refetchInterval: 3000,
+  });
 
   const a = attr.data;
   const trades = recent.data?.trades ?? [];
@@ -48,6 +53,7 @@ export function Journal() {
         <AttributionTable title="By regime" rows={a.by_regime} min={a.min_sample} />
       </div>
       <EquityCurve trades={trades} />
+      <CostsCard data={costs.data} />
       <RecentTrades trades={trades} />
       <DecisionLog data={decisions.data} />
     </div>
@@ -106,6 +112,63 @@ function DecisionLog({ data }: { data: DecisionsResponse | undefined }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function CostsCard({ data }: { data: CostsSummary | undefined }) {
+  if (!data || data.trades === 0) {
+    return (
+      <div className="panel rounded-lg p-6">
+        <h3 className="font-display text-sm font-bold text-ink">
+          🧾 Charges paid <span className="font-mono text-[11px] font-normal text-muted">— estimated, across closed trades</span>
+        </h3>
+        <p className="mt-2 font-mono text-[11px] text-muted">
+          No closed journaled trades yet. Import your Kite trades (Journal → Import) or place through the dashboard, then this shows
+          estimated Zerodha charges. Exact figures live in Kite Console → Reports → Charges.
+        </p>
+      </div>
+    );
+  }
+  const b = data.breakdown;
+  const cell = (k: string, v: number) => (
+    <div className="rounded-md border border-line bg-raised/40 px-3 py-2">
+      <div className="font-mono text-[9px] uppercase tracking-wider text-muted">{k}</div>
+      <div className="tnum text-sm font-bold text-ink">{inr(v)}</div>
+    </div>
+  );
+  return (
+    <div className="panel space-y-3 rounded-lg p-6">
+      <h3 className="font-display text-sm font-bold text-ink">
+        🧾 Charges paid to Zerodha <span className="font-mono text-[11px] font-normal text-gold">— ESTIMATED (not from Kite API)</span>
+      </h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-4">
+        <div className="rounded-md border border-line bg-raised/40 px-3 py-2">
+          <div className="font-mono text-[9px] uppercase tracking-wider text-muted">Total charges ({data.trades} trades)</div>
+          <div className="tnum text-2xl font-bold text-red" style={{ color: "var(--red)" }}>{inr(data.total)}</div>
+        </div>
+        <div className="rounded-md border border-line bg-raised/40 px-3 py-2">
+          <div className="font-mono text-[9px] uppercase tracking-wider text-muted">Gross P&L</div>
+          <div className="tnum text-lg font-bold" style={{ color: posColor(data.gross_pnl) }}>{signed(data.gross_pnl)}</div>
+        </div>
+        <div className="rounded-md border border-line bg-raised/40 px-3 py-2">
+          <div className="font-mono text-[9px] uppercase tracking-wider text-muted">Net after charges</div>
+          <div className="tnum text-lg font-bold" style={{ color: posColor(data.net_after_costs) }}>{signed(data.net_after_costs)}</div>
+        </div>
+        <div className="rounded-md border border-line bg-raised/40 px-3 py-2">
+          <div className="font-mono text-[9px] uppercase tracking-wider text-muted">Charges as % of gross</div>
+          <div className="tnum text-lg font-bold text-gold">{data.gross_pnl ? ((data.total / Math.abs(data.gross_pnl)) * 100).toFixed(1) + "%" : "—"}</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+        {cell("Brokerage", b.brokerage)}{cell("STT", b.stt)}{cell("Exchange", b.exchange)}
+        {cell("GST", b.gst)}{cell("Stamp", b.stamp)}{cell("SEBI", b.sebi)}
+      </div>
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        ⚠ <span className="text-gold">Estimated</span> using India charge rates (STT, exchange txn, SEBI, stamp, 18% GST, ₹20 flat brokerage) on your
+        entry/exit/qty — Kite's API does not expose charges. Your actual bill can differ (brokerage plan, DP charges, rounding). Exact figures:
+        Kite Console → Reports → Charges / Tradewise P&L.
+      </p>
     </div>
   );
 }

@@ -219,6 +219,12 @@ def journal_decisions() -> Dict[str, Any]:
     return {"decisions": journal.decisions(), "summary": journal.decision_summary()}
 
 
+@app.get("/api/journal/costs")
+def journal_costs() -> Dict[str, Any]:
+    """Estimated Zerodha charges across closed journaled trades."""
+    return journal.costs_summary()
+
+
 @app.get("/api/strategy/recommendations")
 def recommendations() -> Dict[str, Any]:
     return core.build_trade_recommendations()

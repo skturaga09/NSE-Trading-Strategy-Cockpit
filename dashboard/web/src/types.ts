@@ -560,3 +560,26 @@ export interface ExitsStatus {
   positions: ExitPosition[];
   actionable: ExitPosition[];
 }
+
+// --- Estimated Zerodha charges (NOT from Kite API — India charge model) ---
+export interface CostBreakdownEst {
+  brokerage: number;
+  stt: number;
+  exchange: number;
+  stamp: number;
+  sebi: number;
+  gst: number;
+  total: number;
+}
+export interface CostPerTrade extends CostBreakdownEst {
+  symbol: string;
+  net_pnl: number | null;
+}
+export interface CostsSummary {
+  trades: number;
+  breakdown: CostBreakdownEst;
+  total: number;
+  gross_pnl: number;
+  net_after_costs: number;
+  per_trade: CostPerTrade[];
+}
