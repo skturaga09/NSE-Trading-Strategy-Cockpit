@@ -43,12 +43,15 @@ def get_universe(universe: str, custom_tickers: str | None = None) -> list[str]:
         elif universe == "nifty200":
             return ns.get_nifty200_with_ns()
         elif universe == "nifty500":
-            return ns.get_nifty_total_market_with_ns()
+            return ns.get_nifty500_with_ns()
         else:
             return ns.get_nifty50_with_ns()
-    except ImportError:
-        # Fallback: Nifty 50 hardcoded core components
-        print("Warning: niftystocks package not available. Using hardcoded Nifty 50 list.", file=sys.stderr)
+    except Exception:
+        # Fallback: Nifty 50 hardcoded core components. Catch *any* failure — not just
+        # ImportError — so a niftystocks API rename (e.g. the old
+        # get_nifty_total_market_with_ns) or a network hiccup degrades gracefully to a
+        # working screen instead of throwing an uncaught AttributeError up the stack.
+        print("Warning: niftystocks universe fetch failed. Using hardcoded Nifty 50 list.", file=sys.stderr)
         nifty50_core = [
             "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
             "BHARTIARTL", "ITC", "SBIN", "LT", "KOTAKBANK",

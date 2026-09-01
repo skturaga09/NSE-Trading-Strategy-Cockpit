@@ -20,5 +20,20 @@
     <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/dashboard_server.out.log</string>
     <key>StandardErrorPath</key>
     <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/dashboard_server.err.log</string>
+    <!-- macOS launchd defaults the soft open-files limit to 256, far too low for a
+         Python server (110+ mmap'd .so before any work) plus sqlite + sockets +
+         yfinance's slowly-leaking tz cache. This was causing recurring Errno-24
+         "Too many open files" crash-restarts. Raise the ceiling well clear of any
+         slow creep; the daily restart resets it anyway. -->
+    <key>SoftResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>8192</integer>
+    </dict>
+    <key>HardResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>16384</integer>
+    </dict>
 </dict>
 </plist>
