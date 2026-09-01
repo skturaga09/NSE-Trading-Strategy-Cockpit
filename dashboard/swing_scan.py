@@ -51,6 +51,54 @@ def _futures_map() -> Dict[str, Dict[str, Any]]:
     return best
 
 
+def _daily_candles(token: str, days: int = 45) -> List[List[Any]]:
+    """Daily OHLC(+OI) candles for a futures token over the last `days`."""
+    frm = (date.today() - timedelta(days=days)).isoformat()
+    to = date.today().isoformat()
+    try:
+        r = requests.get(f"https://api.kite.trade/instruments/historical/{token}/day",
+                         params={"from": frm, "to": to, "oi": 1}, headers=_headers(), timeout=8)
+        j = r.json()
+        return j.get("data", {}).get("candles", []) if j.get("status") == "success" else []
+    except Exception:
+        return []
+
+
+def _buildup_from_candles(candles: List[List[Any]]) -> Optional[Dict[str, Any]]:
+    """OI buildup from the last two daily candles (price + OI change)."""
+    if len(candles) < 2:
+        return None
+    prev, last = candles[-2], candles[-1]
+    if len(last) < 7 or len(prev) < 7:
+        return None
+    oi_now, oi_prev, px_now, px_prev = last[6], prev[6], last[4], prev[4]
+    up, oi_up = px_now >= px_prev, (oi_now - oi_prev) >= 0
+    label = ("Long buildup" if up and oi_up else "Short buildup" if (not up) and oi_up
+             else "Short covering" if up and (not oi_up) else "Long unwinding")
+    lean = "bullish" if label in ("Long buildup", "Short covering") else "bearish"
+    return {"label": label, "lean": lean, "oi": oi_now,
+            "oi_chg_pct": round((oi_now - oi_prev) / oi_prev * 100, 1) if oi_prev else None}
+
+
+def _structure_levels(candles: List[List[Any]], k: int = 2) -> Dict[str, Optional[float]]:
+    """Nearest swing-low support below, and swing-high resistance above, expressed as
+    % from the latest close. Uses fractal pivots (a low/high with k lower/higher bars
+    on each side). Returns None where no clean pivot exists."""
+    if len(candles) < 2 * k + 3:
+        return {"support_pct": None, "resistance_pct": None}
+    highs = [c[2] for c in candles]
+    lows = [c[3] for c in candles]
+    latest = candles[-1][4]
+    piv_low = [lows[i] for i in range(k, len(candles) - k) if lows[i] == min(lows[i - k:i + k + 1])]
+    piv_high = [highs[i] for i in range(k, len(candles) - k) if highs[i] == max(highs[i - k:i + k + 1])]
+    support = max([p for p in piv_low if p < latest], default=None)
+    resistance = min([p for p in piv_high if p > latest], default=None)
+    return {
+        "support_pct": round((latest - support) / latest * 100, 2) if support else None,
+        "resistance_pct": round((resistance - latest) / latest * 100, 2) if resistance else None,
+    }
+
+
 def _oi_buildup(token: str) -> Optional[Dict[str, Any]]:
     """Classify futures OI buildup from the last two daily candles (with OI)."""
     frm = (date.today() - timedelta(days=7)).isoformat()
@@ -127,24 +175,56 @@ def scan(top: int = 8, risk: float = 1000.0) -> Dict[str, Any]:
         def enrich(r: Dict[str, Any], bias: str) -> Dict[str, Any]:
             r = dict(r)
             r["bias"] = bias
-            r["buildup"] = _oi_buildup(r.pop("fut_token"))
-            # Gap-aware plan: stop wider than intraday (>= 3% or 1.5x today's range).
-            entry = r["ltp"]
-            stop_pct = round(max(3.0, r["range_pct"] * 1.5), 1)
-            lot = r["lot_size"]
+            entry, lot = r["ltp"], r["lot_size"]
+            candles = _daily_candles(r.pop("fut_token"))
+            r["buildup"] = _buildup_from_candles(candles)
+            struct = _structure_levels(candles)
+            vol_pct = round(max(3.0, r["range_pct"] * 1.5), 1)   # volatility fallback
+
+            # STOP: anchor just beyond the nearest swing level if it's a sane distance
+            # (1–15%), else fall back to the volatility stop. 0.3% buffer past the level.
+            stop_basis = "volatility"
             if bias == "LONG":
+                sp = struct.get("support_pct")
+                stop_pct = (sp + 0.3) if (sp and 1.0 <= sp <= 15.0) else vol_pct
+                if sp and 1.0 <= sp <= 15.0:
+                    stop_basis = "structure (swing low)"
                 stop = round(entry * (1 - stop_pct / 100), 1)
-                target = round(entry * (1 + 2 * stop_pct / 100), 1)
             else:
+                rp = struct.get("resistance_pct")
+                stop_pct = (rp + 0.3) if (rp and 1.0 <= rp <= 15.0) else vol_pct
+                if rp and 1.0 <= rp <= 15.0:
+                    stop_basis = "structure (swing high)"
                 stop = round(entry * (1 + stop_pct / 100), 1)
-                target = round(entry * (1 - 2 * stop_pct / 100), 1)
             risk_per_share = abs(entry - stop)
+
+            # TARGET: the nearest opposite structure level if it clears ≥ 1R after costs,
+            # else a 2R target off the stop.
+            tgt_basis = "2R"
+            if bias == "LONG":
+                rp = struct.get("resistance_pct")
+                res = entry * (1 + rp / 100) if rp else None
+                if res and (res - entry) >= risk_per_share:
+                    target, tgt_basis = round(res, 1), "structure (resistance)"
+                else:
+                    target = round(entry + 2 * risk_per_share, 1)
+            else:
+                sp = struct.get("support_pct")
+                sup = entry * (1 - sp / 100) if sp else None
+                if sup and (entry - sup) >= risk_per_share:
+                    target, tgt_basis = round(sup, 1), "structure (support)"
+                else:
+                    target = round(entry - 2 * risk_per_share, 1)
+
+            reward = abs(target - entry)
+            rr = round(reward / risk_per_share, 2) if risk_per_share > 0 else None
             per_lot_risk = round(risk_per_share * lot)
             max_lots = int(risk // per_lot_risk) if per_lot_risk > 0 else 0
-            notional_1lot = round(entry * lot)
-            r["plan"] = {"entry": entry, "stop": stop, "target": target, "stop_pct": stop_pct,
+            r["plan"] = {"entry": entry, "stop": stop, "target": target,
+                         "stop_pct": round(stop_pct, 1), "rr": rr,
+                         "stop_basis": stop_basis, "target_basis": tgt_basis,
                          "per_lot_risk": per_lot_risk, "max_lots": max_lots,
-                         "notional_1lot": notional_1lot, "fits": max_lots >= 1}
+                         "notional_1lot": round(entry * lot), "fits": max_lots >= 1}
             return r
 
         out["constructive"] = [enrich(r, "LONG") for r in constructive]

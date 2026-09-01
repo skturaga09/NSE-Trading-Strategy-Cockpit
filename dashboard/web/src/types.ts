@@ -486,6 +486,9 @@ export interface SwingPlan {
   stop: number;
   target: number;
   stop_pct: number;
+  rr: number | null;
+  stop_basis: string;
+  target_basis: string;
   per_lot_risk: number;
   max_lots: number;
   notional_1lot: number;

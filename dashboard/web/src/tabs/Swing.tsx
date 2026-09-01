@@ -160,10 +160,14 @@ function SwingRow({ c, riskBudget, opt, onOption }: { c: SwingCandidate; riskBud
           </span>
         )}
       </div>
-      <div className="mt-1.5 grid grid-cols-3 gap-2 font-mono text-[10px]">
+      <div className="mt-1.5 grid grid-cols-2 gap-2 font-mono text-[10px] sm:grid-cols-4">
         <div><span className="text-muted">Entry</span> <span className="tnum text-ink">{c.plan.entry}</span></div>
         <div><span className="text-muted">Stop</span> <span className="tnum text-signalred">{c.plan.stop}</span> <span className="text-muted">({c.plan.stop_pct}%)</span></div>
         <div><span className="text-muted">Target</span> <span className="tnum text-signalgreen">{c.plan.target}</span></div>
+        <div><span className="text-muted">R:R</span> <span className="tnum font-bold" style={{ color: (c.plan.rr ?? 0) >= 2 ? "var(--green)" : "var(--gold)" }}>{c.plan.rr ?? "—"}</span></div>
+      </div>
+      <div className="mt-0.5 font-mono text-[9px] text-muted">
+        stop: {c.plan.stop_basis} · target: {c.plan.target_basis}
       </div>
       <div className="mt-1 flex flex-wrap items-center justify-between gap-2 font-mono text-[10px]">
         <span className="text-muted">Future: 1 lot (×{c.lot_size}) risks <span className="tnum text-ink">{inr(c.plan.per_lot_risk)}</span>
