@@ -23,7 +23,7 @@ const ModeCtx = createContext<{
 export const useMode = () => useContext(ModeCtx);
 
 export default function App() {
-  const [tab, setTab] = useState<TabId>("ideas");
+  const [tab, setTab] = useState<TabId>("intraday");
   const [mode, setMode] = useState<Mode>("mock");
   const [afterHours, setAfterHours] = useState(false);
 
