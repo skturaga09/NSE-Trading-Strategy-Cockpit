@@ -20,6 +20,7 @@ import type {
   CostsSummary,
   IntradayContext,
   OptionChain,
+  IntradayPlan,
   FnoScan,
   SwingScan,
   ExitsStatus,
@@ -113,6 +114,9 @@ export const api = {
 
   getOptionChain: (underlying: string) =>
     getJSON<OptionChain>(`/api/intraday/optionchain?underlying=${underlying}&_t=${Date.now()}`),
+
+  getIntradayPlan: (underlying: string) =>
+    getJSON<IntradayPlan>(`/api/intraday/plan?underlying=${underlying}&_t=${Date.now()}`),
 
   getFnoScan: () =>
     getJSON<FnoScan>(`/api/intraday/fno-scan?_t=${Date.now()}`),

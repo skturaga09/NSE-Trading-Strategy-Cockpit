@@ -212,6 +212,13 @@ def intraday_fno_scan() -> Dict[str, Any]:
     return fno_scanner.scan()
 
 
+@app.get("/api/intraday/plan")
+def intraday_plan(underlying: str = "NIFTY") -> Dict[str, Any]:
+    """Structure-based intraday stop/target (underlying) from 15-min swing pivots."""
+    from dashboard import swing_scan
+    return swing_scan.intraday_structure_plan(underlying)
+
+
 @app.get("/api/intraday/optionchain")
 def intraday_optionchain(underlying: str = "NIFTY") -> Dict[str, Any]:
     """Live ATM ±3 option chain (LTP, bid/ask/spread, volume, OI, computed IV),

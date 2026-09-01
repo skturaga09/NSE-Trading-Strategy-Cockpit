@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
-import type { IntradayContext, OptionChain, OptionLeg, FnoScan, FnoCandidate } from "../types";
+import type { IntradayContext, OptionChain, OptionLeg, FnoScan, FnoCandidate, IntradayPlan } from "../types";
 
 /* =============================================================================
    Intraday Index-Options DISCIPLINE CONSOLE  (NIFTY / BANKNIFTY, intraday only)
@@ -167,6 +167,19 @@ export function Intraday() {
       setLoadingChain(false);
     }
   };
+  const [plan, setPlan] = useState<IntradayPlan | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState(false);
+  const fetchPlan = async (u: string = underlying) => {
+    setLoadingPlan(true);
+    try {
+      setPlan(await api.getIntradayPlan(u));
+    } catch {
+      setPlan(null);
+    } finally {
+      setLoadingPlan(false);
+    }
+  };
+
   // Clicking an option premium seeds the sizing inputs.
   const pickLeg = (leg: OptionLeg | null, dir: "LONG" | "SHORT") => {
     if (!leg || leg.ltp === null) return;
@@ -192,6 +205,7 @@ export function Intraday() {
     setDirection(bias);
     void autofill(symbol);
     void fetchChain(symbol);
+    void fetchPlan(symbol);
   };
   // Auto-run the F&O scan once when the tab opens (no manual button needed).
   useEffect(() => { void runScan(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
@@ -293,6 +307,7 @@ export function Intraday() {
               className="rounded border border-cyan/40 bg-cyan/10 px-2.5 py-1 font-mono text-[10px] font-bold text-cyan hover:bg-cyan/20 disabled:opacity-50">↻ refresh</button>
           </div>
           {ctx && <LiveContextStrip ctx={ctx} />}
+          {(loadingPlan || plan) && <StructurePlan plan={plan} loading={loadingPlan} direction={direction} />}
           {chain?.is_live && <ExpectedMove chain={chain} ctx={ctx} />}
           {chain?.is_live && <TomorrowScenarios chain={chain} ctx={ctx} direction={direction} />}
           {chain?.is_live && <MissedProfit chain={chain} ctx={ctx} direction={direction} />}
@@ -311,7 +326,7 @@ export function Intraday() {
             opts={[["live", "Live"], ["delayed", "Delayed"], ["user-supplied", "User-supplied"], ["estimated", "Estimated"], ["missing", "Missing"]]} />
           <div className="space-y-1">
             <UnderlyingField value={underlying} onChange={setUnderlying} />
-            <button onClick={() => { void autofill(); void fetchChain(); }} disabled={loadingCtx || loadingChain}
+            <button onClick={() => { void autofill(); void fetchChain(); void fetchPlan(); }} disabled={loadingCtx || loadingChain}
               className="w-full rounded border border-cyan/40 bg-cyan/10 py-1 font-mono text-[10px] font-bold text-cyan hover:bg-cyan/20 disabled:opacity-50">
               ⟳ Load this stock (data + chain)
             </button>
@@ -634,6 +649,35 @@ function TomorrowScenarios({ chain, ctx, direction }: { chain: OptionChain; ctx:
         band — it can also break beyond, either way). Future P&L = move × lot ({lot}). Option P&L reprices the ATM {legLabel} with Black-Scholes at the
         landing price after one day of <span className="text-gold">time decay</span> (same IV). Real fills, IV shifts, spread &amp; costs will differ. This is a
         <span className="text-gold"> range of outcomes, not a prediction</span> of which one happens — the gates still decide whether to take it.
+      </p>
+    </div>
+  );
+}
+
+function StructurePlan({ plan, loading, direction }: { plan: IntradayPlan | null; loading: boolean; direction: "LONG" | "SHORT" }) {
+  if (loading && !plan) return <div className="rounded-lg border border-cyan/20 bg-cyan/[0.04] p-3 font-mono text-[11px] text-muted">Loading intraday structure levels…</div>;
+  if (!plan) return null;
+  if (!plan.is_live) {
+    return <div className="rounded-md border border-gold/30 bg-gold/10 px-4 py-2 font-mono text-[11px] text-gold">⚠ Structure plan unavailable — {plan.source}</div>;
+  }
+  const lv = direction === "LONG" ? plan.long : plan.short;
+  if (!lv) return null;
+  const rrColor = (lv.rr ?? 0) >= 2 ? "var(--green)" : "var(--gold)";
+  return (
+    <div className="space-y-2 rounded-lg border border-cyan/25 bg-cyan/[0.04] p-4">
+      <div className="font-display text-sm font-bold text-ink">
+        📐 Intraday structure plan <span className="font-mono text-[11px] font-normal text-muted">— {plan.underlying} ({direction}) · underlying levels, {plan.source}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-md border border-line bg-raised/40 px-3 py-2"><div className="font-mono text-[9px] uppercase tracking-wider text-muted">Entry (spot)</div><div className="tnum text-base font-bold text-ink">₹{lv.entry}</div></div>
+        <div className="rounded-md border border-line bg-raised/40 px-3 py-2"><div className="font-mono text-[9px] uppercase tracking-wider text-muted">Stop ({lv.stop_pct}%)</div><div className="tnum text-base font-bold" style={{ color: "var(--red)" }}>₹{lv.stop}</div></div>
+        <div className="rounded-md border border-line bg-raised/40 px-3 py-2"><div className="font-mono text-[9px] uppercase tracking-wider text-muted">Target</div><div className="tnum text-base font-bold" style={{ color: "var(--green)" }}>₹{lv.target}</div></div>
+        <div className="rounded-md border border-line bg-raised/40 px-3 py-2"><div className="font-mono text-[9px] uppercase tracking-wider text-muted">Reward : Risk</div><div className="tnum text-base font-bold" style={{ color: rrColor }}>{lv.rr ?? "—"}</div></div>
+      </div>
+      <div className="font-mono text-[9px] text-muted">stop: {lv.stop_basis} · target: {lv.target_basis}</div>
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        Levels on the <span className="text-ink/80">underlying</span>, from 15-min swing pivots over recent sessions (volatility fallback where no clean level).
+        These are a risk frame for your option trade — translate to the premium and confirm against the chart; not advice.
       </p>
     </div>
   );

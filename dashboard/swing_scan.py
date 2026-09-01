@@ -99,6 +99,86 @@ def _structure_levels(candles: List[List[Any]], k: int = 2) -> Dict[str, Optiona
     }
 
 
+def _levels(entry: float, struct: Dict[str, Optional[float]], bias: str,
+            vol_fallback: float, lo: float = 1.0, hi: float = 15.0, buf: float = 0.3) -> Dict[str, Any]:
+    """Derive stop & target from structure (nearest swing level) with a volatility
+    fallback, plus R:R. Shared by swing (daily) and intraday plans."""
+    if bias == "LONG":
+        sp = struct.get("support_pct")
+        use = sp is not None and lo <= sp <= hi
+        stop_pct = (sp + buf) if use else vol_fallback
+        stop = round(entry * (1 - stop_pct / 100), 2)
+        stop_basis = "structure (swing low)" if use else "volatility"
+    else:
+        rp = struct.get("resistance_pct")
+        use = rp is not None and lo <= rp <= hi
+        stop_pct = (rp + buf) if use else vol_fallback
+        stop = round(entry * (1 + stop_pct / 100), 2)
+        stop_basis = "structure (swing high)" if use else "volatility"
+    risk = abs(entry - stop)
+    tgt_basis = "2R"
+    if bias == "LONG":
+        rp = struct.get("resistance_pct")
+        res = entry * (1 + rp / 100) if rp else None
+        if res and (res - entry) >= risk:
+            target, tgt_basis = round(res, 2), "structure (resistance)"
+        else:
+            target = round(entry + 2 * risk, 2)
+    else:
+        sp = struct.get("support_pct")
+        sup = entry * (1 - sp / 100) if sp else None
+        if sup and (entry - sup) >= risk:
+            target, tgt_basis = round(sup, 2), "structure (support)"
+        else:
+            target = round(entry - 2 * risk, 2)
+    rr = round(abs(target - entry) / risk, 2) if risk > 0 else None
+    return {"entry": entry, "stop": stop, "target": target, "stop_pct": round(stop_pct, 1),
+            "rr": rr, "stop_basis": stop_basis, "target_basis": tgt_basis, "risk_per_share": round(risk, 2)}
+
+
+def _intraday_candles(token: str, days: int = 5, interval: str = "15minute") -> List[List[Any]]:
+    frm = (date.today() - timedelta(days=days)).isoformat()
+    to = date.today().isoformat()
+    try:
+        r = requests.get(f"https://api.kite.trade/instruments/historical/{token}/{interval}",
+                         params={"from": frm, "to": to}, headers=_headers(), timeout=8)
+        j = r.json()
+        return j.get("data", {}).get("candles", []) if j.get("status") == "success" else []
+    except Exception:
+        return []
+
+
+def intraday_structure_plan(underlying: str) -> Dict[str, Any]:
+    """Structure-based intraday stop/target for a single underlying, from 15-min
+    swing pivots over the last few sessions (volatility fallback ~1.5%)."""
+    from dashboard.option_chain import _spot_ltp
+    underlying = underlying.upper()
+    out: Dict[str, Any] = {"underlying": underlying, "is_live": False, "source": "unavailable",
+                           "spot": None, "long": None, "short": None}
+    if not _connected():
+        out["source"] = "Kite not connected"
+        return out
+    try:
+        fut = _futures_map().get(underlying)
+        spot = _spot_ltp(underlying)
+        if not fut or not spot:
+            out["source"] = "No futures/spot for this underlying"
+            return out
+        candles = _intraday_candles(fut["token"])
+        if len(candles) < 12:
+            out["source"] = "Not enough intraday history"
+            return out
+        struct = _structure_levels(candles, k=2)
+        out.update({
+            "is_live": True, "source": "Zerodha Kite 15-min structure", "spot": spot,
+            "long": _levels(spot, struct, "LONG", vol_fallback=1.5, lo=0.5, hi=6.0, buf=0.2),
+            "short": _levels(spot, struct, "SHORT", vol_fallback=1.5, lo=0.5, hi=6.0, buf=0.2),
+        })
+    except Exception as e:
+        out["source"] = f"Kite request failed: {e}"
+    return out
+
+
 def _oi_buildup(token: str) -> Optional[Dict[str, Any]]:
     """Classify futures OI buildup from the last two daily candles (with OI)."""
     frm = (date.today() - timedelta(days=7)).isoformat()
@@ -180,50 +260,10 @@ def scan(top: int = 8, risk: float = 1000.0) -> Dict[str, Any]:
             r["buildup"] = _buildup_from_candles(candles)
             struct = _structure_levels(candles)
             vol_pct = round(max(3.0, r["range_pct"] * 1.5), 1)   # volatility fallback
-
-            # STOP: anchor just beyond the nearest swing level if it's a sane distance
-            # (1–15%), else fall back to the volatility stop. 0.3% buffer past the level.
-            stop_basis = "volatility"
-            if bias == "LONG":
-                sp = struct.get("support_pct")
-                stop_pct = (sp + 0.3) if (sp and 1.0 <= sp <= 15.0) else vol_pct
-                if sp and 1.0 <= sp <= 15.0:
-                    stop_basis = "structure (swing low)"
-                stop = round(entry * (1 - stop_pct / 100), 1)
-            else:
-                rp = struct.get("resistance_pct")
-                stop_pct = (rp + 0.3) if (rp and 1.0 <= rp <= 15.0) else vol_pct
-                if rp and 1.0 <= rp <= 15.0:
-                    stop_basis = "structure (swing high)"
-                stop = round(entry * (1 + stop_pct / 100), 1)
-            risk_per_share = abs(entry - stop)
-
-            # TARGET: the nearest opposite structure level if it clears ≥ 1R after costs,
-            # else a 2R target off the stop.
-            tgt_basis = "2R"
-            if bias == "LONG":
-                rp = struct.get("resistance_pct")
-                res = entry * (1 + rp / 100) if rp else None
-                if res and (res - entry) >= risk_per_share:
-                    target, tgt_basis = round(res, 1), "structure (resistance)"
-                else:
-                    target = round(entry + 2 * risk_per_share, 1)
-            else:
-                sp = struct.get("support_pct")
-                sup = entry * (1 - sp / 100) if sp else None
-                if sup and (entry - sup) >= risk_per_share:
-                    target, tgt_basis = round(sup, 1), "structure (support)"
-                else:
-                    target = round(entry - 2 * risk_per_share, 1)
-
-            reward = abs(target - entry)
-            rr = round(reward / risk_per_share, 2) if risk_per_share > 0 else None
-            per_lot_risk = round(risk_per_share * lot)
+            lv = _levels(entry, struct, bias, vol_fallback=vol_pct, lo=1.0, hi=15.0)
+            per_lot_risk = round(lv["risk_per_share"] * lot)
             max_lots = int(risk // per_lot_risk) if per_lot_risk > 0 else 0
-            r["plan"] = {"entry": entry, "stop": stop, "target": target,
-                         "stop_pct": round(stop_pct, 1), "rr": rr,
-                         "stop_basis": stop_basis, "target_basis": tgt_basis,
-                         "per_lot_risk": per_lot_risk, "max_lots": max_lots,
+            r["plan"] = {**lv, "per_lot_risk": per_lot_risk, "max_lots": max_lots,
                          "notional_1lot": round(entry * lot), "fits": max_lots >= 1}
             return r
 

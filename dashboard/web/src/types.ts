@@ -608,3 +608,23 @@ export interface ThesisAlignment {
   source: string;
   positions: ThesisPosition[];
 }
+
+// --- Intraday structure-based plan (underlying) ---
+export interface StructLevels {
+  entry: number;
+  stop: number;
+  target: number;
+  stop_pct: number;
+  rr: number | null;
+  stop_basis: string;
+  target_basis: string;
+  risk_per_share: number;
+}
+export interface IntradayPlan {
+  underlying: string;
+  is_live: boolean;
+  source: string;
+  spot: number | null;
+  long: StructLevels | null;
+  short: StructLevels | null;
+}
