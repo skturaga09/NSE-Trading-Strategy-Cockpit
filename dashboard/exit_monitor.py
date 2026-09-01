@@ -11,7 +11,8 @@ signals to your phone (ntfy or Telegram) so you don't have to watch the screen.
 State (all gitignored, in dashboard/):
   exit_config.json  rules + notification channel
   exit_peaks.json   best P&L% seen per symbol (for the trailing stop)
-  exit_seen.json    last signal per symbol (so an alert fires once, not every poll)
+  exit_seen.json    per symbol: {signal, ts, pnl_pct} — drives once-then-every-N-min
+                    re-alerts with reversal suppression (legacy plain-string is migrated)
 """
 
 import json
@@ -43,6 +44,12 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         {"above": 40.0, "trail": 5.0},
     ],
     "pullback_alert_pct": 5.0,  # heads-up when a winner gives back this much from peak (0=off)
+    # Re-alert cadence: once an exit signal fires, keep nudging every N minutes while
+    # the position is STILL open on that signal — unless it's reversing back in your
+    # favour (P&L% recovered by >= reversal_pct since the last nudge), in which case
+    # stay quiet until it stalls again. Set realert_every_min to 0 for one-shot alerts.
+    "realert_every_min": 15.0,
+    "reversal_pct": 2.0,
     "time_exit": "",        # e.g. "15:15" — flag positions to flatten before cut-off (never assumed)
     "summary_every_min": 30,  # periodic portfolio heartbeat during market hours (0 = off)
     "candidate_every_min": 60,  # periodic "top F&O candidates" digest (0 = off)
@@ -377,23 +384,58 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
         "PULLBACK": "It's coming off its peak — watch for the trail exit.",
         "STOP": "Stop breached — your rule says cut it. You place the order.",
     }
+    cfg = res["config"]
+    realert_min = float(cfg.get("realert_every_min", 15) or 0)   # 0 = one-shot
+    reversal_pct = float(cfg.get("reversal_pct", 2.0) or 0)
+    FMT = "%Y-%m-%d %H:%M:%S"
+    now_dt = datetime.now()
     for r in res["actionable"]:
         key = r["symbol"]
-        if seen.get(key) == r["signal"]:
-            continue  # already alerted for this signal
+        prev = seen.get(key)
+        if isinstance(prev, str):            # migrate legacy {sym: "SIGNAL"} state
+            prev = {"signal": prev, "ts": None, "pnl_pct": r["pnl_pct"]}
+        is_new = (not prev) or (prev.get("signal") != r["signal"])
+        reminder_n: Optional[int] = None
+        if not is_new:
+            # Same exit signal, still open → decide whether to re-nudge. Keep quiet
+            # unless it's been >= realert_min since the last nudge AND it isn't
+            # reversing back in your favour (P&L% recovered by >= reversal_pct).
+            base = prev.get("pnl_pct", r["pnl_pct"])
+            reversing = (r["pnl_pct"] - base) >= reversal_pct
+            elapsed_min: Optional[float] = None
+            if prev.get("ts"):
+                try:
+                    elapsed_min = (now_dt - datetime.strptime(prev["ts"], FMT)).total_seconds() / 60.0
+                except Exception:
+                    elapsed_min = None
+            due = realert_min > 0 and (elapsed_min is None or elapsed_min >= realert_min)
+            if not (due and not reversing):
+                # Not re-alerting this cycle. If recovering, raise the baseline so a
+                # later stall re-nudges from the better level (keep the original ts).
+                seen[key] = {"signal": prev["signal"], "ts": prev.get("ts"),
+                             "pnl_pct": max(base, r["pnl_pct"]) if reversing else base}
+                continue
+            reminder_n = int(round(elapsed_min)) if elapsed_min is not None else None
         emoji, tags, prio, kind = SIG.get(r["signal"], ("•", ["bell"], 4, "EXIT"))
         tail = TAIL.get(r["signal"], "Your rule triggered — you decide.")
+        if reminder_n is not None:
+            head = f"🔁 STILL OPEN · {r['signal']} · {r['symbol']}"
+            remind_line = f"↻ Reminder ({reminder_n}m on, not exited) — re-nudges every {int(realert_min)}m unless it reverses.\n"
+        else:
+            head = f"{emoji} {kind} {r['signal']} · {r['symbol']}"
+            remind_line = ""
         body = (
+            f"{remind_line}"
             f"P&L: {r['pnl_pct']:+.1f}%  (₹{r['pnl']:+,.0f})\n"
             f"Now ₹{r['ltp']} · entry ₹{r['entry']} · peak {r['peak_pct']:+.1f}%\n"
             f"Rule: {r['reason']}\n"
             f"{_portfolio_line(res)}\n"
             f"{tail}"
         )
-        notify(f"{emoji} {kind} {r['signal']} · {r['symbol']}", body, res["config"], tags=tags, priority=prio)
-        seen[key] = r["signal"]
+        notify(head, body, cfg, tags=tags, priority=prio)
+        seen[key] = {"signal": r["signal"], "ts": now_dt.strftime(FMT), "pnl_pct": r["pnl_pct"]}
         sent += 1
-    # clear seen entries for symbols no longer actionable, so a re-trigger alerts again
+    # drop symbols no longer actionable so a fresh trigger later alerts again
     live = {r["symbol"] for r in res["actionable"]}
     seen = {k: v for k, v in seen.items() if k in live}
     _save(_SEEN, seen)
