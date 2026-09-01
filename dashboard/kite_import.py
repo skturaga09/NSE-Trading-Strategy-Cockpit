@@ -49,43 +49,90 @@ def import_positions() -> Dict[str, Any]:
     if j.get("status") != "success":
         return {"success": False, "message": j.get("message", "Kite error"), "imported": 0}
 
-    imported = closed = still_open = 0
+    # Record only OPEN positions here; CLOSED trades come from import_trades()
+    # (reconstructed from actual fills) to avoid double-counting.
+    still_open = 0
+    open_syms: List[str] = []
     for p in j["data"].get("net", []):
         sym = p["tradingsymbol"]
         qty = p.get("quantity", 0)
-        opt = _is_option(sym)
-        oid = f"KITE_{sym}"
         if qty == 0:
-            # Closed round-trip: broker gives realized buy/sell avgs + P&L.
-            journal.record_external(
-                order_id=oid, symbol=sym, source="Zerodha (live)",
-                entry_price=p.get("buy_price") or 0.0, qty=int(p.get("buy_quantity") or 0),
-                is_option=opt, status="CLOSED", plan_type="positional",
-                exit_price=p.get("sell_price") or 0.0, net_pnl=round(p.get("pnl", 0.0), 2))
-            closed += 1
-        else:
-            # Still open: entry = avg price on the held side.
-            entry = p.get("buy_price") if qty > 0 else p.get("sell_price")
-            journal.record_external(
-                order_id=oid, symbol=sym, source="Zerodha (live)",
-                entry_price=entry or 0.0, qty=abs(int(qty)), is_option=opt,
-                status="OPEN", plan_type="positional")
-            still_open += 1
-        imported += 1
+            continue
+        entry = p.get("buy_price") if qty > 0 else p.get("sell_price")
+        journal.record_external(
+            order_id=f"KITE_{sym}", symbol=sym, source="Zerodha (live)",
+            entry_price=entry or 0.0, qty=abs(int(qty)), is_option=_is_option(sym),
+            status="OPEN", plan_type="positional")
+        open_syms.append(sym)
+        still_open += 1
 
-    return {"success": True, "imported": imported, "closed": closed,
-            "open": still_open,
-            "message": f"Imported {imported} Kite positions ({closed} closed, {still_open} open)."}
+    # Drop stale imported OPEN rows for positions that are no longer open.
+    cleaned = journal.close_stale_external(open_syms)
+    return {"success": True, "open": still_open, "cleaned": cleaned,
+            "message": f"Imported {still_open} open Kite positions (cleaned {cleaned} stale)."}
+
+
+def import_trades() -> Dict[str, Any]:
+    """Reconstruct the day's CLOSED round-trips from actual Kite fills (/trades),
+    grouping buys/sells per symbol. More accurate than the positions snapshot and
+    catches multi-fill exits. Same-day only (Kite /trades is today's fills)."""
+    kc = core.KITE_CONFIG
+    if not (kc.get("api_key") and kc.get("access_token")):
+        return {"success": False, "message": "Kite not connected.", "closed": 0}
+    try:
+        j = requests.get("https://api.kite.trade/trades", headers=_headers(), timeout=15).json()
+    except Exception as e:
+        return {"success": False, "message": f"Kite request failed: {e}", "closed": 0}
+    if j.get("status") != "success":
+        return {"success": False, "message": j.get("message", "Kite error"), "closed": 0}
+
+    # Aggregate fills per symbol: buy/sell qty, value (qty*price), and product.
+    agg: Dict[str, Dict[str, Any]] = {}
+    for t in j["data"]:
+        sym = t["tradingsymbol"]
+        qty = float(t.get("quantity") or 0)
+        px = float(t.get("average_price") or 0)
+        a = agg.setdefault(sym, {"bq": 0.0, "bv": 0.0, "sq": 0.0, "sv": 0.0, "product": t.get("product", "")})
+        if t.get("transaction_type") == "BUY":
+            a["bq"] += qty; a["bv"] += qty * px
+        else:
+            a["sq"] += qty; a["sv"] += qty * px
+
+    from datetime import date as _date
+    today = _date.today().isoformat().replace("-", "")
+    closed = 0
+    for sym, a in agg.items():
+        cq = min(a["bq"], a["sq"])            # fully round-tripped quantity today
+        if cq <= 0 or a["bq"] <= 0 or a["sq"] <= 0:
+            continue                          # one-sided (carry-in/carry-out) — skip
+        entry = a["bv"] / a["bq"]
+        exit_ = a["sv"] / a["sq"]
+        pnl = cq * (exit_ - entry)
+        journal.record_external(
+            order_id=f"KITETRADE_{sym}_{today}", symbol=sym, source="Zerodha (live)",
+            entry_price=round(entry, 2), qty=int(cq), is_option=_is_option(sym),
+            status="CLOSED", plan_type="intraday" if a["product"] == "MIS" else "positional",
+            exit_price=round(exit_, 2), net_pnl=round(pnl, 2))
+        closed += 1
+    return {"success": True, "closed": closed,
+            "message": f"Reconstructed {closed} closed round-trips from today's fills."}
+
+
+def run_eod() -> Dict[str, Any]:
+    """EOD job: accurate closed round-trips from fills, then the open snapshot."""
+    trades = import_trades()
+    positions = import_positions()
+    return {"success": trades.get("success") and positions.get("success"),
+            "trades": trades, "positions": positions}
 
 
 if __name__ == "__main__":
-    # Run by the EOD launchd job (~15:45 IST) to capture the day's trades before
-    # Kite clears its intraday positions/trades book overnight.
+    # Run by the EOD launchd job (~15:45 IST) before Kite clears the day's book.
     import json as _json
     import time
     from pathlib import Path
 
-    res = import_positions()
+    res = run_eod()
     line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {_json.dumps(res)}"
     print(line)
     try:

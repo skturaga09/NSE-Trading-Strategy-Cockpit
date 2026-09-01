@@ -278,6 +278,19 @@ def record_decision(d: Dict[str, Any]) -> int:
         return cur.lastrowid
 
 
+def close_stale_external(open_symbols: List[str]) -> int:
+    """Remove imported 'Zerodha (live)' OPEN rows whose symbol is no longer open
+    (they closed and are now captured accurately by the trades-based import).
+    Only touches imported rows, never dashboard-placed trades."""
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT order_id, symbol FROM trade_journal "
+                         "WHERE source='Zerodha (live)' AND status='OPEN'").fetchall()
+        stale = [r["order_id"] for r in rows if r["symbol"] not in set(open_symbols)]
+        for oid in stale:
+            c.execute("DELETE FROM trade_journal WHERE order_id=?", (oid,))
+    return len(stale)
+
+
 def decisions(limit: int = 100) -> List[Dict[str, Any]]:
     with _LOCK, _conn() as c:
         rows = c.execute("SELECT * FROM decision_log ORDER BY ts DESC, id DESC LIMIT ?", (limit,)).fetchall()
