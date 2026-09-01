@@ -183,6 +183,13 @@ def exits_candidates_now() -> JSONResponse:
     return JSONResponse(res, status_code=200 if res.get("success") else 400)
 
 
+@app.post("/api/exits/breakouts-now")
+def exits_breakouts_now() -> JSONResponse:
+    from dashboard import exit_monitor
+    res = exit_monitor.send_breakouts()
+    return JSONResponse(res, status_code=200 if res.get("success") else 400)
+
+
 @app.get("/api/exits/target-calc")
 def exits_target_calc() -> Dict[str, Any]:
     """For each open option: the stock price needed to hit your pending sell target."""

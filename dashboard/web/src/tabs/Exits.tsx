@@ -283,6 +283,11 @@ function RulesConfig() {
     const r = await api.sendCandidates();
     setMsg(r.success ? `✅ Candidates sent via ${r.channel}. Check your phone.` : `⚠ ${r.message ?? "scan unavailable / not configured"}`);
   };
+  const breakouts = async () => {
+    setMsg("Sending actionable breakouts…");
+    const r = await api.sendBreakouts();
+    setMsg(r.success ? `✅ Breakouts sent via ${r.channel}. Check your phone.` : `⚠ ${r.message ?? "none / warming up"}`);
+  };
 
   return (
     <div className="panel space-y-4 rounded-lg p-5">
@@ -402,6 +407,11 @@ function RulesConfig() {
         <button onClick={test} className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25">Send test alert</button>
         <button onClick={summary} className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25">Send summary now</button>
         <button onClick={candidates} className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25">Send candidates now</button>
+        <button onClick={breakouts} className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25">Send breakouts now</button>
+        <label className="flex items-center gap-1.5 font-mono text-[11px] text-muted">
+          <input type="checkbox" checked={cfg.breakout_alerts} onChange={(e) => setCfg({ ...cfg, breakout_alerts: e.target.checked })} className="accent-cyan" />
+          🚀 auto breakout alerts
+        </label>
         {msg && <span className="font-mono text-[11px] text-muted">{msg}</span>}
       </div>
       <p className="font-mono text-[9px] text-muted">Background pushes need the exit-monitor job installed (dashboard/scripts). Signals are mechanical rule triggers you set — the decision to exit stays yours.</p>

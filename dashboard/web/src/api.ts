@@ -148,4 +148,7 @@ export const api = {
 
   sendCandidates: () =>
     postJSON<Record<string, never>, { success: boolean; channel?: string; message?: string }>("/api/exits/candidates-now", {}),
+
+  sendBreakouts: () =>
+    postJSON<Record<string, never>, { success: boolean; channel?: string; message?: string }>("/api/exits/breakouts-now", {}),
 };

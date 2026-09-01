@@ -543,6 +543,7 @@ export interface ExitConfig {
   summary_every_min: number;
   candidate_every_min: number;
   candidate_top: number;
+  breakout_alerts: boolean;
   kite_link: string;
   notify: ExitNotify;
 }

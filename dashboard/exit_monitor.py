@@ -47,6 +47,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "summary_every_min": 30,  # periodic portfolio heartbeat during market hours (0 = off)
     "candidate_every_min": 60,  # periodic "top F&O candidates" digest (0 = off)
     "candidate_top": 5,         # how many longs/shorts to list
+    "breakout_alerts": True,    # push VCP breakouts (pivot cross) as they happen
     # Tapping an alert opens this. Universal link → opens the Kite iOS/Android app
     # when installed (else the browser). Change if you find a scheme that opens the app.
     "kite_link": "https://kite.zerodha.com/positions",
@@ -56,6 +57,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 _SUMMARY = _DIR / "exit_summary.json"
 _THESIS_SEEN = _DIR / "exit_thesis_seen.json"
 _CANDIDATE_LAST = _DIR / "exit_candidate_last.json"
+_BREAKOUT_SEEN = _DIR / "exit_breakout_seen.json"
 
 
 def _load(path: Path, default: Any) -> Any:
@@ -294,6 +296,54 @@ def send_candidates(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     return notify("📊 Top F&O candidates", body, cfg, tags=["mag_right"], priority=3)
 
 
+def _breakout_alerts(cfg: Dict[str, Any]) -> int:
+    """Push VCP breakouts (pivot cross) once each, as they turn live."""
+    try:
+        b = core.compute_breakouts()
+    except Exception:
+        return 0
+    if not b.get("is_live"):
+        return 0  # modeled/warming — don't announce placeholders
+    seen = _load(_BREAKOUT_SEEN, {})
+    sent, live = 0, set()
+    for x in b.get("breakouts", []):
+        if x.get("state") not in ("BROKEN_OUT", "IMMINENT"):
+            continue
+        key = x["symbol"]
+        live.add(key)
+        if seen.get(key) == x["state"]:
+            continue
+        pos = x.get("positional", {}) or {}
+        emoji = "🚀" if x["state"] == "BROKEN_OUT" else "🔔"
+        verb = "crossed" if x["state"] == "BROKEN_OUT" else "nearing"
+        notify(f"{emoji} {x['state'].replace('_', ' ')} · {x['symbol']}",
+               f"{verb} pivot ₹{x['pivot']} · LTP ₹{x['ltp']} ({x['above_pivot_pct']:+}%)\n"
+               f"Plan: E {pos.get('entry')} · SL {pos.get('stop')} · T {pos.get('target1')} (R:R {pos.get('gross_rr')})\n"
+               f"VCP screen — confirm volume & the market regime, run the gates. Not advice.",
+               cfg, tags=["rocket"], priority=4)
+        seen[key] = x["state"]
+        sent += 1
+    _save(_BREAKOUT_SEEN, {k: v for k, v in seen.items() if k in live})
+    return sent
+
+
+def send_breakouts(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """On-demand digest of the current actionable breakouts (for the test button)."""
+    cfg = cfg or get_config()
+    try:
+        b = core.compute_breakouts()
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+    if not b.get("is_live"):
+        return {"success": False, "message": "breakout screen still warming up (modeled) — try during market hours"}
+    act = [x for x in b.get("breakouts", []) if x.get("state") in ("BROKEN_OUT", "IMMINENT")]
+    if not act:
+        return {"success": False, "message": "no actionable breakouts right now"}
+    lines = [f"{'🚀' if x['state'] == 'BROKEN_OUT' else '🔔'} {x['symbol']} {x['state'].replace('_', ' ').lower()} · pivot ₹{x['pivot']} ({x['above_pivot_pct']:+}%)" for x in act[:8]]
+    return notify("🚀 Actionable breakouts", "\n".join(lines) + "\nVCP screen — confirm volume & regime. Not advice.",
+                  cfg, tags=["rocket"], priority=4)
+
+
 def _market_open() -> bool:
     """NSE cash/F&O hours, weekdays (no holiday calendar). IST assumed = local."""
     try:
@@ -418,9 +468,15 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
             _save(_CANDIDATE_LAST, {"last": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
             cand_sent = True
 
+    # VCP breakout alerts (pivot cross), as they happen.
+    breakout_sent = 0
+    if res["config"].get("breakout_alerts", True):
+        breakout_sent = _breakout_alerts(res["config"])
+
     res["alerts_sent"] = sent
     res["summary_sent"] = summary_sent
     res["candidates_sent"] = cand_sent
+    res["breakouts_sent"] = breakout_sent
     return res
 
 
