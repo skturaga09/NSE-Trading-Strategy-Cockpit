@@ -236,6 +236,20 @@ export function Intraday() {
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []);
 
+  // Keep the SELECTED stock's detail live: silently re-fetch its context, chain and
+  // structure plan every 5s while a stock is loaded (a few cheap calls for one name).
+  const detailLoaded = !!(ctx || chain);
+  useEffect(() => {
+    if (!detailLoaded) return;
+    const id = setInterval(() => {
+      api.getIntradayContext(underlying).then((c) => { if (c.is_live) setCtx(c); }).catch(() => {});
+      api.getOptionChain(underlying).then(setChain).catch(() => {});
+      api.getIntradayPlan(underlying).then(setPlan).catch(() => {});
+    }, 5000);
+    return () => clearInterval(id);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [underlying, detailLoaded]);
+
   // ---- hard rules ----
   const pnl = num(realisedPnl) ?? 0;
   const entriesN = num(entriesToday) ?? 0;
