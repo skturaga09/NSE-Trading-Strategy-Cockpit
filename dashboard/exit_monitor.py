@@ -382,9 +382,11 @@ def send_overnight(cfg: Optional[Dict[str, Any]] = None, top: int = 6, warm: boo
 
     longs = (r.get("overnight_longs") or [])[:top]
     shorts = (r.get("overnight_shorts") or [])[:top]
+    b_longs = (r.get("building_longs") or [])[:top]
+    b_shorts = (r.get("building_shorts") or [])[:top]
     notable = (r.get("oi_thresholds") or {}).get("notable", 10)
-    if not longs and not shorts:
-        return {"success": False, "message": f"no fresh OI buildups ≥{notable}% today"}
+    if not (longs or shorts or b_longs or b_shorts):
+        return {"success": False, "message": f"no fresh OI buildups ≥{notable}% (or strong-close builders) today"}
 
     def _row(c: Dict[str, Any]) -> str:
         b = c.get("buildup") or {}
@@ -402,6 +404,13 @@ def send_overnight(cfg: Optional[Dict[str, Any]] = None, top: int = 6, warm: boo
             body.append("")
         body.append("▼ Short buildup:")
         body += [_row(c) for c in shorts]
+    # Secondary "building" tier: fresh buildup under the OI bar but a strong close.
+    if b_longs or b_shorts:
+        if body:
+            body.append("")
+        body.append(f"⚡ Building (OI <{int(notable)}%, strong close):")
+        body += [_row(c) for c in b_longs]
+        body += [_row(c) for c in b_shorts]
     if r.get("oi_forming"):
         body.append("\n(OI still forming — read again near close.)")
     body.append("\nFresh OI + price agree — a screen, NOT advice. Overnight gap risk; you decide & size it.")
