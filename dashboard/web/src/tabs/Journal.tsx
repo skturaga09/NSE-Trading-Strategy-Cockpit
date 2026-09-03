@@ -78,35 +78,27 @@ export function Journal() {
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const CELL = 13; // px per day cell
 const GAP = 3;   // px gap
-const STEP = CELL + GAP;
+
+type HoverCell = { x: number; y: number; date: string; v: number | undefined };
 
 function PnlHeatmap({ days }: { days: Record<string, number> }) {
   const nowYear = new Date().getFullYear();
   const [year, setYear] = useState(nowYear);
-
-  const jan1 = new Date(year, 0, 1);
-  const firstOffset = jan1.getDay(); // 0=Sun … 6=Sat
-  const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-  const daysInYear = isLeap ? 366 : 365;
-  const numCols = Math.ceil((firstOffset + daysInYear) / 7);
+  const [hover, setHover] = useState<HoverCell | null>(null);
 
   // Colour: green scale for a profit day, red for a loss, grey when no trade closed.
   const cellColor = (v: number | undefined): string => {
-    if (v === undefined) return "var(--bg-3, rgba(255,255,255,0.05))";
-    if (v === 0) return "var(--bg-3, rgba(255,255,255,0.05))";
+    if (v === undefined || v === 0) return "var(--bg-3, rgba(255,255,255,0.05))";
     const a = Math.abs(v);
     const t = a < 2500 ? 0.3 : a < 7500 ? 0.55 : a < 15000 ? 0.78 : 1;
     return v >= 0 ? `rgba(88,214,141,${t})` : `rgba(255,93,93,${t})`;
   };
 
-  const fmtDay = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-  // Month labels positioned over the column where each month begins.
-  const monthLabels = MONTHS.map((label, m) => {
-    const idx = Math.round((new Date(year, m, 1).getTime() - jan1.getTime()) / 86_400_000);
-    return { label, col: Math.floor((idx + firstOffset) / 7) };
-  });
+  const key2 = (m: number, day: number) => `${year}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const niceDate = (k: string) => {
+    const [y, m, d] = k.split("-").map(Number);
+    return `${d} ${MONTHS[m - 1]} ${y}`;
+  };
 
   // Year summary.
   let total = 0, greens = 0, reds = 0, tradeDays = 0;
@@ -114,7 +106,12 @@ function PnlHeatmap({ days }: { days: Record<string, number> }) {
     if (k.startsWith(`${year}-`)) { total += v; tradeDays++; if (v > 0) greens++; else if (v < 0) reds++; }
   }
 
-  const columns = Array.from({ length: numCols }, (_, col) => col);
+  // One mini-grid per month → natural gaps between months.
+  const months = MONTHS.map((label, m) => {
+    const offset = new Date(year, m, 1).getDay();          // weekday of the 1st
+    const dim = new Date(year, m + 1, 0).getDate();         // days in month
+    return { label, m, offset, dim, cols: Math.ceil((offset + dim) / 7) };
+  });
   const rows = [0, 1, 2, 3, 4, 5, 6];
 
   return (
@@ -141,34 +138,34 @@ function PnlHeatmap({ days }: { days: Record<string, number> }) {
       </div>
 
       <div className="overflow-x-auto pb-1">
-        <div style={{ minWidth: numCols * STEP }}>
-          {/* month labels */}
-          <div className="relative" style={{ height: 16 }}>
-            {monthLabels.map((ml, i) => (
-              <span key={i} className="absolute font-mono text-[9px] uppercase tracking-wider text-muted"
-                style={{ left: ml.col * STEP }}>{ml.label}</span>
-            ))}
-          </div>
-          {/* day grid */}
-          <div className="flex" style={{ gap: GAP }}>
-            {columns.map((col) => (
-              <div key={col} className="flex flex-col" style={{ gap: GAP }}>
-                {rows.map((row) => {
-                  const dayIdx = col * 7 + row - firstOffset;
-                  if (dayIdx < 0 || dayIdx >= daysInYear) {
-                    return <div key={row} style={{ width: CELL, height: CELL }} />;
-                  }
-                  const d = new Date(year, 0, 1 + dayIdx);
-                  const key = fmtDay(d);
-                  const v = days[key];
-                  return (
-                    <div key={row} title={v === undefined ? `${key}: no trades` : `${key}: ${signed(v)}`}
-                      style={{ width: CELL, height: CELL, borderRadius: 3, background: cellColor(v) }} />
-                  );
-                })}
+        {/* month blocks with a gap between each */}
+        <div className="flex" style={{ gap: 14 }}>
+          {months.map((mo) => (
+            <div key={mo.m} className="flex flex-col" style={{ gap: 4 }}>
+              <span className="font-mono text-[9px] uppercase tracking-wider text-muted">{mo.label}</span>
+              <div className="flex" style={{ gap: GAP }}>
+                {Array.from({ length: mo.cols }, (_, col) => (
+                  <div key={col} className="flex flex-col" style={{ gap: GAP }}>
+                    {rows.map((row) => {
+                      const dayNum = col * 7 + row - mo.offset + 1; // 1-based day of month
+                      if (dayNum < 1 || dayNum > mo.dim) {
+                        return <div key={row} style={{ width: CELL, height: CELL }} />;
+                      }
+                      const k = key2(mo.m, dayNum);
+                      const v = days[k];
+                      return (
+                        <div key={row}
+                          onMouseEnter={(e) => setHover({ x: e.clientX, y: e.clientY, date: k, v })}
+                          onMouseMove={(e) => setHover({ x: e.clientX, y: e.clientY, date: k, v })}
+                          onMouseLeave={() => setHover(null)}
+                          style={{ width: CELL, height: CELL, borderRadius: 3, background: cellColor(v), cursor: "pointer" }} />
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -179,6 +176,20 @@ function PnlHeatmap({ days }: { days: Record<string, number> }) {
         {[3000, 8000, 16000].map((v) => <span key={v} style={{ width: CELL, height: CELL, borderRadius: 3, background: cellColor(v) }} />)}
         <span>Profit</span>
       </div>
+
+      {hover && (
+        <div className="pointer-events-none fixed z-50 rounded-md border border-line px-2.5 py-1.5 font-mono text-[11px] shadow-lg"
+          style={{ left: hover.x + 14, top: hover.y + 14, background: "var(--bg-2, #14140f)" }}>
+          <div className="text-muted">{niceDate(hover.date)}</div>
+          {hover.v === undefined ? (
+            <div className="text-muted">No trades</div>
+          ) : (
+            <div className="tnum font-bold" style={{ color: hover.v > 0 ? "var(--green)" : hover.v < 0 ? "var(--red)" : "var(--ink)" }}>
+              {signed(hover.v)}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
