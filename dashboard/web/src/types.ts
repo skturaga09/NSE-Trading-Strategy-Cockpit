@@ -518,6 +518,42 @@ export interface SwingCandidate {
   buildup: OiBuildup | null;
   plan: SwingPlan;
 }
+// --- Overnight OI signal learning layer ---
+export interface SwingSigAgg {
+  n: number;
+  hit_rate: number | null;
+  avg_gap: number | null;
+  avg_fwd: number | null;
+  avg_mfe: number | null;
+  sufficient: boolean;
+}
+export interface SwingSignalStats {
+  min_sample: number;
+  coinflip: number;
+  overall: SwingSigAgg;
+  by_tier: { strong: SwingSigAgg; notable: SwingSigAgg };
+  by_bias: { LONG: SwingSigAgg; SHORT: SwingSigAgg };
+  open_pending: number;
+}
+export interface SwingSignalRow {
+  signal_date: string;
+  symbol: string;
+  bias: "LONG" | "SHORT";
+  oi_chg_pct: number | null;
+  tier: string | null;
+  ref_price: number | null;
+  status: "OPEN" | "RESOLVED";
+  next_date: string | null;
+  gap_pct: number | null;
+  fwd_return_pct: number | null;
+  mfe_pct: number | null;
+  worked: number | null;
+}
+export interface SwingSignalsResponse {
+  stats: SwingSignalStats;
+  recent: SwingSignalRow[];
+  resolved_now: number;
+}
 export interface SwingScan {
   timestamp: string;
   is_live: boolean;

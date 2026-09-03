@@ -27,6 +27,7 @@ import type {
   ExitConfig,
   ThesisAlignment,
   TargetCalc,
+  SwingSignalsResponse,
 } from "./types";
 
 // All requests go to /api/* and are proxied to the Python backend (see vite.config.ts).
@@ -92,6 +93,9 @@ export const api = {
 
   getJournalRecent: () =>
     getJSON<JournalRecentResponse>(`/api/journal/recent?_t=${Date.now()}`),
+
+  getSwingSignals: () =>
+    getJSON<SwingSignalsResponse>(`/api/journal/swing-signals?_t=${Date.now()}`),
 
   refreshZerodha: () =>
     postJSON<Record<string, never>, { success: boolean; message: string }>(

@@ -371,6 +371,15 @@ def send_overnight(cfg: Optional[Dict[str, Any]] = None, top: int = 6, warm: boo
         return {"success": False, "message": str(e)}
     if not r.get("is_live"):
         return {"success": False, "message": r.get("source", "swing scan unavailable")}
+    # Record the surfaced candidates for the learning layer — but only once OI is settled
+    # (post ~2pm), so a mid-day test with still-forming OI doesn't log noisy signals.
+    if not r.get("oi_forming"):
+        try:
+            from dashboard import swing_journal
+            swing_journal.record_signals(r)
+        except Exception:
+            pass
+
     longs = (r.get("overnight_longs") or [])[:top]
     shorts = (r.get("overnight_shorts") or [])[:top]
     notable = (r.get("oi_thresholds") or {}).get("notable", 10)

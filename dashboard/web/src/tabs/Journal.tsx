@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import type { AttributionResponse, ExpectancyStat, JournalTrade, DecisionsResponse, CostsSummary } from "../types";
+import type { AttributionResponse, ExpectancyStat, JournalTrade, DecisionsResponse, CostsSummary,
+  SwingSignalsResponse, SwingSigAgg, SwingSignalRow } from "../types";
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${inr(n)}`;
@@ -32,6 +33,11 @@ export function Journal() {
     queryFn: api.getCosts,
     refetchInterval: 3000,
   });
+  const swingSig = useQuery({
+    queryKey: ["journal-swing-signals"],
+    queryFn: api.getSwingSignals,
+    refetchInterval: 30000,   // resolves prior-day signals; not real-time critical
+  });
 
   const a = attr.data;
   const trades = recent.data?.trades ?? [];
@@ -47,6 +53,7 @@ export function Journal() {
     <div className="space-y-6">
       <HeroExpectancy a={a} />
       <SampleGate a={a} />
+      <SwingSignalLearning data={swingSig.data} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <AttributionTable title="By signal source" rows={a.by_source} min={a.min_sample} />
         <AttributionTable title="By conviction" rows={a.by_conviction} min={a.min_sample} />
@@ -61,6 +68,101 @@ export function Journal() {
 }
 
 /* ---------------- Intraday decision log (process quality) ---------------- */
+
+function SwingSignalLearning({ data }: { data: SwingSignalsResponse | undefined }) {
+  if (!data) return null;
+  const s = data.stats;
+  const o = s.overall;
+  const pct = (v: number | null) => (v === null ? "—" : `${v}%`);
+  const rr = (v: number | null) => (v === null ? "—" : `${v >= 0 ? "+" : ""}${v}%`);
+
+  const AggCard = ({ label, agg }: { label: string; agg: SwingSigAgg }) => {
+    const edge = agg.hit_rate !== null ? agg.hit_rate - s.coinflip : 0;
+    const color = !agg.sufficient ? "var(--muted)" : edge > 5 ? "var(--green)" : edge < -5 ? "var(--red)" : "var(--gold)";
+    return (
+      <div className="rounded-md border border-line bg-raised/40 p-3">
+        <div className="font-mono text-[9px] uppercase tracking-wider text-muted">{label}</div>
+        <div className="tnum text-lg font-bold" style={{ color }}>{agg.n > 0 ? pct(agg.hit_rate) : "—"}</div>
+        <div className="font-mono text-[9px] text-muted">
+          n={agg.n}{agg.n > 0 ? ` · gap ${rr(agg.avg_gap)} · run ${rr(agg.avg_mfe)}` : ""}{agg.n > 0 && !agg.sufficient ? " · thin" : ""}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="panel space-y-3 rounded-lg p-5">
+      <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
+        🌙 Overnight OI signal — learning
+        <span className="font-mono text-[11px] font-normal text-muted">— does the buildup actually gap your way next day?</span>
+      </h2>
+
+      {!o.sufficient ? (
+        <div className="rounded-md border border-cyan/25 bg-cyan/[0.06] px-3 py-2 font-mono text-[10px] leading-relaxed text-cyan">
+          📊 Accumulating evidence — <span className="font-bold">{o.n}/{s.min_sample}</span> resolved signals. No verdict until ≥{s.min_sample},
+          so a few lucky or unlucky days can't fake an edge.{s.open_pending > 0 ? ` ${s.open_pending} signal(s) awaiting next-day resolution.` : ""}
+        </div>
+      ) : (
+        <div className="font-mono text-[10px] text-muted">
+          {o.n} resolved · overall <span className="font-bold text-ink">{pct(o.hit_rate)}</span> gapped in your favour vs {s.coinflip}% coin-flip · {s.open_pending} pending
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <AggCard label="Overall hit-rate" agg={o} />
+        <AggCard label="Strong (≥20%)" agg={s.by_tier.strong} />
+        <AggCard label="Notable (10–20%)" agg={s.by_tier.notable} />
+        <AggCard label="Long buildup" agg={s.by_bias.LONG} />
+        <AggCard label="Short buildup" agg={s.by_bias.SHORT} />
+      </div>
+
+      {data.recent.length > 0 && (
+        <div className="overflow-x-auto rounded-md border border-line">
+          <table className="w-full text-left text-[11px]">
+            <thead className="bg-raised/50 font-mono text-[9px] uppercase tracking-wider text-muted">
+              <tr>
+                <th className="px-2 py-1.5">Date</th><th className="px-2 py-1.5">Symbol</th><th className="px-2 py-1.5">Side</th>
+                <th className="px-2 py-1.5 text-right">OI Δ</th><th className="px-2 py-1.5">Tier</th>
+                <th className="px-2 py-1.5 text-right">Gap</th><th className="px-2 py-1.5 text-right">Next-day run</th>
+                <th className="px-2 py-1.5 text-center">Result</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line font-mono">
+              {data.recent.map((r) => <SigRow key={`${r.signal_date}-${r.symbol}-${r.bias}`} r={r} />)}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        Tracks <span className="text-ink/80">every</span> surfaced candidate (traded or not) and resolves it on the next settled session — so it measures the
+        signal's edge, not just your fills. "Hit-rate" = % that <span className="text-ink/80">gapped in the signalled direction</span>; "run" = the best move it
+        offered next day. Sample-size gated (≥{s.min_sample}), and it <span className="text-gold">measures only</span> — it will not auto-change the ≥10% threshold;
+        tightening the bar stays your call once the data is clear.
+      </p>
+    </div>
+  );
+}
+
+function SigRow({ r }: { r: SwingSignalRow }) {
+  const rr = (v: number | null) => (v === null ? "—" : `${v >= 0 ? "+" : ""}${v}%`);
+  const resolved = r.status === "RESOLVED";
+  return (
+    <tr>
+      <td className="px-2 py-1.5 text-muted">{r.signal_date}</td>
+      <td className="px-2 py-1.5 font-bold text-ink">{r.symbol}</td>
+      <td className="px-2 py-1.5" style={{ color: r.bias === "LONG" ? "var(--green)" : "var(--red)" }}>{r.bias}</td>
+      <td className="px-2 py-1.5 text-right tnum">{r.oi_chg_pct !== null ? `${r.oi_chg_pct >= 0 ? "+" : ""}${r.oi_chg_pct}%` : "—"}</td>
+      <td className="px-2 py-1.5 text-[9px] uppercase text-muted">{r.tier ?? "—"}</td>
+      <td className="px-2 py-1.5 text-right tnum" style={{ color: r.gap_pct === null ? "var(--muted)" : r.gap_pct >= 0 ? "var(--green)" : "var(--red)" }}>{resolved ? rr(r.gap_pct) : "—"}</td>
+      <td className="px-2 py-1.5 text-right tnum" style={{ color: r.mfe_pct === null ? "var(--muted)" : "var(--green)" }}>{resolved ? rr(r.mfe_pct) : "—"}</td>
+      <td className="px-2 py-1.5 text-center">
+        {!resolved ? <span className="text-[9px] text-gold">pending</span>
+          : r.worked ? <span className="font-bold text-signalgreen">✓</span> : <span className="font-bold text-signalred">✗</span>}
+      </td>
+    </tr>
+  );
+}
 
 function DecisionLog({ data }: { data: DecisionsResponse | undefined }) {
   if (!data || data.summary.total === 0) {

@@ -81,6 +81,18 @@ def journal_recent() -> Dict[str, Any]:
     return {"trades": journal.recent()}
 
 
+@app.get("/api/journal/swing-signals")
+def journal_swing_signals() -> Dict[str, Any]:
+    """Learning layer: resolve any newly-settled overnight OI signals, then return the
+    edge stats (hit-rate by tier/side, sample-size gated) and recent signals."""
+    from dashboard import swing_journal
+    try:
+        resolved = swing_journal.resolve_due()
+    except Exception:
+        resolved = 0
+    return {"stats": swing_journal.stats(), "recent": swing_journal.recent(), "resolved_now": resolved}
+
+
 @app.post("/api/journal/import-kite")
 def journal_import_kite() -> JSONResponse:
     """Pull real F&O/intraday positions from the live Kite account into the journal."""
