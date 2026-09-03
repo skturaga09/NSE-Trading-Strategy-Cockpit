@@ -481,6 +481,19 @@ export interface OiBuildup {
   oi: number;
   oi_chg_pct: number | null;
   tier?: "strong" | "notable" | "mild" | "noise" | null;
+  rel_volume?: number | null;
+  oi_up_days?: number | null;
+  oi_3d_pct?: number | null;
+  resistance_pct?: number | null;
+  support_pct?: number | null;
+}
+export interface Ignition {
+  score: number;
+  bias: "LONG" | "SHORT";
+  rel_volume: number;
+  oi_up_days: number | null;
+  oi_3d_pct: number | null;
+  components: { vol: number; oi_trend: number; close: number; breakout: number };
 }
 export interface OvernightBrief {
   symbol: string;
@@ -516,6 +529,7 @@ export interface SwingCandidate {
   expiry: string;
   bias: "LONG" | "SHORT";
   buildup: OiBuildup | null;
+  ignition?: Ignition | null;
   plan: SwingPlan;
 }
 // --- Overnight OI signal learning layer ---
@@ -533,6 +547,7 @@ export interface SwingSignalStats {
   overall: SwingSigAgg;
   by_tier: { strong: SwingSigAgg; notable: SwingSigAgg; building: SwingSigAgg };
   by_bias: { LONG: SwingSigAgg; SHORT: SwingSigAgg };
+  ignition?: SwingSigAgg;
   open_pending: number;
 }
 export interface SwingSignalRow {
@@ -571,6 +586,8 @@ export interface SwingScan {
   // Secondary "building" boards: fresh buildup under the OI bar + strong close
   building_longs?: SwingCandidate[];
   building_shorts?: SwingCandidate[];
+  // Ignition board: early-accumulation footprint (volume surge + OI + breakout)
+  ignition?: SwingCandidate[];
   oi_ready?: boolean;
   oi_ts?: string | null;
   oi_forming?: boolean;

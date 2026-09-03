@@ -39,6 +39,9 @@ CREATE TABLE IF NOT EXISTS swing_signals (
     vs_vwap_pct    REAL,
     range_pos      REAL,
     ref_price      REAL,     -- price when surfaced (near close)
+    rel_volume     REAL,     -- today's volume / ~20-day avg (ignition footprint)
+    ignition_score REAL,     -- 0..100 ignition composite, when it was an ignition pick
+    is_ignition    INTEGER DEFAULT 0,
     created_at     TEXT,
     status         TEXT DEFAULT 'OPEN',   -- OPEN | RESOLVED
     next_date      TEXT,
@@ -68,6 +71,14 @@ def _conn():
 def init() -> None:
     with _LOCK, _conn() as c:
         c.executescript(_SCHEMA)
+        # Migrate older DBs that predate the ignition columns (ADD COLUMN is a no-op
+        # error once present, so swallow it).
+        for col, decl in (("rel_volume", "REAL"), ("ignition_score", "REAL"),
+                          ("is_ignition", "INTEGER DEFAULT 0")):
+            try:
+                c.execute(f"ALTER TABLE swing_signals ADD COLUMN {col} {decl}")
+            except Exception:
+                pass
 
 
 init()
@@ -95,12 +106,27 @@ def record_signals(scan: Dict[str, Any]) -> int:
                 cur = c.execute(
                     "INSERT OR IGNORE INTO swing_signals "
                     "(signal_date, symbol, bias, oi_chg_pct, tier, close_pct, vs_vwap_pct, "
-                    " range_pos, ref_price, created_at, status) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?, 'OPEN')",
+                    " range_pos, ref_price, rel_volume, created_at, status) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?, 'OPEN')",
                     (today, cand["symbol"], bias, b.get("oi_chg_pct"), tier_override or b.get("tier"),
                      cand.get("pct_change"), cand.get("vs_vwap_pct"), cand.get("range_pos"),
-                     cand.get("ltp"), now))
+                     cand.get("ltp"), b.get("rel_volume"), now))
                 n += cur.rowcount
+        # Ignition pass — UPSERT so an ignition name is flagged even when another board
+        # already recorded it this day, and inserted fresh when it's ignition-only.
+        for cand in scan.get("ignition") or []:
+            ig = cand.get("ignition") or {}
+            b = cand.get("buildup") or {}
+            c.execute(
+                "INSERT INTO swing_signals "
+                "(signal_date, symbol, bias, oi_chg_pct, tier, close_pct, vs_vwap_pct, range_pos, "
+                " ref_price, rel_volume, ignition_score, is_ignition, created_at, status) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,1,?, 'OPEN') "
+                "ON CONFLICT(signal_date, symbol, bias) DO UPDATE SET "
+                " is_ignition=1, ignition_score=excluded.ignition_score, rel_volume=excluded.rel_volume",
+                (today, cand["symbol"], ig.get("bias", "LONG"), b.get("oi_chg_pct"), b.get("tier"),
+                 cand.get("pct_change"), cand.get("vs_vwap_pct"), cand.get("range_pos"),
+                 cand.get("ltp"), ig.get("rel_volume"), ig.get("score"), now))
     return n
 
 
@@ -188,6 +214,7 @@ def stats() -> Dict[str, Any]:
         "overall": _agg(res),
         "by_tier": {t: _agg([r for r in res if r["tier"] == t]) for t in ("strong", "notable", "building")},
         "by_bias": {b: _agg([r for r in res if r["bias"] == b]) for b in ("LONG", "SHORT")},
+        "ignition": _agg([r for r in res if (r["is_ignition"] if "is_ignition" in r.keys() else 0)]),
         "open_pending": open_n,
     }
 

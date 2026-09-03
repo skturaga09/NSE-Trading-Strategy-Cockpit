@@ -380,13 +380,14 @@ def send_overnight(cfg: Optional[Dict[str, Any]] = None, top: int = 6, warm: boo
         except Exception:
             pass
 
+    ignition = (r.get("ignition") or [])[:top]
     longs = (r.get("overnight_longs") or [])[:top]
     shorts = (r.get("overnight_shorts") or [])[:top]
     b_longs = (r.get("building_longs") or [])[:top]
     b_shorts = (r.get("building_shorts") or [])[:top]
     notable = (r.get("oi_thresholds") or {}).get("notable", 10)
-    if not (longs or shorts or b_longs or b_shorts):
-        return {"success": False, "message": f"no fresh OI buildups ≥{notable}% (or strong-close builders) today"}
+    if not (ignition or longs or shorts or b_longs or b_shorts):
+        return {"success": False, "message": f"no fresh OI buildups ≥{notable}% (or ignition/builders) today"}
 
     def _row(c: Dict[str, Any]) -> str:
         b = c.get("buildup") or {}
@@ -395,7 +396,16 @@ def send_overnight(cfg: Optional[Dict[str, Any]] = None, top: int = 6, warm: boo
         oi = b.get("oi_chg_pct")
         return f"  {_short(c['symbol'])}  OI {oi:+}% · {c['pct_change']:+}%{badge}"
 
+    def _ig_row(c: Dict[str, Any]) -> str:
+        ig = c.get("ignition") or {}
+        arrow = "▲" if ig.get("bias") == "LONG" else "▼"
+        return f"  {arrow} {_short(c['symbol'])}  score {ig.get('score')} · vol {ig.get('rel_volume')}x · {c['pct_change']:+}%"
+
     body: List[str] = []
+    if ignition:
+        body.append("🔥 Ignition (volume surge + fresh OI + breakout):")
+        body += [_ig_row(c) for c in ignition]
+        body.append("")
     if longs:
         body.append("▲ Long buildup — carry for a gap-up:")
         body += [_row(c) for c in longs]

@@ -106,6 +106,8 @@ export function Swing() {
               ● {scan.source} · {scan.scanned}/{scan.universe} scanned · {scan.timestamp} · sized to {inr(riskBudget)} ({riskPct}% of {inr(CAPITAL)})
             </div>
 
+            <IgnitionBoard scan={scan} riskBudget={riskBudget} opts={opts} onOption={loadOption} />
+
             <OvernightBoard scan={scan} riskBudget={riskBudget} opts={opts} onOption={loadOption} />
 
             <FitBanner scan={scan} riskBudget={riskBudget} />
@@ -134,6 +136,35 @@ const TIER_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
   strong: { bg: "rgba(88,214,141,0.18)", fg: "var(--green)", label: "STRONG" },
   notable: { bg: "rgba(244,185,66,0.16)", fg: "var(--gold)", label: "NOTABLE" },
 };
+
+function IgnitionBoard({ scan, riskBudget, opts, onOption }: {
+  scan: SwingScan; riskBudget: number; opts: Record<string, OptState>; onOption: (s: string) => void;
+}) {
+  if (!scan.oi_ready) return null;   // shares the OI warm; OvernightBoard shows the warming state
+  const ign = scan.ignition ?? [];
+  return (
+    <div className="space-y-3 rounded-lg p-4" style={{ border: "1px solid rgba(255,138,42,0.42)", background: "rgba(255,138,42,0.06)" }}>
+      <h3 className="flex flex-wrap items-center gap-2 font-display text-sm font-bold text-ink">
+        🔥 Ignition — early accumulation
+        <span className="font-mono text-[10px] font-normal text-muted">— volume surge + fresh OI + breakout (the SOLARINDS footprint)</span>
+      </h3>
+      {ign.length === 0 ? (
+        <div className="font-mono text-[10px] text-muted">— none firing today (needs ≥1.5× its own average volume + a fresh OI buildup).</div>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+          {ign.map((c) => <SwingRow key={c.symbol} c={c} riskBudget={riskBudget} opt={opts[c.symbol]} onOption={() => onOption(c.symbol)} />)}
+        </div>
+      )}
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        Ranks the whole F&amp;O universe 0–100 by fusing <span className="text-ink/80">relative volume</span> (today vs its ~20-day average),
+        <span className="text-ink/80"> multi-day OI build</span>, a direction-agreeing <span className="text-ink/80">strong close</span>, and
+        <span className="text-ink/80"> breakout proximity</span> — the footprint of a name being accumulated before it's obvious. All public data; the edge is
+        <span className="text-ink/80"> complete, consistent coverage</span> of 200+ names, not secret info. Every pick is logged to the learning layer below to test whether it
+        actually runs — so this stays a <span className="text-gold">measured screen, not a promise</span>. Overnight gap risk applies; you size and decide.
+      </p>
+    </div>
+  );
+}
 
 function OvernightBoard({ scan, riskBudget, opts, onOption }: {
   scan: SwingScan; riskBudget: number; opts: Record<string, OptState>; onOption: (s: string) => void;
@@ -288,10 +319,15 @@ function SwingRow({ c, riskBudget, opt, onOption }: { c: SwingCandidate; riskBud
   return (
     <div className="rounded-md border border-line bg-raised/30 p-2.5">
       <div className="flex items-center justify-between">
-        <span className="flex items-baseline gap-2">
+        <span className="flex flex-wrap items-baseline gap-2">
           <span className="font-mono text-[12px] font-bold text-ink">{c.symbol}</span>
           <span className="tnum font-mono text-[10px]" style={{ color: c.pct_change >= 0 ? "var(--green)" : "var(--red)" }}>{c.pct_change >= 0 ? "+" : ""}{c.pct_change}%</span>
           <span className="font-mono text-[9px] text-muted">rng {c.range_pos}</span>
+          {c.ignition && (
+            <span className="rounded px-1.5 py-0.5 font-mono text-[9px] font-bold" style={{ background: "rgba(255,138,42,0.18)", color: "#ff8a2a" }}>
+              🔥 {c.ignition.score} · {c.ignition.rel_volume}×vol{c.ignition.oi_up_days ? ` · OI↑${c.ignition.oi_up_days}d` : ""}
+            </span>
+          )}
         </span>
         {c.buildup && (
           <span className="flex items-center gap-1">

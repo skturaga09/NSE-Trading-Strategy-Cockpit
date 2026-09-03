@@ -44,6 +44,14 @@ SEC_OI_FLOOR = 1.0      # OI must be genuinely rising (fresh longs/shorts), not 
 SEC_MOVE_MIN = 2.5      # |day % move| at least this — a real mover, not a drift
 SEC_RANGE_MIN = 0.6     # closed in the top (long) / bottom (short) of the day's range
 
+# Ignition scanner — the SOLARINDS "early accumulation" footprint. Fuses the signals a
+# discretionary trader can't watch across 200+ names at once: a VOLUME surge (the move
+# has real participation), a MULTI-DAY OI build (accumulation, not a one-day squeeze), a
+# fresh buildup + strong close, and a breakout from a base. Public data — the edge is
+# complete, consistent, MEASURED coverage, not secret info. Validated by the learning layer.
+IGNITION_RELVOL_MIN = 1.5   # today's volume must be >= this x its ~20-day average
+IGNITION_MIN_SCORE = 45.0   # 0..100 composite bar to surface as an ignition candidate
+
 
 def _futures_map() -> Dict[str, Dict[str, Any]]:
     """name -> nearest-expiry stock future {token, tradingsymbol, lot_size, expiry}."""
@@ -260,6 +268,79 @@ def _oi_tier(oi_chg_pct: Optional[float]) -> Optional[str]:
             else "mild" if a >= OI_NOISE else "noise")
 
 
+def _signal_pack(candles: List[List[Any]]) -> Optional[Dict[str, Any]]:
+    """Full per-name daily-signal pack from one candle series [ts,o,h,l,c,vol,oi]:
+    OI buildup (+tier), relative volume (today vs ~20-day avg), OI trend (consecutive
+    up sessions + 3-session change), and nearest pivot distances (breakout proximity).
+    Everything the Ignition score needs, computed from a single fetch."""
+    if not candles or len(candles) < 4:
+        return None
+    b = _buildup_from_candles(candles) or {}
+    if b.get("oi_chg_pct") is not None:
+        b["tier"] = _oi_tier(b["oi_chg_pct"])
+    # Relative volume: today vs the average of the prior ~20 sessions.
+    vols = [c[5] for c in candles if len(c) > 5 and c[5] is not None]
+    if len(vols) >= 6:
+        base = vols[-21:-1] if len(vols) >= 21 else vols[:-1]
+        avg = (sum(base) / len(base)) if base else 0
+        b["rel_volume"] = round(vols[-1] / avg, 2) if avg else None
+    # OI trend: consecutive up-OI sessions ending today, and the 3-session OI change.
+    ois = [c[6] for c in candles if len(c) > 6 and c[6] is not None]
+    if len(ois) >= 4:
+        streak = 0
+        for i in range(len(ois) - 1, 0, -1):
+            if ois[i] > ois[i - 1]:
+                streak += 1
+            else:
+                break
+        b["oi_up_days"] = streak
+        b["oi_3d_pct"] = round((ois[-1] - ois[-4]) / ois[-4] * 100, 1) if ois[-4] else None
+    # Breakout proximity: nearest pivot above (resistance) / below (support), % from close.
+    st = _structure_levels(candles)
+    b["resistance_pct"] = st.get("resistance_pct")
+    b["support_pct"] = st.get("support_pct")
+    return b or None
+
+
+def _full_pack(token: str) -> Optional[Dict[str, Any]]:
+    """Fetch ~40 sessions of daily candles (fresh, so OI/volume reflect the latest) and
+    build the full signal pack. Used by the background full-universe refresh."""
+    frm = (date.today() - timedelta(days=60)).isoformat()
+    to = date.today().isoformat()
+    try:
+        r = requests.get(f"https://api.kite.trade/instruments/historical/{token}/day",
+                         params={"from": frm, "to": to, "oi": 1}, headers=_headers(), timeout=8)
+        j = r.json()
+        candles = j.get("data", {}).get("candles", []) if j.get("status") == "success" else []
+    except Exception:
+        return None
+    return _signal_pack(candles)
+
+
+def _ignition(r: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Score a name's 'ignition' — early accumulation footprint — from its live price row
+    plus the cached daily pack. Requires a real volume surge AND a fresh buildup; blends
+    volume, multi-day OI, direction-agreeing strong close, and breakout proximity into
+    0..100. Returns None when it doesn't qualify."""
+    p = r.get("buildup") or {}
+    rv = p.get("rel_volume")
+    label = p.get("label")
+    if rv is None or rv < IGNITION_RELVOL_MIN or label not in ("Long buildup", "Short buildup"):
+        return None
+    d = 1 if label == "Long buildup" else -1
+    rel = min(rv, 4.0) / 4.0                                   # volume surge (capped 4x)
+    oi_days = min(p.get("oi_up_days") or 0, 3) / 3.0           # sustained accumulation
+    dir_up = 1.0 if (r["pct_change"] * d) > 0 else 0.0
+    close = (r["range_pos"] if d == 1 else 1 - r["range_pos"]) * dir_up   # strong close in dir
+    lvl = p.get("resistance_pct") if d == 1 else p.get("support_pct")
+    brk = 1.0 if lvl is None else max(0.0, 1 - min(lvl, 5.0) / 5.0)        # near/at breakout
+    score = 100.0 * (0.35 * rel + 0.25 * oi_days + 0.20 * close + 0.20 * brk)
+    return {"score": round(score, 1), "bias": "LONG" if d == 1 else "SHORT",
+            "rel_volume": rv, "oi_up_days": p.get("oi_up_days"), "oi_3d_pct": p.get("oi_3d_pct"),
+            "components": {"vol": round(rel, 2), "oi_trend": round(oi_days, 2),
+                           "close": round(close, 2), "breakout": round(brk, 2)}}
+
+
 # Full-universe OI buildup cache: {name -> buildup dict or None}. OI is a slow daily
 # signal, so we compute it for EVERY futures name (so a big buildup can never be
 # dropped just because its price score isn't top-N) but refresh only every
@@ -276,9 +357,7 @@ def _refresh_oi(futmap: Dict[str, Dict[str, Any]]) -> None:
     for name, fut in futmap.items():
         b: Optional[Dict[str, Any]] = None
         try:
-            b = _oi_buildup(fut["token"])
-            if b and b.get("oi_chg_pct") is not None:
-                b["tier"] = _oi_tier(b["oi_chg_pct"])
+            b = _full_pack(fut["token"])   # OI buildup + rel-volume + OI-trend + breakout
         except Exception:
             b = None
         m[name] = b
@@ -419,6 +498,17 @@ def scan(top: int = 8, risk: float = 1000.0) -> Dict[str, Any]:
         building_longs = [enrich(r, "LONG") for r in build_long_pool[:CAP]]
         building_shorts = [enrich(r, "SHORT") for r in build_short_pool[:CAP]]
 
+        # --- Ignition board: the early-accumulation footprint (volume + OI + breakout) ---
+        ign_pool: List[Dict[str, Any]] = []
+        for r in rows:
+            ig = _ignition(r)
+            if ig and ig["score"] >= IGNITION_MIN_SCORE:
+                rr = dict(r)
+                rr["ignition"] = ig
+                ign_pool.append(rr)
+        ign_pool.sort(key=lambda r: r["ignition"]["score"], reverse=True)
+        ignition = [enrich(r, r["ignition"]["bias"]) for r in ign_pool[:CAP]]
+
         # Anti-drop transparency: names we couldn't read OI for, and mild buildups that
         # fell just under the bar — surfaced as counts so nothing is silently gone.
         oi_unavailable = sorted(n for n in names if n in futmap and oimap.get(n) is None)
@@ -435,6 +525,7 @@ def scan(top: int = 8, risk: float = 1000.0) -> Dict[str, Any]:
         out["overnight_shorts_more"] = overnight_shorts_more
         out["building_longs"] = building_longs
         out["building_shorts"] = building_shorts
+        out["ignition"] = ignition
         out.update({
             "is_live": True, "source": "Zerodha Kite live (/quote + full-universe futures OI)",
             "scanned": len(rows),
