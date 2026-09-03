@@ -5,6 +5,11 @@ import App from "./App";
 import { ToastProvider } from "./components/Toast";
 import "./index.css";
 
+// Apply the saved theme before first paint (no flash of the wrong theme).
+try {
+  if (localStorage.getItem("theme") === "light") document.documentElement.setAttribute("data-theme", "light");
+} catch { /* private mode */ }
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

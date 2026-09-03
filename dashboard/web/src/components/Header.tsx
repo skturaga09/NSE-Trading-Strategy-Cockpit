@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRecommendations, biasColor } from "../hooks";
 import { api } from "../api";
@@ -18,6 +18,16 @@ export function Header({
   const [checkOpen, setCheckOpen] = useState(false);
   const { afterHours, setAfterHours } = useMode();
   const { data: session } = useQuery({ queryKey: ["session"], queryFn: api.getSession, refetchInterval: 3000 });
+
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    try { return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark"; } catch { return "dark"; }
+  });
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "light") root.setAttribute("data-theme", "light");
+    else root.removeAttribute("data-theme");
+    try { localStorage.setItem("theme", theme); } catch { /* private mode */ }
+  }, [theme]);
 
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-[color:var(--bg)]/85 backdrop-blur-md">
@@ -93,6 +103,14 @@ export function Header({
               </button>
             ))}
           </div>
+
+          <button
+            onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+            title={theme === "light" ? "Switch to night mode" : "Switch to day mode"}
+            className="rounded-md border border-line bg-panel px-2.5 py-1.5 text-sm text-muted transition hover:text-ink"
+          >
+            {theme === "light" ? "🌙" : "☀️"}
+          </button>
 
           <button
             onClick={() => setCheckOpen(true)}

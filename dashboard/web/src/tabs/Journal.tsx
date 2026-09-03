@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type { AttributionResponse, ExpectancyStat, JournalTrade, DecisionsResponse, CostsSummary,
@@ -97,8 +98,9 @@ function PnlHeatmap({ days }: { days: Record<string, number> }) {
   const key2 = (m: number, day: number) => `${year}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   const niceDate = (k: string) => {
     const [y, m, d] = k.split("-").map(Number);
-    return `${d} ${MONTHS[m - 1]} ${y}`;
+    return `${MONTHS[m - 1]} ${d}, ${y}`;
   };
+  const fmtAmt = (v: number) => v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   // Year summary.
   let total = 0, greens = 0, reds = 0, tradeDays = 0;
@@ -158,6 +160,7 @@ function PnlHeatmap({ days }: { days: Record<string, number> }) {
                           onMouseEnter={(e) => setHover({ x: e.clientX, y: e.clientY, date: k, v })}
                           onMouseMove={(e) => setHover({ x: e.clientX, y: e.clientY, date: k, v })}
                           onMouseLeave={() => setHover(null)}
+                          onClick={(e) => setHover({ x: e.clientX, y: e.clientY, date: k, v })}
                           style={{ width: CELL, height: CELL, borderRadius: 3, background: cellColor(v), cursor: "pointer" }} />
                       );
                     })}
@@ -177,19 +180,36 @@ function PnlHeatmap({ days }: { days: Record<string, number> }) {
         <span>Profit</span>
       </div>
 
-      {hover && (
-        <div className="pointer-events-none fixed z-50 rounded-md border border-line px-2.5 py-1.5 font-mono text-[11px] shadow-lg"
-          style={{ left: hover.x + 14, top: hover.y + 14, background: "var(--bg-2, #14140f)" }}>
-          <div className="text-muted">{niceDate(hover.date)}</div>
-          {hover.v === undefined ? (
-            <div className="text-muted">No trades</div>
-          ) : (
-            <div className="tnum font-bold" style={{ color: hover.v > 0 ? "var(--green)" : hover.v < 0 ? "var(--red)" : "var(--ink)" }}>
-              {signed(hover.v)}
-            </div>
-          )}
-        </div>
-      )}
+      {hover && (() => {
+        // Keep the tooltip on-screen: default to the right of the cursor, but flip left
+        // near the right edge and clamp vertically — so it never renders off-viewport.
+        const TW = 340, TH = 40, pad = 12;
+        const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
+        const vh = typeof window !== "undefined" ? window.innerHeight : 720;
+        let left = hover.x + 18;
+        if (left + TW > vw - pad) left = hover.x - TW - 18;
+        left = Math.max(pad, left);
+        let top = hover.y - TH / 2;
+        top = Math.max(pad, Math.min(top, vh - TH - pad));
+        // Portal to <body>: the .panel uses backdrop-filter, which makes position:fixed
+        // resolve against the panel instead of the viewport — rendering the tooltip
+        // off-screen. Portalling to body escapes that containing block.
+        return createPortal(
+          <div className="pointer-events-none fixed z-[9999] whitespace-nowrap rounded-lg border border-line px-3 py-2 font-mono text-[12px] shadow-xl"
+            style={{ left, top, background: "var(--bg-2, #1b1b16)", color: "var(--ink)" }}>
+            {hover.v === undefined ? (
+              <span className="text-muted">No trades on {niceDate(hover.date)}</span>
+            ) : (
+              <span className="text-muted">Gross realised P&amp;L on {niceDate(hover.date)}:{" "}
+                <span className="font-bold" style={{ color: hover.v > 0 ? "var(--green)" : hover.v < 0 ? "var(--red)" : "var(--ink)" }}>
+                  {fmtAmt(hover.v)}
+                </span>
+              </span>
+            )}
+          </div>,
+          document.body
+        );
+      })()}
     </div>
   );
 }
