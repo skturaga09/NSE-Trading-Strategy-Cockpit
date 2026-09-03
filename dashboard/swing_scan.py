@@ -26,6 +26,16 @@ from dashboard.fno_scanner import fno_universe, _chunk
 _FUT: Dict[str, Any] = {"date": None, "map": None}
 _LOCK = threading.Lock()
 
+# OI-buildup thresholds — day-over-day % change in futures open interest. OI is a
+# DAILY signal (it accumulates through the session), so the overnight board treats
+# these as the bar to "seriously consider" a name for an overnight hold.
+OI_NOISE = 5.0          # below this = noise, not a real buildup
+OI_NOTABLE = 10.0       # surface as an overnight candidate at/above this
+OI_STRONG = 20.0        # aggressive positioning
+OI_REFRESH_MIN = 30.0   # recompute the full-universe OI map at most this often
+                        # (OI is a daily signal — no need to churn it every few min)
+OI_FORMING_BEFORE = "14:00"  # today's OI is still accumulating before this IST time
+
 
 def _futures_map() -> Dict[str, Dict[str, Any]]:
     """name -> nearest-expiry stock future {token, tradingsymbol, lot_size, expiry}."""
@@ -51,17 +61,30 @@ def _futures_map() -> Dict[str, Dict[str, Any]]:
     return best
 
 
+_CANDLES: Dict[str, Any] = {}  # token -> (date_iso, candles) — daily candles change once/day
+
+
 def _daily_candles(token: str, days: int = 45) -> List[List[Any]]:
-    """Daily OHLC(+OI) candles for a futures token over the last `days`."""
+    """Daily OHLC(+OI) candles for a futures token over the last `days`. Cached per day:
+    the structure levels derived from these come from prior-session pivots and don't
+    move intraday, so we fetch once per token per day instead of on every 30s scan —
+    which keeps the per-scan enrich() from hammering Kite's historical endpoint."""
+    today = date.today().isoformat()
+    hit = _CANDLES.get(token)
+    if hit and hit[0] == today and hit[1]:
+        return hit[1]
     frm = (date.today() - timedelta(days=days)).isoformat()
-    to = date.today().isoformat()
+    to = today
     try:
         r = requests.get(f"https://api.kite.trade/instruments/historical/{token}/day",
                          params={"from": frm, "to": to, "oi": 1}, headers=_headers(), timeout=8)
         j = r.json()
-        return j.get("data", {}).get("candles", []) if j.get("status") == "success" else []
+        candles = j.get("data", {}).get("candles", []) if j.get("status") == "success" else []
     except Exception:
-        return []
+        candles = []
+    if candles:
+        _CANDLES[token] = (today, candles)
+    return candles
 
 
 def _buildup_from_candles(candles: List[List[Any]]) -> Optional[Dict[str, Any]]:
@@ -208,6 +231,75 @@ def _oi_buildup(token: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+def _market_open_now() -> bool:
+    """NSE weekday hours in IST (no holiday calendar)."""
+    try:
+        from zoneinfo import ZoneInfo
+        now = datetime.now(ZoneInfo("Asia/Kolkata"))
+    except Exception:
+        now = datetime.now()
+    if now.weekday() >= 5:
+        return False
+    return "09:15" <= now.strftime("%H:%M") <= "15:30"
+
+
+def _oi_tier(oi_chg_pct: Optional[float]) -> Optional[str]:
+    """Bucket a day-over-day OI change into a conviction tier."""
+    if oi_chg_pct is None:
+        return None
+    a = abs(oi_chg_pct)
+    return ("strong" if a >= OI_STRONG else "notable" if a >= OI_NOTABLE
+            else "mild" if a >= OI_NOISE else "noise")
+
+
+# Full-universe OI buildup cache: {name -> buildup dict or None}. OI is a slow daily
+# signal, so we compute it for EVERY futures name (so a big buildup can never be
+# dropped just because its price score isn't top-N) but refresh only every
+# OI_REFRESH_MIN and off the request path (P4) — a background thread does the ~190
+# historical calls so the fast price scan is never blocked.
+_OI: Dict[str, Any] = {"date": None, "ts": None, "map": None, "busy": False}
+
+
+def _refresh_oi(futmap: Dict[str, Dict[str, Any]]) -> None:
+    """Recompute OI buildup for the whole futures universe (throttled to ~3 req/s for
+    Kite's historical limit). A per-name failure is stored as None so that name shows
+    as 'OI unavailable' rather than silently vanishing — completeness over a clean lie."""
+    m: Dict[str, Optional[Dict[str, Any]]] = {}
+    for name, fut in futmap.items():
+        b: Optional[Dict[str, Any]] = None
+        try:
+            b = _oi_buildup(fut["token"])
+            if b and b.get("oi_chg_pct") is not None:
+                b["tier"] = _oi_tier(b["oi_chg_pct"])
+        except Exception:
+            b = None
+        m[name] = b
+        time.sleep(0.2)  # + network latency ≈ 3 req/s (Kite historical limit)
+    with _LOCK:
+        _OI.update({"date": date.today().isoformat(), "ts": datetime.now(), "map": m, "busy": False})
+
+
+def _oi_map(futmap: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    """Return the freshest cached OI map immediately; kick a non-blocking refresh when
+    it's stale (or empty). Skips the refresh after market close once today's snapshot
+    exists (OI is final for the day), so it doesn't churn overnight."""
+    today = date.today().isoformat()
+    now = datetime.now()
+    with _LOCK:
+        fresh = (_OI["date"] == today and _OI["map"] is not None and _OI["ts"] is not None
+                 and (now - _OI["ts"]).total_seconds() < OI_REFRESH_MIN * 60)
+        cached = _OI["map"] or {}
+        ts = _OI["ts"]
+        busy = _OI.get("busy", False)
+    should = (not fresh) and (not busy) and (_market_open_now() or not cached)
+    if should:
+        with _LOCK:
+            _OI["busy"] = True
+        threading.Thread(target=_refresh_oi, args=(dict(futmap),), daemon=True).start()
+    return {"map": cached, "ts": ts.strftime("%Y-%m-%d %H:%M:%S") if ts else None,
+            "ready": bool(cached)}
+
+
 def scan(top: int = 8, risk: float = 1000.0) -> Dict[str, Any]:
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     out: Dict[str, Any] = {"timestamp": ts, "is_live": False, "source": "unavailable",
@@ -249,15 +341,23 @@ def scan(top: int = 8, risk: float = 1000.0) -> Dict[str, Any]:
                          "range_pct": round(range_pct, 2), "score": round(score, 2),
                          "lot_size": fut["lot_size"], "fut_token": fut["token"], "expiry": fut["expiry"]})
 
-        constructive = sorted([r for r in rows if r["score"] > 0], key=lambda r: r["score"], reverse=True)[:top]
-        weak = sorted([r for r in rows if r["score"] < 0], key=lambda r: r["score"])[:top]
+        # Attach the cached full-universe OI buildup to every scanned name (free — it's
+        # already computed), so OI can drive the overnight boards below without any name
+        # being dropped for being outside the price-ranked top-N.
+        oi = _oi_map(futmap)
+        oimap = oi["map"]
+        for r in rows:
+            r["buildup"] = oimap.get(r["symbol"])
 
         def enrich(r: Dict[str, Any], bias: str) -> Dict[str, Any]:
             r = dict(r)
             r["bias"] = bias
             entry, lot = r["ltp"], r["lot_size"]
             candles = _daily_candles(r.pop("fut_token"))
-            r["buildup"] = _buildup_from_candles(candles)
+            # Keep the tiered buildup already attached from the cached full-universe map;
+            # only fall back to a fresh 2-candle compute if it's somehow missing.
+            if not r.get("buildup"):
+                r["buildup"] = _buildup_from_candles(candles)
             struct = _structure_levels(candles)
             vol_pct = round(max(3.0, r["range_pct"] * 1.5), 1)   # volatility fallback
             lv = _levels(entry, struct, bias, vol_fallback=vol_pct, lo=1.0, hi=15.0)
@@ -267,10 +367,58 @@ def scan(top: int = 8, risk: float = 1000.0) -> Dict[str, Any]:
                          "notional_1lot": round(entry * lot), "fits": max_lots >= 1}
             return r
 
+        constructive = sorted([r for r in rows if r["score"] > 0], key=lambda r: r["score"], reverse=True)[:top]
+        weak = sorted([r for r in rows if r["score"] < 0], key=lambda r: r["score"])[:top]
+
+        # --- Overnight OI-buildup boards (whole universe, thresholded) ---
+        # A fresh buildup (OI UP) that agrees with price is the overnight signal:
+        #   Long buildup  = price up + OI up  -> constructive overnight
+        #   Short buildup = price down + OI up -> weak overnight
+        # (Short covering / long unwinding have OI DOWN — not a fresh commitment — so
+        #  they stay off these boards.) Bar to appear: OI change >= OI_NOTABLE.
+        def _oichg(r: Dict[str, Any]) -> float:
+            return ((r.get("buildup") or {}).get("oi_chg_pct")) or 0.0
+        def _label(r: Dict[str, Any]) -> Optional[str]:
+            return (r.get("buildup") or {}).get("label")
+
+        long_pool = [r for r in rows if _label(r) == "Long buildup" and _oichg(r) >= OI_NOTABLE]
+        short_pool = [r for r in rows if _label(r) == "Short buildup" and _oichg(r) >= OI_NOTABLE]
+        long_pool.sort(key=lambda r: (_oichg(r), r["score"]), reverse=True)
+        short_pool.sort(key=lambda r: (_oichg(r), -r["score"]), reverse=True)
+
+        CAP = 12  # full gap-aware plans for the top CAP per side; the rest are still listed
+        overnight_longs = [enrich(r, "LONG") for r in long_pool[:CAP]]
+        overnight_shorts = [enrich(r, "SHORT") for r in short_pool[:CAP]]
+
+        def _brief(r: Dict[str, Any]) -> Dict[str, Any]:
+            b = r.get("buildup") or {}
+            return {"symbol": r["symbol"], "pct_change": r["pct_change"], "ltp": r["ltp"],
+                    "oi_chg_pct": b.get("oi_chg_pct"), "tier": b.get("tier"), "label": b.get("label")}
+        overnight_longs_more = [_brief(r) for r in long_pool[CAP:]]
+        overnight_shorts_more = [_brief(r) for r in short_pool[CAP:]]
+
+        # Anti-drop transparency: names we couldn't read OI for, and mild buildups that
+        # fell just under the bar — surfaced as counts so nothing is silently gone.
+        oi_unavailable = sorted(n for n in names if n in futmap and oimap.get(n) is None)
+        below_long = sum(1 for r in rows if _label(r) == "Long buildup" and 0 < _oichg(r) < OI_NOTABLE)
+        below_short = sum(1 for r in rows if _label(r) == "Short buildup" and 0 < _oichg(r) < OI_NOTABLE)
+        now_hm = datetime.now().strftime("%H:%M")
+        oi_forming = _market_open_now() and now_hm < OI_FORMING_BEFORE
+
         out["constructive"] = [enrich(r, "LONG") for r in constructive]
         out["weak"] = [enrich(r, "SHORT") for r in weak]
-        out.update({"is_live": True, "source": "Zerodha Kite live (/quote + futures OI)",
-                    "scanned": len(rows)})
+        out["overnight_longs"] = overnight_longs
+        out["overnight_shorts"] = overnight_shorts
+        out["overnight_longs_more"] = overnight_longs_more
+        out["overnight_shorts_more"] = overnight_shorts_more
+        out.update({
+            "is_live": True, "source": "Zerodha Kite live (/quote + full-universe futures OI)",
+            "scanned": len(rows),
+            "oi_ready": oi["ready"], "oi_ts": oi["ts"], "oi_forming": oi_forming,
+            "oi_thresholds": {"noise": OI_NOISE, "notable": OI_NOTABLE, "strong": OI_STRONG},
+            "oi_unavailable_count": len(oi_unavailable),
+            "oi_below_threshold": {"long": below_long, "short": below_short},
+        })
     except Exception as e:
         out["source"] = f"Kite request failed: {e}"
     return out

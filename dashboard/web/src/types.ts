@@ -480,6 +480,15 @@ export interface OiBuildup {
   lean: "bullish" | "bearish";
   oi: number;
   oi_chg_pct: number | null;
+  tier?: "strong" | "notable" | "mild" | "noise" | null;
+}
+export interface OvernightBrief {
+  symbol: string;
+  pct_change: number;
+  ltp: number;
+  oi_chg_pct: number | null;
+  tier: "strong" | "notable" | "mild" | "noise" | null;
+  label: string;
 }
 export interface SwingPlan {
   entry: number;
@@ -518,6 +527,17 @@ export interface SwingScan {
   scanned?: number;
   constructive: SwingCandidate[];
   weak: SwingCandidate[];
+  // Overnight OI-buildup boards (full-universe, thresholded)
+  overnight_longs?: SwingCandidate[];
+  overnight_shorts?: SwingCandidate[];
+  overnight_longs_more?: OvernightBrief[];
+  overnight_shorts_more?: OvernightBrief[];
+  oi_ready?: boolean;
+  oi_ts?: string | null;
+  oi_forming?: boolean;
+  oi_thresholds?: { noise: number; notable: number; strong: number };
+  oi_unavailable_count?: number;
+  oi_below_threshold?: { long: number; short: number };
 }
 
 // --- Exit monitor ---

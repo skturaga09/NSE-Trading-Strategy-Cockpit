@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { SwingScan, SwingCandidate, OptionChain } from "../types";
+import type { SwingScan, SwingCandidate, OptionChain, OvernightBrief } from "../types";
 
 // Black-Scholes (fair-value the option at the swing target)
 function erf(x: number): number {
@@ -105,11 +105,19 @@ export function Swing() {
             <div className="font-mono text-[10px] text-muted">
               ● {scan.source} · {scan.scanned}/{scan.universe} scanned · {scan.timestamp} · sized to {inr(riskBudget)} ({riskPct}% of {inr(CAPITAL)})
             </div>
+
+            <OvernightBoard scan={scan} riskBudget={riskBudget} opts={opts} onOption={loadOption} />
+
             <FitBanner scan={scan} riskBudget={riskBudget} />
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <Column title="▲ Constructive (bullish close + OI)" color="var(--green)" rows={scan.constructive} riskBudget={riskBudget} opts={opts} onOption={loadOption} />
-              <Column title="▼ Weak (bearish close + OI)" color="var(--red)" rows={scan.weak} riskBudget={riskBudget} opts={opts} onOption={loadOption} />
-            </div>
+            <details className="group">
+              <summary className="cursor-pointer font-mono text-[10px] font-bold uppercase tracking-wider text-muted hover:text-ink">
+                ▸ Close-strength boards (price only, top {scan.constructive.length}/{scan.weak.length}) — secondary
+              </summary>
+              <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <Column title="▲ Constructive (bullish close + OI)" color="var(--green)" rows={scan.constructive} riskBudget={riskBudget} opts={opts} onOption={loadOption} />
+                <Column title="▼ Weak (bearish close + OI)" color="var(--red)" rows={scan.weak} riskBudget={riskBudget} opts={opts} onOption={loadOption} />
+              </div>
+            </details>
             <p className="font-mono text-[9px] leading-relaxed text-muted">
               Ranked by close strength; OI buildup (from futures, today vs yesterday) shows where positioning leans — treat as supporting evidence,
               never a standalone signal. Stops are wider than intraday (≥3% or 1.5× today's range) to survive a normal overnight move, but a gap can
@@ -118,6 +126,92 @@ export function Swing() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+const TIER_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
+  strong: { bg: "rgba(88,214,141,0.18)", fg: "var(--green)", label: "STRONG" },
+  notable: { bg: "rgba(244,185,66,0.16)", fg: "var(--gold)", label: "NOTABLE" },
+};
+
+function OvernightBoard({ scan, riskBudget, opts, onOption }: {
+  scan: SwingScan; riskBudget: number; opts: Record<string, OptState>; onOption: (s: string) => void;
+}) {
+  const longs = scan.overnight_longs ?? [];
+  const shorts = scan.overnight_shorts ?? [];
+  const th = scan.oi_thresholds;
+  const below = scan.oi_below_threshold;
+  return (
+    <div className="space-y-3 rounded-lg border border-gold/30 bg-gold/[0.05] p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="flex items-center gap-2 font-display text-sm font-bold text-ink">
+          🌙 Overnight hold candidates
+          <span className="font-mono text-[10px] font-normal text-muted">
+            — fresh OI buildup ≥{th?.notable ?? 10}% + price agrees (the "carry overnight" signal)
+          </span>
+        </h3>
+        <span className="font-mono text-[9px] text-muted">
+          {scan.oi_ready ? `OI as of ${scan.oi_ts ?? "—"}` : "OI warming…"}
+        </span>
+      </div>
+
+      {!scan.oi_ready ? (
+        <div className="rounded-md border border-cyan/25 bg-cyan/[0.06] px-3 py-2 font-mono text-[10px] text-cyan">
+          ⏳ Scanning open interest across all {scan.universe} F&amp;O names (~1 min, runs in the background). The board fills in on the next
+          auto-refresh — nothing is dropped; every name is checked.
+        </div>
+      ) : (
+        <>
+          {scan.oi_forming && (
+            <div className="rounded-md border border-gold/30 bg-gold/10 px-3 py-1.5 font-mono text-[9px] leading-relaxed text-gold">
+              ⚠ Today's OI is still <span className="font-bold">forming</span> (before 2 pm) — day-over-day OI change is incomplete until late session. Read these near/after close.
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="space-y-2">
+              <div className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--green)" }}>
+                ▲ Long buildup ({longs.length}) — price up + OI up
+              </div>
+              {longs.length === 0
+                ? <div className="font-mono text-[10px] text-muted">— none ≥{th?.notable ?? 10}% today</div>
+                : longs.map((c) => <SwingRow key={c.symbol} c={c} riskBudget={riskBudget} opt={opts[c.symbol]} onOption={() => onOption(c.symbol)} />)}
+              <OverflowChips more={scan.overnight_longs_more} color="var(--green)" />
+            </div>
+            <div className="space-y-2">
+              <div className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--red)" }}>
+                ▼ Short buildup ({shorts.length}) — price down + OI up
+              </div>
+              {shorts.length === 0
+                ? <div className="font-mono text-[10px] text-muted">— none ≥{th?.notable ?? 10}% today</div>
+                : shorts.map((c) => <SwingRow key={c.symbol} c={c} riskBudget={riskBudget} opt={opts[c.symbol]} onOption={() => onOption(c.symbol)} />)}
+              <OverflowChips more={scan.overnight_shorts_more} color="var(--red)" />
+            </div>
+          </div>
+          <p className="font-mono text-[9px] leading-relaxed text-muted">
+            Fresh <span className="text-ink/80">buildup = open interest rising with price</span> (new positions committed), the day-1 signal you hold overnight to
+            catch tomorrow's continuation. <span className="text-gold">Short covering / long unwinding</span> (OI falling) are excluded — they're positions closing, not
+            fresh conviction. A buildup does <span className="text-gold">not</span> guarantee a gap up; overnight news can still gap it against you. Tiers: ≥{th?.notable ?? 10}% notable, ≥{th?.strong ?? 20}% strong.
+            {below && (below.long + below.short > 0) ? <> Below the bar today: {below.long} long / {below.short} short mild buildups (5–{th?.notable ?? 10}%, not shown).</> : null}
+            {scan.oi_unavailable_count ? <> · {scan.oi_unavailable_count} name(s) OI-unavailable (check manually — not dropped).</> : null}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function OverflowChips({ more, color }: { more?: OvernightBrief[]; color: string }) {
+  if (!more || more.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 pt-1">
+      <span className="font-mono text-[9px] text-muted">also ≥bar:</span>
+      {more.map((m) => (
+        <span key={m.symbol} className="rounded px-1.5 py-0.5 font-mono text-[9px]"
+          style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color }}>
+          {m.symbol} {m.oi_chg_pct !== null ? `${m.oi_chg_pct >= 0 ? "+" : ""}${m.oi_chg_pct}%` : ""}
+        </span>
+      ))}
     </div>
   );
 }
@@ -163,8 +257,16 @@ function SwingRow({ c, riskBudget, opt, onOption }: { c: SwingCandidate; riskBud
           <span className="font-mono text-[9px] text-muted">rng {c.range_pos}</span>
         </span>
         {c.buildup && (
-          <span className="rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase" style={{ background: `color-mix(in srgb, ${buildupColor} 15%, transparent)`, color: buildupColor }}>
-            {c.buildup.label}{c.buildup.oi_chg_pct !== null ? ` ${c.buildup.oi_chg_pct >= 0 ? "+" : ""}${c.buildup.oi_chg_pct}% OI` : ""}
+          <span className="flex items-center gap-1">
+            {c.buildup.tier && TIER_STYLE[c.buildup.tier] && (
+              <span className="rounded px-1 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider"
+                style={{ background: TIER_STYLE[c.buildup.tier].bg, color: TIER_STYLE[c.buildup.tier].fg }}>
+                {TIER_STYLE[c.buildup.tier].label}
+              </span>
+            )}
+            <span className="rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase" style={{ background: `color-mix(in srgb, ${buildupColor} 15%, transparent)`, color: buildupColor }}>
+              {c.buildup.label}{c.buildup.oi_chg_pct !== null ? ` ${c.buildup.oi_chg_pct >= 0 ? "+" : ""}${c.buildup.oi_chg_pct}% OI` : ""}
+            </span>
           </span>
         )}
       </div>
