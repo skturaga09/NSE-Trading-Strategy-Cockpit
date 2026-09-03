@@ -151,4 +151,7 @@ export const api = {
 
   sendBreakouts: () =>
     postJSON<Record<string, never>, { success: boolean; channel?: string; message?: string }>("/api/exits/breakouts-now", {}),
+
+  sendOvernight: () =>
+    postJSON<Record<string, never>, { success: boolean; channel?: string; message?: string }>("/api/exits/overnight-now", {}),
 };

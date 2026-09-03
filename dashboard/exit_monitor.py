@@ -351,6 +351,55 @@ def send_breakouts(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
                   cfg, tags=["rocket"], priority=4)
 
 
+def send_overnight(cfg: Optional[Dict[str, Any]] = None, top: int = 6, warm: bool = True) -> Dict[str, Any]:
+    """EOD 'catcher': push the overnight OI-buildup board to the phone so a hold-tonight
+    decision can be made before close without opening the tab. Fresh Long/Short buildup
+    (OI up + price agrees) at/above the threshold. A screen, NOT advice — carries gap risk.
+
+    Run by the ~15:10 IST scheduled job (a fresh process), so it warms the full-universe
+    OI map synchronously first (the server's cache isn't in this process)."""
+    cfg = cfg or get_config()
+    from dashboard import swing_scan
+    if warm:
+        try:
+            swing_scan._refresh_oi(swing_scan._futures_map())
+        except Exception:
+            pass
+    try:
+        r = swing_scan.scan(top=8)
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+    if not r.get("is_live"):
+        return {"success": False, "message": r.get("source", "swing scan unavailable")}
+    longs = (r.get("overnight_longs") or [])[:top]
+    shorts = (r.get("overnight_shorts") or [])[:top]
+    notable = (r.get("oi_thresholds") or {}).get("notable", 10)
+    if not longs and not shorts:
+        return {"success": False, "message": f"no fresh OI buildups ≥{notable}% today"}
+
+    def _row(c: Dict[str, Any]) -> str:
+        b = c.get("buildup") or {}
+        tier = (b.get("tier") or "").upper()
+        badge = f" [{tier}]" if tier in ("STRONG", "NOTABLE") else ""
+        oi = b.get("oi_chg_pct")
+        return f"  {_short(c['symbol'])}  OI {oi:+}% · {c['pct_change']:+}%{badge}"
+
+    body: List[str] = []
+    if longs:
+        body.append("▲ Long buildup — carry for a gap-up:")
+        body += [_row(c) for c in longs]
+    if shorts:
+        if body:
+            body.append("")
+        body.append("▼ Short buildup:")
+        body += [_row(c) for c in shorts]
+    if r.get("oi_forming"):
+        body.append("\n(OI still forming — read again near close.)")
+    body.append("\nFresh OI + price agree — a screen, NOT advice. Overnight gap risk; you decide & size it.")
+    return notify("🌙 Overnight OI candidates", "\n".join(body), cfg,
+                  tags=["crescent_moon"], priority=4)
+
+
 def _market_open() -> bool:
     """NSE cash/F&O hours, weekdays (no holiday calendar). IST assumed = local."""
     try:

@@ -288,6 +288,11 @@ function RulesConfig() {
     const r = await api.sendBreakouts();
     setMsg(r.success ? `✅ Breakouts sent via ${r.channel}. Check your phone.` : `⚠ ${r.message ?? "none / warming up"}`);
   };
+  const overnight = async () => {
+    setMsg("Sending overnight OI candidates…");
+    const r = await api.sendOvernight();
+    setMsg(r.success ? `✅ Overnight board sent via ${r.channel}. Check your phone.` : `⚠ ${r.message ?? "none ≥threshold / OI warming"}`);
+  };
 
   return (
     <div className="panel space-y-4 rounded-lg p-5">
@@ -408,6 +413,7 @@ function RulesConfig() {
         <button onClick={summary} className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25">Send summary now</button>
         <button onClick={candidates} className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25">Send candidates now</button>
         <button onClick={breakouts} className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25">Send breakouts now</button>
+        <button onClick={overnight} className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25">🌙 Send overnight board now</button>
         <label className="flex items-center gap-1.5 font-mono text-[11px] text-muted">
           <input type="checkbox" checked={cfg.breakout_alerts} onChange={(e) => setCfg({ ...cfg, breakout_alerts: e.target.checked })} className="accent-cyan" />
           🚀 auto breakout alerts

@@ -190,6 +190,16 @@ def exits_breakouts_now() -> JSONResponse:
     return JSONResponse(res, status_code=200 if res.get("success") else 400)
 
 
+@app.post("/api/exits/overnight-now")
+def exits_overnight_now() -> JSONResponse:
+    """Push the overnight OI-buildup board to the phone now (same as the ~15:15 EOD job).
+    warm=False here so the on-demand test reuses the server's already-cached OI map and
+    returns fast instead of blocking ~80s on a fresh full-universe refresh."""
+    from dashboard import exit_monitor
+    res = exit_monitor.send_overnight(warm=False)
+    return JSONResponse(res, status_code=200 if res.get("success") else 400)
+
+
 @app.get("/api/exits/target-calc")
 def exits_target_calc() -> Dict[str, Any]:
     """For each open option: the stock price needed to hit your pending sell target."""
