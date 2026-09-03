@@ -414,6 +414,23 @@ def recent(limit: int = 100) -> List[Dict[str, Any]]:
     return [dict(r) for r in rows]
 
 
+def daily_pnl() -> Dict[str, float]:
+    """Net P&L per calendar day (keyed YYYY-MM-DD, by exit date) from closed trades —
+    the source for the year-heatmap. Days with no closed trade are simply absent."""
+    with _LOCK, _conn() as c:
+        rows = c.execute(
+            "SELECT ts_exit, ts_entry, net_pnl FROM trade_journal "
+            "WHERE status='CLOSED' AND net_pnl IS NOT NULL").fetchall()
+    out: Dict[str, float] = {}
+    for r in rows:
+        ts = r["ts_exit"] or r["ts_entry"]
+        if not ts:
+            continue
+        day = str(ts)[:10]
+        out[day] = round(out.get(day, 0.0) + (r["net_pnl"] or 0.0), 2)
+    return out
+
+
 if __name__ == "__main__":
     import json
     print("Journal DB:", DB_PATH)

@@ -38,6 +38,11 @@ export function Journal() {
     queryFn: api.getSwingSignals,
     refetchInterval: 30000,   // resolves prior-day signals; not real-time critical
   });
+  const dailyPnl = useQuery({
+    queryKey: ["journal-daily-pnl"],
+    queryFn: api.getDailyPnl,
+    refetchInterval: 5000,
+  });
 
   const a = attr.data;
   const trades = recent.data?.trades ?? [];
@@ -52,6 +57,7 @@ export function Journal() {
   return (
     <div className="space-y-6">
       <HeroExpectancy a={a} />
+      <PnlHeatmap days={dailyPnl.data?.days ?? {}} />
       <SampleGate a={a} />
       <SwingSignalLearning data={swingSig.data} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -68,6 +74,114 @@ export function Journal() {
 }
 
 /* ---------------- Intraday decision log (process quality) ---------------- */
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const CELL = 13; // px per day cell
+const GAP = 3;   // px gap
+const STEP = CELL + GAP;
+
+function PnlHeatmap({ days }: { days: Record<string, number> }) {
+  const nowYear = new Date().getFullYear();
+  const [year, setYear] = useState(nowYear);
+
+  const jan1 = new Date(year, 0, 1);
+  const firstOffset = jan1.getDay(); // 0=Sun … 6=Sat
+  const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const daysInYear = isLeap ? 366 : 365;
+  const numCols = Math.ceil((firstOffset + daysInYear) / 7);
+
+  // Colour: green scale for a profit day, red for a loss, grey when no trade closed.
+  const cellColor = (v: number | undefined): string => {
+    if (v === undefined) return "var(--bg-3, rgba(255,255,255,0.05))";
+    if (v === 0) return "var(--bg-3, rgba(255,255,255,0.05))";
+    const a = Math.abs(v);
+    const t = a < 2500 ? 0.3 : a < 7500 ? 0.55 : a < 15000 ? 0.78 : 1;
+    return v >= 0 ? `rgba(88,214,141,${t})` : `rgba(255,93,93,${t})`;
+  };
+
+  const fmtDay = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  // Month labels positioned over the column where each month begins.
+  const monthLabels = MONTHS.map((label, m) => {
+    const idx = Math.round((new Date(year, m, 1).getTime() - jan1.getTime()) / 86_400_000);
+    return { label, col: Math.floor((idx + firstOffset) / 7) };
+  });
+
+  // Year summary.
+  let total = 0, greens = 0, reds = 0, tradeDays = 0;
+  for (const [k, v] of Object.entries(days)) {
+    if (k.startsWith(`${year}-`)) { total += v; tradeDays++; if (v > 0) greens++; else if (v < 0) reds++; }
+  }
+
+  const columns = Array.from({ length: numCols }, (_, col) => col);
+  const rows = [0, 1, 2, 3, 4, 5, 6];
+
+  return (
+    <div className="panel space-y-3 rounded-lg p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
+          🎯 P&amp;L Calendar
+          <span className="font-mono text-[11px] font-normal text-muted">— each day shaded by net realised P&amp;L</span>
+        </h2>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setYear((y) => y - 1)}
+            className="rounded border border-line px-2 py-0.5 font-mono text-sm text-muted hover:bg-raised hover:text-ink">◀</button>
+          <span className="tnum font-display text-lg font-bold text-ink">{year}</span>
+          <button onClick={() => setYear((y) => Math.min(nowYear, y + 1))} disabled={year >= nowYear}
+            className="rounded border border-line px-2 py-0.5 font-mono text-sm text-muted hover:bg-raised hover:text-ink disabled:opacity-30">▶</button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4 font-mono text-[10px] text-muted">
+        <span>Year net <span className="tnum font-bold" style={{ color: total > 0 ? "var(--green)" : total < 0 ? "var(--red)" : "var(--ink)" }}>{signed(total)}</span></span>
+        <span>🟢 {greens} up</span>
+        <span>🔴 {reds} down</span>
+        <span>{tradeDays} trading day{tradeDays === 1 ? "" : "s"}</span>
+      </div>
+
+      <div className="overflow-x-auto pb-1">
+        <div style={{ minWidth: numCols * STEP }}>
+          {/* month labels */}
+          <div className="relative" style={{ height: 16 }}>
+            {monthLabels.map((ml, i) => (
+              <span key={i} className="absolute font-mono text-[9px] uppercase tracking-wider text-muted"
+                style={{ left: ml.col * STEP }}>{ml.label}</span>
+            ))}
+          </div>
+          {/* day grid */}
+          <div className="flex" style={{ gap: GAP }}>
+            {columns.map((col) => (
+              <div key={col} className="flex flex-col" style={{ gap: GAP }}>
+                {rows.map((row) => {
+                  const dayIdx = col * 7 + row - firstOffset;
+                  if (dayIdx < 0 || dayIdx >= daysInYear) {
+                    return <div key={row} style={{ width: CELL, height: CELL }} />;
+                  }
+                  const d = new Date(year, 0, 1 + dayIdx);
+                  const key = fmtDay(d);
+                  const v = days[key];
+                  return (
+                    <div key={row} title={v === undefined ? `${key}: no trades` : `${key}: ${signed(v)}`}
+                      style={{ width: CELL, height: CELL, borderRadius: 3, background: cellColor(v) }} />
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 font-mono text-[9px] text-muted">
+        <span>Loss</span>
+        {[-16000, -8000, -3000].map((v) => <span key={v} style={{ width: CELL, height: CELL, borderRadius: 3, background: cellColor(v) }} />)}
+        <span style={{ width: CELL, height: CELL, borderRadius: 3, background: cellColor(undefined) }} />
+        {[3000, 8000, 16000].map((v) => <span key={v} style={{ width: CELL, height: CELL, borderRadius: 3, background: cellColor(v) }} />)}
+        <span>Profit</span>
+      </div>
+    </div>
+  );
+}
 
 function SwingSignalLearning({ data }: { data: SwingSignalsResponse | undefined }) {
   if (!data) return null;

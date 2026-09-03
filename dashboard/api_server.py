@@ -81,6 +81,12 @@ def journal_recent() -> Dict[str, Any]:
     return {"trades": journal.recent()}
 
 
+@app.get("/api/journal/daily-pnl")
+def journal_daily_pnl() -> Dict[str, Any]:
+    """Net P&L per day (YYYY-MM-DD -> ₹) for the year-heatmap."""
+    return {"days": journal.daily_pnl()}
+
+
 @app.get("/api/journal/swing-signals")
 def journal_swing_signals() -> Dict[str, Any]:
     """Learning layer: resolve any newly-settled overnight OI signals, then return the

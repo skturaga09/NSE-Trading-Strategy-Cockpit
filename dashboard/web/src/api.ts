@@ -97,6 +97,9 @@ export const api = {
   getSwingSignals: () =>
     getJSON<SwingSignalsResponse>(`/api/journal/swing-signals?_t=${Date.now()}`),
 
+  getDailyPnl: () =>
+    getJSON<{ days: Record<string, number> }>(`/api/journal/daily-pnl?_t=${Date.now()}`),
+
   refreshZerodha: () =>
     postJSON<Record<string, never>, { success: boolean; message: string }>(
       "/api/zerodha/refresh", {}),
