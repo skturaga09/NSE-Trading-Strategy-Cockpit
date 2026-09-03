@@ -81,8 +81,15 @@ def record_signals(scan: Dict[str, Any]) -> int:
     today = date.today().isoformat()
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     n = 0
+    # The primary OI-bar boards keep their OI tier (strong/notable); the secondary
+    # "building" boards (fresh buildup under the bar + strong close, e.g. SOLARINDS) are
+    # tagged tier='building' so the learning can measure that group on its own.
+    groups = (
+        ("LONG", "overnight_longs", None), ("SHORT", "overnight_shorts", None),
+        ("LONG", "building_longs", "building"), ("SHORT", "building_shorts", "building"),
+    )
     with _LOCK, _conn() as c:
-        for bias, key in (("LONG", "overnight_longs"), ("SHORT", "overnight_shorts")):
+        for bias, key, tier_override in groups:
             for cand in scan.get(key) or []:
                 b = cand.get("buildup") or {}
                 cur = c.execute(
@@ -90,7 +97,7 @@ def record_signals(scan: Dict[str, Any]) -> int:
                     "(signal_date, symbol, bias, oi_chg_pct, tier, close_pct, vs_vwap_pct, "
                     " range_pos, ref_price, created_at, status) "
                     "VALUES (?,?,?,?,?,?,?,?,?,?, 'OPEN')",
-                    (today, cand["symbol"], bias, b.get("oi_chg_pct"), b.get("tier"),
+                    (today, cand["symbol"], bias, b.get("oi_chg_pct"), tier_override or b.get("tier"),
                      cand.get("pct_change"), cand.get("vs_vwap_pct"), cand.get("range_pos"),
                      cand.get("ltp"), now))
                 n += cur.rowcount
@@ -179,7 +186,7 @@ def stats() -> Dict[str, Any]:
         "min_sample": MIN_SAMPLE,
         "coinflip": 50.0,
         "overall": _agg(res),
-        "by_tier": {t: _agg([r for r in res if r["tier"] == t]) for t in ("strong", "notable")},
+        "by_tier": {t: _agg([r for r in res if r["tier"] == t]) for t in ("strong", "notable", "building")},
         "by_bias": {b: _agg([r for r in res if r["bias"] == b]) for b in ("LONG", "SHORT")},
         "open_pending": open_n,
     }

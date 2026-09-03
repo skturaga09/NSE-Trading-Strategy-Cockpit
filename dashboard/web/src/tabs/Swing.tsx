@@ -188,6 +188,8 @@ function OvernightBoard({ scan, riskBudget, opts, onOption }: {
               <OverflowChips more={scan.overnight_shorts_more} color="var(--red)" />
             </div>
           </div>
+          <BuildingBoard scan={scan} riskBudget={riskBudget} opts={opts} onOption={onOption} />
+
           <p className="font-mono text-[9px] leading-relaxed text-muted">
             Fresh <span className="text-ink/80">buildup = open interest rising with price</span> (new positions committed), the day-1 signal you hold overnight to
             catch tomorrow's continuation. <span className="text-gold">Short covering / long unwinding</span> (OI falling) are excluded — they're positions closing, not
@@ -197,6 +199,41 @@ function OvernightBoard({ scan, riskBudget, opts, onOption }: {
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+function BuildingBoard({ scan, riskBudget, opts, onOption }: {
+  scan: SwingScan; riskBudget: number; opts: Record<string, OptState>; onOption: (s: string) => void;
+}) {
+  const longs = scan.building_longs ?? [];
+  const shorts = scan.building_shorts ?? [];
+  if (longs.length === 0 && shorts.length === 0) return null;
+  return (
+    <div className="space-y-2 rounded-md border border-cyan/25 bg-cyan/[0.04] p-3">
+      <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-cyan">
+        ⚡ Building — strong close, lighter OI (&lt;10%)
+        <span className="ml-1 font-normal normal-case text-muted">— fresh buildup + a big close (e.g. SOLARINDS type); conviction from price, OI confirming</span>
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="space-y-2">
+          <div className="font-mono text-[9px] font-bold uppercase tracking-wider" style={{ color: "var(--green)" }}>▲ Long ({longs.length})</div>
+          {longs.length === 0
+            ? <div className="font-mono text-[10px] text-muted">—</div>
+            : longs.map((c) => <SwingRow key={c.symbol} c={c} riskBudget={riskBudget} opt={opts[c.symbol]} onOption={() => onOption(c.symbol)} />)}
+        </div>
+        <div className="space-y-2">
+          <div className="font-mono text-[9px] font-bold uppercase tracking-wider" style={{ color: "var(--red)" }}>▼ Short ({shorts.length})</div>
+          {shorts.length === 0
+            ? <div className="font-mono text-[10px] text-muted">—</div>
+            : shorts.map((c) => <SwingRow key={c.symbol} c={c} riskBudget={riskBudget} opt={opts[c.symbol]} onOption={() => onOption(c.symbol)} />)}
+        </div>
+      </div>
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        These clear a smaller OI bar (≥1%, under the 10% "notable" line) but closed <span className="text-ink/80">strong</span> (≥2.5% move, near the day's extreme,
+        the right side of VWAP) — the strong close is the conviction, OI just confirms fresh positioning. Lower OI conviction than the board above; the learning
+        layer tracks this group separately so you'll see whether it actually pays.
+      </p>
     </div>
   );
 }

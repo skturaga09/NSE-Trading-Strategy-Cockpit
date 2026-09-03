@@ -531,7 +531,7 @@ export interface SwingSignalStats {
   min_sample: number;
   coinflip: number;
   overall: SwingSigAgg;
-  by_tier: { strong: SwingSigAgg; notable: SwingSigAgg };
+  by_tier: { strong: SwingSigAgg; notable: SwingSigAgg; building: SwingSigAgg };
   by_bias: { LONG: SwingSigAgg; SHORT: SwingSigAgg };
   open_pending: number;
 }
@@ -568,6 +568,9 @@ export interface SwingScan {
   overnight_shorts?: SwingCandidate[];
   overnight_longs_more?: OvernightBrief[];
   overnight_shorts_more?: OvernightBrief[];
+  // Secondary "building" boards: fresh buildup under the OI bar + strong close
+  building_longs?: SwingCandidate[];
+  building_shorts?: SwingCandidate[];
   oi_ready?: boolean;
   oi_ts?: string | null;
   oi_forming?: boolean;

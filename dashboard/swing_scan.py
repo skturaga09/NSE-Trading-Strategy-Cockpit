@@ -36,6 +36,14 @@ OI_REFRESH_MIN = 30.0   # recompute the full-universe OI map at most this often
                         # (OI is a daily signal — no need to churn it every few min)
 OI_FORMING_BEFORE = "14:00"  # today's OI is still accumulating before this IST time
 
+# Secondary "building" tier: a FRESH buildup below the notable OI bar but with a STRONG
+# close. Catches strong movers (e.g. SOLARINDS +4.5% OI, +4.4% close, near day high) that
+# the OI bar alone would drop. The strong-close filter is what separates these from the
+# 200+ flat-OI names — the conviction here comes from price, with OI merely confirming.
+SEC_OI_FLOOR = 1.0      # OI must be genuinely rising (fresh longs/shorts), not flat
+SEC_MOVE_MIN = 2.5      # |day % move| at least this — a real mover, not a drift
+SEC_RANGE_MIN = 0.6     # closed in the top (long) / bottom (short) of the day's range
+
 
 def _futures_map() -> Dict[str, Dict[str, Any]]:
     """name -> nearest-expiry stock future {token, tradingsymbol, lot_size, expiry}."""
@@ -397,6 +405,20 @@ def scan(top: int = 8, risk: float = 1000.0) -> Dict[str, Any]:
         overnight_longs_more = [_brief(r) for r in long_pool[CAP:]]
         overnight_shorts_more = [_brief(r) for r in short_pool[CAP:]]
 
+        # --- Secondary "building" boards: fresh buildup UNDER the OI bar + strong close ---
+        def _build_long(r: Dict[str, Any]) -> bool:
+            return (_label(r) == "Long buildup" and SEC_OI_FLOOR <= _oichg(r) < OI_NOTABLE
+                    and r["pct_change"] >= SEC_MOVE_MIN and r["range_pos"] >= SEC_RANGE_MIN
+                    and r["vs_vwap_pct"] > 0)
+        def _build_short(r: Dict[str, Any]) -> bool:
+            return (_label(r) == "Short buildup" and SEC_OI_FLOOR <= _oichg(r) < OI_NOTABLE
+                    and r["pct_change"] <= -SEC_MOVE_MIN and r["range_pos"] <= (1 - SEC_RANGE_MIN)
+                    and r["vs_vwap_pct"] < 0)
+        build_long_pool = sorted([r for r in rows if _build_long(r)], key=lambda r: r["score"], reverse=True)
+        build_short_pool = sorted([r for r in rows if _build_short(r)], key=lambda r: r["score"])
+        building_longs = [enrich(r, "LONG") for r in build_long_pool[:CAP]]
+        building_shorts = [enrich(r, "SHORT") for r in build_short_pool[:CAP]]
+
         # Anti-drop transparency: names we couldn't read OI for, and mild buildups that
         # fell just under the bar — surfaced as counts so nothing is silently gone.
         oi_unavailable = sorted(n for n in names if n in futmap and oimap.get(n) is None)
@@ -411,6 +433,8 @@ def scan(top: int = 8, risk: float = 1000.0) -> Dict[str, Any]:
         out["overnight_shorts"] = overnight_shorts
         out["overnight_longs_more"] = overnight_longs_more
         out["overnight_shorts_more"] = overnight_shorts_more
+        out["building_longs"] = building_longs
+        out["building_shorts"] = building_shorts
         out.update({
             "is_live": True, "source": "Zerodha Kite live (/quote + full-universe futures OI)",
             "scanned": len(rows),

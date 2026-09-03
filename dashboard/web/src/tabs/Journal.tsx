@@ -108,10 +108,11 @@ function SwingSignalLearning({ data }: { data: SwingSignalsResponse | undefined 
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <AggCard label="Overall hit-rate" agg={o} />
         <AggCard label="Strong (≥20%)" agg={s.by_tier.strong} />
         <AggCard label="Notable (10–20%)" agg={s.by_tier.notable} />
+        <AggCard label="Building (<10%)" agg={s.by_tier.building} />
         <AggCard label="Long buildup" agg={s.by_bias.LONG} />
         <AggCard label="Short buildup" agg={s.by_bias.SHORT} />
       </div>
