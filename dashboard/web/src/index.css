@@ -55,7 +55,10 @@ html { scroll-behavior: smooth; }
 body {
   background-color: var(--bg);
   color: var(--ink);
-  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  /* Apple's San Francisco (SF Pro) via the system stack — falls back to each
+     platform's UI font, then IBM Plex, off Apple devices. */
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui,
+    "Segoe UI", Roboto, "IBM Plex Sans", sans-serif;
   -webkit-font-smoothing: antialiased;
 
   /* Atmosphere: chart grid + warm/cool depth glows + vignette */
@@ -69,9 +72,18 @@ body {
   min-height: 100vh;
 }
 
-/* Type roles */
-.font-display { font-family: "Bricolage Grotesque", ui-sans-serif, sans-serif; letter-spacing: -0.02em; }
-.font-mono, .tnum { font-family: "IBM Plex Mono", ui-monospace, monospace; font-feature-settings: "tnum" 1; }
+/* Type roles — Apple's San Francisco family (SF Pro Display for headings, SF Mono
+   for numerals/mono), via the system stack with graceful non-Apple fallbacks. */
+.font-display {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui,
+    "Segoe UI", Roboto, "Bricolage Grotesque", sans-serif;
+  letter-spacing: -0.02em;
+}
+.font-mono, .tnum {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco,
+    "Cascadia Mono", "IBM Plex Mono", monospace;
+  font-feature-settings: "tnum" 1;
+}
 
 @layer components {
   .panel {
