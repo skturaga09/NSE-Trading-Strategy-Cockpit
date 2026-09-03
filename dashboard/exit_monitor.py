@@ -446,6 +446,13 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
     Skips outside market hours unless forced (so the 2-min job stays quiet)."""
     if not force and not _market_open():
         return {"skipped": "market closed", "alerts_sent": 0, "actionable": []}
+    # Hands-off learning: resolve any settled overnight/ignition signals each sweep, so
+    # the swing-signal outcomes stay current without anyone opening the Journal tab.
+    try:
+        from dashboard import swing_journal
+        swing_journal.resolve_due()
+    except Exception:
+        pass
     res = evaluate()
     seen = _load(_SEEN, {})
     sent = 0
