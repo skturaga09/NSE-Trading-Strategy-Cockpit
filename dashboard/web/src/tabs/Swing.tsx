@@ -317,6 +317,10 @@ function SwingRow({ c, riskBudget, opt, onOption }: { c: SwingCandidate; riskBud
   const fits = lots >= 1;
   const buildupColor = c.buildup ? (c.buildup.lean === "bullish" ? "var(--green)" : "var(--red)") : "var(--muted)";
   const open = opt != null;
+  // Long buildup (bullish) → buy a CALL; short buildup (bearish) → buy a PUT.
+  const isCall = c.bias === "LONG";
+  const optType = isCall ? "CALL (CE)" : "PUT (PE)";
+  const optColor = isCall ? "var(--green)" : "var(--red)";
   return (
     <div className="rounded-md border border-line bg-raised/30 p-2.5">
       <div className="flex items-center justify-between">
@@ -341,6 +345,11 @@ function SwingRow({ c, riskBudget, opt, onOption }: { c: SwingCandidate; riskBud
             <span className="rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase" style={{ background: `color-mix(in srgb, ${buildupColor} 15%, transparent)`, color: buildupColor }}>
               {c.buildup.label}{c.buildup.oi_chg_pct !== null ? ` ${c.buildup.oi_chg_pct >= 0 ? "+" : ""}${c.buildup.oi_chg_pct}% OI` : ""}
             </span>
+            <span className="rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase"
+              title={isCall ? "Long buildup = bullish lean → a CALL (CE) profits if it rises" : "Short buildup = bearish lean → a PUT (PE) profits if it falls"}
+              style={{ background: `color-mix(in srgb, ${optColor} 24%, transparent)`, color: optColor }}>
+              → buy {optType}
+            </span>
           </span>
         )}
       </div>
@@ -358,8 +367,9 @@ function SwingRow({ c, riskBudget, opt, onOption }: { c: SwingCandidate; riskBud
           <span className="tnum font-bold" style={{ color: fits ? "var(--green)" : "var(--red)" }}> · {fits ? `${lots} lot${lots > 1 ? "s" : ""} fit` : "0 fit"}</span>
         </span>
         <button onClick={onOption}
-          className="rounded border border-cyan/40 bg-cyan/10 px-2 py-0.5 font-mono text-[9px] font-bold uppercase text-cyan hover:bg-cyan/20">
-          {open ? "▾ hide option plan" : "▸ option-buy plan"}
+          className="rounded border px-2 py-0.5 font-mono text-[9px] font-bold uppercase hover:opacity-80"
+          style={{ borderColor: `color-mix(in srgb, ${optColor} 45%, transparent)`, background: `color-mix(in srgb, ${optColor} 12%, transparent)`, color: optColor }}>
+          {open ? "▾ hide plan" : `▸ ${isCall ? "CALL" : "PUT"}-buy plan`}
         </button>
       </div>
       {opt === "loading" && <div className="mt-2 font-mono text-[10px] text-muted">Loading {c.symbol} option chain…</div>}
