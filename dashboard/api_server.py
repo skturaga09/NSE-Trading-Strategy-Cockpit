@@ -729,4 +729,21 @@ async def post_zerodha_config(request: Request) -> JSONResponse:
 # (dashboard/web/dist) so one process serves API + UI on boot with no Vite; fall
 # back to the classic static UI if the bundle hasn't been built.
 _UI_DIR = WEB_DIST if (WEB_DIST / "index.html").exists() else STATIC_DIR
-app.mount("/", StaticFiles(directory=str(_UI_DIR), html=True), name="static")
+
+
+class _SmartStatic(StaticFiles):
+    """Serve index.html with no-cache (so the browser always fetches the current shell,
+    which references the latest hashed JS/CSS — no more stale 'no data' after a rebuild),
+    while letting the content-hashed /assets/* be cached forever (their names change per
+    build, so it's safe and fast)."""
+    async def get_response(self, path, scope):  # type: ignore[override]
+        resp = await super().get_response(path, scope)
+        ctype = resp.headers.get("content-type", "")
+        if "text/html" in ctype:
+            resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        elif path.startswith("assets/") or "/assets/" in path:
+            resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return resp
+
+
+app.mount("/", _SmartStatic(directory=str(_UI_DIR), html=True), name="static")
