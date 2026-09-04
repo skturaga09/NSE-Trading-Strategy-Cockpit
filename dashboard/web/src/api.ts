@@ -129,8 +129,8 @@ export const api = {
   getFnoScan: () =>
     getJSON<FnoScan>(`/api/intraday/fno-scan?_t=${Date.now()}`),
 
-  getSwingScan: () =>
-    getJSON<SwingScan>(`/api/swing/scan?_t=${Date.now()}`),
+  getSwingScan: (force = false) =>
+    getJSON<SwingScan>(`/api/swing/scan?${force ? "force=1&" : ""}_t=${Date.now()}`),
 
   getExitsStatus: () =>
     getJSON<ExitsStatus>(`/api/exits/status?_t=${Date.now()}`),

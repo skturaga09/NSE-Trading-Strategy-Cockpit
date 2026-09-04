@@ -590,6 +590,7 @@ export interface SwingScan {
   ignition?: SwingCandidate[];
   oi_ready?: boolean;
   oi_ts?: string | null;
+  oi_refreshing?: boolean;
   oi_forming?: boolean;
   oi_thresholds?: { noise: number; notable: number; strong: number };
   oi_unavailable_count?: number;

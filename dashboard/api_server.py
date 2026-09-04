@@ -240,10 +240,11 @@ def exits_summary_now() -> JSONResponse:
 
 
 @app.get("/api/swing/scan")
-def swing_scan_ep() -> Dict[str, Any]:
-    """EOD overnight-swing positioning scan (close strength + futures OI buildup)."""
+def swing_scan_ep(force: int = 0) -> Dict[str, Any]:
+    """EOD overnight-swing positioning scan (close strength + futures OI buildup).
+    force=1 (the Rescan button) recomputes the OI snapshot now (non-blocking)."""
     from dashboard import swing_scan
-    return swing_scan.scan()
+    return swing_scan.scan(force_oi=bool(force))
 
 
 @app.get("/api/intraday/fno-scan")

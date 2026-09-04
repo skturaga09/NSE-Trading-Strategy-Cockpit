@@ -366,10 +366,14 @@ def _refresh_oi(futmap: Dict[str, Dict[str, Any]]) -> None:
         _OI.update({"date": date.today().isoformat(), "ts": datetime.now(), "map": m, "busy": False})
 
 
-def _oi_map(futmap: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+def _oi_map(futmap: Dict[str, Dict[str, Any]], force: bool = False) -> Dict[str, Any]:
     """Return the freshest cached OI map immediately; kick a non-blocking refresh when
     it's stale (or empty). Skips the refresh after market close once today's snapshot
-    exists (OI is final for the day), so it doesn't churn overnight."""
+    exists (OI is final for the day), so it doesn't churn overnight.
+
+    force=True (the 'Rescan EOD' button) bypasses the 30-min freshness gate and the
+    after-close skip to recompute now — still non-blocking and still guarded by `busy`,
+    so a click can't stack refreshes or block the response."""
     today = date.today().isoformat()
     now = datetime.now()
     with _LOCK:
@@ -378,16 +382,16 @@ def _oi_map(futmap: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         cached = _OI["map"] or {}
         ts = _OI["ts"]
         busy = _OI.get("busy", False)
-    should = (not fresh) and (not busy) and (_market_open_now() or not cached)
+    should = (not busy) and (force or ((not fresh) and (_market_open_now() or not cached)))
     if should:
         with _LOCK:
             _OI["busy"] = True
         threading.Thread(target=_refresh_oi, args=(dict(futmap),), daemon=True).start()
     return {"map": cached, "ts": ts.strftime("%Y-%m-%d %H:%M:%S") if ts else None,
-            "ready": bool(cached)}
+            "ready": bool(cached), "refreshing": should or busy}
 
 
-def scan(top: int = 8, risk: float = 1000.0) -> Dict[str, Any]:
+def scan(top: int = 8, risk: float = 1000.0, force_oi: bool = False) -> Dict[str, Any]:
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     out: Dict[str, Any] = {"timestamp": ts, "is_live": False, "source": "unavailable",
                            "risk": risk, "universe": 0, "constructive": [], "weak": []}
@@ -431,7 +435,7 @@ def scan(top: int = 8, risk: float = 1000.0) -> Dict[str, Any]:
         # Attach the cached full-universe OI buildup to every scanned name (free — it's
         # already computed), so OI can drive the overnight boards below without any name
         # being dropped for being outside the price-ranked top-N.
-        oi = _oi_map(futmap)
+        oi = _oi_map(futmap, force=force_oi)
         oimap = oi["map"]
         for r in rows:
             r["buildup"] = oimap.get(r["symbol"])
@@ -529,7 +533,7 @@ def scan(top: int = 8, risk: float = 1000.0) -> Dict[str, Any]:
         out.update({
             "is_live": True, "source": "Zerodha Kite live (/quote + full-universe futures OI)",
             "scanned": len(rows),
-            "oi_ready": oi["ready"], "oi_ts": oi["ts"], "oi_forming": oi_forming,
+            "oi_ready": oi["ready"], "oi_ts": oi["ts"], "oi_refreshing": oi.get("refreshing", False), "oi_forming": oi_forming,
             "oi_thresholds": {"noise": OI_NOISE, "notable": OI_NOTABLE, "strong": OI_STRONG},
             "oi_unavailable_count": len(oi_unavailable),
             "oi_below_threshold": {"long": below_long, "short": below_short},

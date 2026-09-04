@@ -49,10 +49,11 @@ export function Swing() {
     }
   };
 
-  const run = async () => {
+  // Rescan button forces a fresh OI snapshot (force=true); the silent auto-poll does not.
+  const run = async (force = false) => {
     setLoading(true);
     try {
-      setScan(await api.getSwingScan());
+      setScan(await api.getSwingScan(force));
     } catch {
       setScan(null);
     } finally {
@@ -89,7 +90,7 @@ export function Swing() {
               <input type="range" min={0.5} max={10} step={0.5} value={riskPct} onChange={(e) => setRiskPct(Number(e.target.value))} className="accent-cyan" />
               <span className="tnum font-bold text-cyan">{riskPct}% · {inr(riskBudget)}</span>
             </label>
-            <button onClick={run} disabled={loading}
+            <button onClick={() => run(true)} disabled={loading}
               className="rounded-md border border-cyan/50 bg-cyan/15 px-4 py-2 font-mono text-xs font-bold text-cyan hover:bg-cyan/25 disabled:opacity-50">
               {loading ? "⏳ Scanning…" : "⟳ Rescan EOD"}
             </button>
@@ -183,7 +184,7 @@ function OvernightBoard({ scan, riskBudget, opts, onOption }: {
           </span>
         </h3>
         <span className="font-mono text-[9px] text-muted">
-          {scan.oi_ready ? `OI as of ${scan.oi_ts ?? "—"}` : "OI warming…"}
+          {scan.oi_refreshing ? "↻ OI refreshing (~1 min)…" : scan.oi_ready ? `OI as of ${scan.oi_ts ?? "—"}` : "OI warming…"}
         </span>
       </div>
 
