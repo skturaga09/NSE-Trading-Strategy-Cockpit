@@ -48,25 +48,32 @@ def compare() -> Dict[str, Any]:
     fires = _first_fires()
     with swing_journal._LOCK, swing_journal._conn() as c:
         rows = c.execute(
-            "SELECT signal_date, symbol, bias, ref_price, status, next_close, next_open "
+            "SELECT signal_date, symbol, bias, ref_price, status, next_close "
             "FROM swing_signals").fetchall()
-    eod = {(r["signal_date"], r["symbol"]): r for r in rows}
+    # Key on (date, symbol, bias): swing_signals' PK includes bias, so a name can have
+    # both a LONG and a SHORT row on one day — joining on the radar fire's own side keeps
+    # them distinct and never pairs a LONG fire against the opposite EOD row.
+    eod = {(r["signal_date"], r["symbol"], r["bias"]): r for r in rows}
 
     pairs: List[Dict[str, Any]] = []
     for (day, sym), f in fires.items():
-        e = eod.get((day, sym))
+        e = eod.get((day, sym, f.get("bias")))
         if not e or not e["ref_price"] or not f.get("ltp"):
             continue
         d = 1 if f.get("bias") == "LONG" else -1
         early, late = f["ltp"], e["ref_price"]
         # entry advantage: how much cheaper (long) / dearer (short) the early entry was
         adv = round((late - early) / early * 100 * d, 2)
+        # "resolved" for our purposes = the next session settled AND we have its close, so
+        # early_edge_pct below is always present when resolved is True (keeps the summary
+        # aggregation from indexing a missing key).
+        resolved = e["status"] == "RESOLVED" and bool(e["next_close"])
         row: Dict[str, Any] = {
             "date": day, "symbol": sym, "bias": f.get("bias"),
             "radar_time": f["ts"][11:16], "radar_price": early, "eod_price": late,
-            "entry_advantage_pct": adv, "resolved": e["status"] == "RESOLVED",
+            "entry_advantage_pct": adv, "resolved": resolved,
         }
-        if e["status"] == "RESOLVED" and e["next_close"]:
+        if resolved:
             nxt = e["next_close"]
             row["early_outcome_pct"] = round((nxt - early) / early * 100 * d, 2)
             row["eod_outcome_pct"] = round((nxt - late) / late * 100 * d, 2)

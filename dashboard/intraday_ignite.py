@@ -40,6 +40,17 @@ _SEEN = _DIR / "ignite_seen.json"          # dedupe alerts per name per day
 _LOG = _DIR / "logs" / "ignite_fires.jsonl"  # audit / learning: every fire
 
 
+def _ist_now() -> datetime:
+    """Current time in IST — the trading day (session minutes, date keys, fire timestamps)
+    is defined in IST, so the whole module reads the clock through here, never the host's
+    naive local time. Falls back to naive local only if zoneinfo is unavailable."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("Asia/Kolkata"))
+    except Exception:
+        return datetime.now()
+
+
 def _expected_volume_fraction(now: Optional[datetime] = None) -> float:
     """Fraction of a normal day's VOLUME expected to have traded by now — NOT linear.
     NSE intraday volume is front-loaded (heavy at the open, light midday, heavy into
@@ -47,18 +58,15 @@ def _expected_volume_fraction(now: Optional[datetime] = None) -> float:
     the cumulative-volume curve as frac**0.8 (clamped so the very open doesn't blow up).
     So vol_pace = today's cumulative volume / (avg_daily_volume * this)."""
     if now is None:
-        try:
-            from zoneinfo import ZoneInfo
-            now = datetime.now(ZoneInfo("Asia/Kolkata"))
-        except Exception:
-            now = datetime.now()
+        now = _ist_now()
     mins = (now.hour * 60 + now.minute) - (9 * 60 + 15)
     frac = max(0.03, min(mins / DAY_MINUTES, 1.0))   # clamp to [~11min, full day]
     return frac ** 0.8
 
 
 def _avg_daily_volume(name: str, futmap: Dict[str, Any]) -> Optional[float]:
-    """20-day average daily volume from cached daily candles (via the futures token)."""
+    """20-day average daily FUTURES volume from cached daily candles. Pairs with the live
+    futures volume in scan() so the pace ratio stays within one instrument (not cash/futures)."""
     fut = futmap.get(name)
     if not fut:
         return None
@@ -76,7 +84,7 @@ def _score(vol_pace: float, day_pct: float, range_pos: float, vs_vwap: float, d:
 
 
 def scan() -> Dict[str, Any]:
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ts = _ist_now().strftime("%Y-%m-%d %H:%M:%S")
     out: Dict[str, Any] = {"timestamp": ts, "is_live": False, "source": "unavailable",
                            "longs": [], "shorts": [], "scanned": 0, "universe": 0,
                            "market_open": swing_scan._market_open_now()}
@@ -88,9 +96,21 @@ def scan() -> Dict[str, Any]:
         names = fno_universe()
         futmap = swing_scan._futures_map()
         out["universe"] = len(names)
+        # Radar is a live-session tool. Outside market hours, skip the full-universe
+        # /quote sweep entirely (the UI polls every 15s) — there's nothing intraday to
+        # read, so a snapshot would be stale anyway. check_and_alert() bails the same way.
+        if not out["market_open"]:
+            out["source"] = "market closed — radar runs live 09:15–15:30 IST"
+            return out
         exp_vol_frac = _expected_volume_fraction()
+        # Volume pace is measured on the FUTURES leg (live futures volume vs its own
+        # 20-day candle average) so numerator and denominator are the SAME instrument —
+        # matching the swing board's rel_volume. Price / VWAP / range come from the cash
+        # leg, which is the reference the CE/PE options track.
+        cash_syms = [f"NSE:{n}" for n in names]
+        fut_syms = [f"NFO:{futmap[n]['tradingsymbol']}" for n in names if futmap.get(n)]
         quotes: Dict[str, Any] = {}
-        for grp in _chunk([f"NSE:{n}" for n in names], 200):
+        for grp in _chunk(cash_syms + fut_syms, 200):
             j = requests.get("https://api.kite.trade/quote", params=[("i", s) for s in grp],
                              headers=_headers(), timeout=10).json()
             if j.get("status") == "success":
@@ -105,13 +125,16 @@ def scan() -> Dict[str, Any]:
             ohlc = d.get("ohlc", {}) or {}
             prev_close, hi, lo = ohlc.get("close"), ohlc.get("high"), ohlc.get("low")
             vwap = d.get("average_price")
-            vol = d.get("volume")
-            if not (ltp and prev_close and vol):
+            if not (ltp and prev_close):
                 continue
+            # Volume pace on the futures leg: live futures volume vs its own 20-day
+            # average (both from the same futures instrument — see the quote batch above).
+            fut = futmap.get(n)
+            fvol = (quotes.get(f"NFO:{fut['tradingsymbol']}") or {}).get("volume") if fut else None
             avgvol = _avg_daily_volume(n, futmap)
-            if not avgvol:
+            if not fvol or not avgvol:
                 continue
-            vol_pace = round(vol / (avgvol * exp_vol_frac), 2) if avgvol * exp_vol_frac else 0
+            vol_pace = round(fvol / (avgvol * exp_vol_frac), 2) if avgvol * exp_vol_frac else 0
             day_pct = round((ltp - prev_close) / prev_close * 100, 2)
             vs_vwap = round(((ltp - vwap) / vwap * 100), 2) if vwap else 0.0
             range_pos = round(((ltp - lo) / (hi - lo)), 2) if (hi and lo and hi > lo) else 0.5
@@ -129,7 +152,7 @@ def scan() -> Dict[str, Any]:
         rows.sort(key=lambda r: r["score"], reverse=True)
         out["longs"] = [r for r in rows if r["bias"] == "LONG"][:12]
         out["shorts"] = [r for r in rows if r["bias"] == "SHORT"][:12]
-        out["scanned"] = len(quotes)
+        out["scanned"] = sum(1 for n in names if f"NSE:{n}" in quotes)  # cash leg only
         out["is_live"] = out["market_open"]
         out["source"] = "Zerodha Kite live (/quote intraday)" if out["market_open"] else "market closed — last snapshot"
     except Exception as e:
@@ -156,7 +179,7 @@ def check_and_alert() -> Dict[str, Any]:
         return {"skipped": "market closed", "alerts": 0}
     from dashboard import exit_monitor
     seen = _load(_SEEN, {})
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = _ist_now().strftime("%Y-%m-%d")
     if seen.get("date") != today:
         seen = {"date": today, "fired": []}
     fired = set(seen.get("fired", []))
@@ -186,7 +209,7 @@ def _log_fire(r: Dict[str, Any], today: str) -> None:
     try:
         _LOG.parent.mkdir(parents=True, exist_ok=True)
         with open(_LOG, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), **r}) + "\n")
+            f.write(json.dumps({"ts": _ist_now().strftime("%Y-%m-%d %H:%M:%S"), **r}) + "\n")
     except Exception:
         pass
 

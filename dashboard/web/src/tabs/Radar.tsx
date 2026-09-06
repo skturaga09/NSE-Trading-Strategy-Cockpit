@@ -51,7 +51,7 @@ export function Radar() {
           <p className="font-mono text-[11px] text-muted">Scanning the F&amp;O universe…</p>
         ) : !scan.market_open ? (
           <p className="font-mono text-[11px] text-gold">
-            ⚠ Market closed — the radar runs live during the session (09:15–15:30 IST). {scan.scanned}/{scan.universe} names loaded from the last snapshot.
+            ⚠ Market closed — the radar runs live during the session (09:15–15:30 IST). Idle until the next open ({scan.universe} F&amp;O names in scope).
           </p>
         ) : !scan.is_live ? (
           <p className="font-mono text-[11px] text-gold">⚠ Unavailable — {scan.source}. Connect Kite (System Check).</p>
