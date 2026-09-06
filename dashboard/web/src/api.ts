@@ -24,6 +24,7 @@ import type {
   FnoScan,
   SwingScan,
   IgniteScan,
+  IgniteCompare,
   ExitsStatus,
   ExitConfig,
   ThesisAlignment,
@@ -132,6 +133,9 @@ export const api = {
 
   getIgnite: () =>
     getJSON<IgniteScan>(`/api/intraday/ignite?_t=${Date.now()}`),
+
+  getIgniteCompare: () =>
+    getJSON<IgniteCompare>(`/api/intraday/ignite-compare?_t=${Date.now()}`),
 
   getSwingScan: (force = false) =>
     getJSON<SwingScan>(`/api/swing/scan?${force ? "force=1&" : ""}_t=${Date.now()}`),

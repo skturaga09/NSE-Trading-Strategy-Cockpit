@@ -254,6 +254,13 @@ def intraday_ignite_alert_ep() -> JSONResponse:
     return JSONResponse(intraday_ignite.check_and_alert(), status_code=200)
 
 
+@app.get("/api/intraday/ignite-compare")
+def intraday_ignite_compare_ep() -> Dict[str, Any]:
+    """Early (radar) vs EOD (swing board) entry comparison — did catching it early pay?"""
+    from dashboard import ignite_compare
+    return ignite_compare.compare()
+
+
 @app.get("/api/swing/scan")
 def swing_scan_ep(force: int = 0) -> Dict[str, Any]:
     """EOD overnight-swing positioning scan (close strength + futures OI buildup).

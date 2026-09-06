@@ -496,6 +496,31 @@ export interface IgniteScan {
   scanned: number;
   universe: number;
 }
+export interface IgniteComparePair {
+  date: string;
+  symbol: string;
+  bias: "LONG" | "SHORT";
+  radar_time: string;
+  radar_price: number;
+  eod_price: number;
+  entry_advantage_pct: number;
+  resolved: boolean;
+  early_outcome_pct?: number;
+  eod_outcome_pct?: number;
+  early_edge_pct?: number;
+}
+export interface IgniteCompare {
+  summary: {
+    overlap_count: number;
+    avg_entry_advantage_pct: number | null;
+    resolved_count: number;
+    avg_early_edge_pct: number | null;
+    early_better_rate: number | null;
+    total_fires_logged: number;
+    min_sample: number;
+  };
+  pairs: IgniteComparePair[];
+}
 
 // --- Overnight swing scan ---
 export interface OiBuildup {
