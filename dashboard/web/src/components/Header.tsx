@@ -4,6 +4,29 @@ import { useRecommendations, biasColor } from "../hooks";
 import { api } from "../api";
 import { useMode } from "../App";
 import { SystemCheck } from "./SystemCheck";
+import type { MarketHealth } from "../types";
+
+// Breakdown of the market-health score, mirroring the backend formula
+// (live_market.py): score = 40 + (breadth−50)·0.6 + (Nifty %vs200DMA)·1.5 + cross(±5).
+// Shown as a hover tooltip so the number is explainable at a glance.
+function healthTooltip(mh: MarketHealth): string {
+  const sgn = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(1)}`;
+  const breadthTerm = (mh.stocks_above_200dma_pct - 50) * 0.6;
+  const lines = [
+    `Health ${mh.score}/100 · ${mh.regime} — live market trend (base 40)`,
+    `Breadth ${mh.stocks_above_200dma_pct}% of Nifty-50 > 200-DMA → ${sgn(breadthTerm)}`,
+  ];
+  if (mh.nifty_last && mh.nifty_200dma) {
+    const vs200 = (mh.nifty_last / mh.nifty_200dma - 1) * 100;
+    lines.push(`Nifty ${sgn(vs200)}% vs 200-DMA (${mh.nifty_last} vs ${mh.nifty_200dma}) → ${sgn(vs200 * 1.5)}`);
+  }
+  if (mh.nifty_50dma && mh.nifty_200dma) {
+    const golden = mh.nifty_50dma > mh.nifty_200dma;
+    lines.push(`50/200-DMA: ${golden ? "golden cross" : "death cross"} (${mh.nifty_50dma}${golden ? ">" : "<"}${mh.nifty_200dma}) → ${golden ? "+5.0" : "−5.0"}`);
+  }
+  lines.push(`A/D ${mh.advance_decline} · 52w H/L ${mh.new_52w_highs}/${mh.new_52w_lows}`);
+  return lines.join("\n");
+}
 
 export function Header({
   mode,
@@ -72,8 +95,9 @@ export function Header({
             </button>
           )}
 
-          {/* Market health readout */}
-          <div className="flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-1.5">
+          {/* Market health readout (hover for the score breakdown) */}
+          <div className={`flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-1.5${mh ? " cursor-help" : ""}`}
+            title={mh ? healthTooltip(mh) : undefined}>
             <span className="uppercase tracking-wider text-muted">HEALTH</span>
             <span className="font-bold tnum" style={{ color: c }}>{mh?.score ?? "—"}</span>
             <span className="text-muted">/100</span>
