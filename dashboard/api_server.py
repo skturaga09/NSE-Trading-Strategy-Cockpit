@@ -239,6 +239,21 @@ def exits_summary_now() -> JSONResponse:
     return JSONResponse(res, status_code=200 if res.get("success") else 400)
 
 
+@app.get("/api/intraday/ignite")
+def intraday_ignite_ep() -> Dict[str, Any]:
+    """Live intraday ignition radar (early-entry heads-up). Separate lane."""
+    from dashboard import intraday_ignite
+    return intraday_ignite.scan()
+
+
+@app.post("/api/intraday/ignite-alert")
+def intraday_ignite_alert_ep() -> JSONResponse:
+    """Push phone alerts for names newly igniting (run in-server so it reuses the warm
+    daily-candle cache). The com.clade.ignite-radar job curls this every few minutes."""
+    from dashboard import intraday_ignite
+    return JSONResponse(intraday_ignite.check_and_alert(), status_code=200)
+
+
 @app.get("/api/swing/scan")
 def swing_scan_ep(force: int = 0) -> Dict[str, Any]:
     """EOD overnight-swing positioning scan (close strength + futures OI buildup).

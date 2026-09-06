@@ -23,6 +23,7 @@ import type {
   IntradayPlan,
   FnoScan,
   SwingScan,
+  IgniteScan,
   ExitsStatus,
   ExitConfig,
   ThesisAlignment,
@@ -128,6 +129,9 @@ export const api = {
 
   getFnoScan: () =>
     getJSON<FnoScan>(`/api/intraday/fno-scan?_t=${Date.now()}`),
+
+  getIgnite: () =>
+    getJSON<IgniteScan>(`/api/intraday/ignite?_t=${Date.now()}`),
 
   getSwingScan: (force = false) =>
     getJSON<SwingScan>(`/api/swing/scan?${force ? "force=1&" : ""}_t=${Date.now()}`),

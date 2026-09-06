@@ -1,4 +1,4 @@
-export type TabId = "ideas" | "plumbing" | "journal" | "intraday" | "swing" | "exits" | "vcp" | "options" | "fno" | "backtest";
+export type TabId = "ideas" | "plumbing" | "journal" | "intraday" | "swing" | "exits" | "vcp" | "options" | "fno" | "backtest" | "radar";
 
 // Ordered by the daily workflow: take trades → manage → review → find.
 // Greeks/F&O Plan/Backtest/Plumbing are HIDDEN (low-value for the live workflow) but
@@ -9,11 +9,12 @@ export type TabId = "ideas" | "plumbing" | "journal" | "intraday" | "swing" | "e
 //   { id: "plumbing", label: "Plumbing", no: "..", hint: "orders / diag" },
 const TABS: { id: TabId; label: string; no: string; hint: string }[] = [
   { id: "intraday", label: "Today", no: "01", hint: "trade now" },
-  { id: "swing", label: "Swing", no: "02", hint: "hold overnight" },
-  { id: "exits", label: "Exits", no: "03", hint: "manage / exit" },
-  { id: "journal", label: "Journal", no: "04", hint: "review + costs" },
-  { id: "ideas", label: "Ideas", no: "05", hint: "trade ideas" },
-  { id: "vcp", label: "Screener", no: "06", hint: "VCP setups" },
+  { id: "radar", label: "Radar", no: "02", hint: "early movers" },
+  { id: "swing", label: "Swing", no: "03", hint: "hold overnight" },
+  { id: "exits", label: "Exits", no: "04", hint: "manage / exit" },
+  { id: "journal", label: "Journal", no: "05", hint: "review + costs" },
+  { id: "ideas", label: "Ideas", no: "06", hint: "trade ideas" },
+  { id: "vcp", label: "Screener", no: "07", hint: "VCP setups" },
 ];
 
 export function TabNav({ active, onChange }: { active: TabId; onChange: (t: TabId) => void }) {

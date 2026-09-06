@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.clade.ignite-radar</string>
+    <!-- Every 3 min, ask the running server to push intraday-ignition phone alerts.
+         Runs in-server so it reuses the warm daily-candle cache; the endpoint bails
+         cheaply outside market hours, so a 24/7 interval is harmless. Isolated lane —
+         does not touch the swing/exit logic. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/curl</string>
+        <string>-s</string>
+        <string>-X</string>
+        <string>POST</string>
+        <string>http://127.0.0.1:8080/api/intraday/ignite-alert</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>180</integer>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/ignite_radar.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/ignite_radar.err.log</string>
+</dict>
+</plist>

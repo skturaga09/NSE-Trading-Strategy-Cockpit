@@ -474,6 +474,29 @@ export interface FnoScan {
   shorts: FnoCandidate[];
 }
 
+// --- Intraday ignition radar (early-entry lane) ---
+export interface IgniteRow {
+  symbol: string;
+  ltp: number;
+  day_pct: number;
+  vs_vwap_pct: number;
+  range_pos: number;
+  vol_pace: number;
+  score: number;
+  bias: "LONG" | "SHORT";
+  lot_size: number | null;
+}
+export interface IgniteScan {
+  timestamp: string;
+  is_live: boolean;
+  market_open: boolean;
+  source: string;
+  longs: IgniteRow[];
+  shorts: IgniteRow[];
+  scanned: number;
+  universe: number;
+}
+
 // --- Overnight swing scan ---
 export interface OiBuildup {
   label: string;
