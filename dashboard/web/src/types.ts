@@ -439,7 +439,10 @@ export interface OptionChainRow {
 export interface OptionChain {
   underlying: string;
   timestamp: string;
-  is_live: boolean;
+  is_live: boolean;       // market is OPEN right now (live ticks) — not just "Kite answered"
+  market_open?: boolean;
+  session?: string | null; // OPEN | PRE_OPEN | CLOSED | WEEKEND | …
+  has_data?: boolean;      // quotes present (live OR last snapshot) — gate rendering on this
   source: string;
   spot: number | null;
   atm: number | null;

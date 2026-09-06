@@ -141,11 +141,13 @@ export function Intraday() {
     try {
       const c = await api.getOptionChain(u);
       setChain(c);
-      if (c.is_live) {
+      // Adopt lot/expiry/spot whenever we have data — a weekend snapshot fills the form
+      // just as well — but only call the source "live" when the market is actually open.
+      if (c.has_data ?? c.is_live) {
         if (c.lot_size !== null) setLotSize(String(c.lot_size));
         if (c.expiry) setExpiry(c.expiry);
         if (c.spot !== null) setSpot(String(c.spot));
-        setDataStatus("live");
+        setDataStatus(c.is_live ? "live" : "last snapshot (market closed)");
       }
     } catch {
       setChain({ underlying, timestamp: nowIST(), is_live: false, source: "request failed", spot: null, atm: null, expiry: null, lot_size: null, rows: [] });
@@ -826,7 +828,9 @@ function MissedProfit({ chain, ctx, direction }: { chain: OptionChain; ctx: Intr
 }
 
 function OptionChainPanel({ chain, onPick }: { chain: OptionChain; onPick: (leg: OptionLeg | null, dir: "LONG" | "SHORT") => void }) {
-  if (!chain.is_live) {
+  // Only truly unavailable when there are no rows at all. A last-traded snapshot (market
+  // closed) still has data and stays visible — just labelled honestly, never "LIVE".
+  if (!chain.rows.length) {
     return (
       <div className="rounded-md border border-gold/30 bg-gold/10 px-4 py-2 font-mono text-[11px] text-gold">
         ⚠ Option chain unavailable — {chain.source}. Connect Kite (System Check), then retry.
@@ -844,7 +848,8 @@ function OptionChainPanel({ chain, onPick }: { chain: OptionChain; onPick: (leg:
   return (
     <div className="space-y-2 rounded-lg border border-cyan/20 bg-cyan/[0.04] p-3">
       <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[10px]">
-        <span className="text-cyan">● LIVE CHAIN · {chain.underlying} · exp {chain.expiry} · lot {chain.lot_size} · ATM {chain.atm} · spot {chain.spot} · {chain.timestamp}</span>
+        <span style={{ color: chain.is_live ? "var(--cyan)" : "var(--gold)" }}>
+          {chain.is_live ? "● LIVE CHAIN" : `◐ LAST SNAPSHOT (market ${(chain.session ?? "closed").toLowerCase()})`} · {chain.underlying} · exp {chain.expiry} · lot {chain.lot_size} · ATM {chain.atm} · spot {chain.spot} · {chain.timestamp}</span>
         <span className="text-muted">click a premium ▸ sets entry & direction. IV computed; change-in-OI not in Kite quote.</span>
       </div>
       <div className="overflow-x-auto rounded-md border border-line">

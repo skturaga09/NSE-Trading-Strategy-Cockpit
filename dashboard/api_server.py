@@ -50,14 +50,25 @@ def _bool(v: Any, default: bool = False) -> bool:
 
 @app.get("/api/plumbing/status")
 def plumbing_status() -> Dict[str, Any]:
-    inspector = core.ZerodhaPlumbingInspector()
+    # Reflect the ACTUAL Kite session: report live only when a real api_key + access_token
+    # are present (same test as /api/zerodha/config), so this can't say "Mock Mode" while
+    # the rest of the app is trading live off a valid token.
+    kc = core.KITE_CONFIG
+    connected = bool(kc.get("api_key") and kc.get("access_token"))
+    inspector = core.ZerodhaPlumbingInspector(kite_api_key=kc.get("api_key") if connected else None)
     conn = inspector.inspect_connection()
+    from datetime import datetime
+    try:
+        from zoneinfo import ZoneInfo
+        now_ist = datetime.now(ZoneInfo("Asia/Kolkata"))
+    except Exception:
+        now_ist = datetime.now()
     return {
         "status": "online",
         "zerodha_mode": conn.details.get("mode", "Mock"),
         "connection_check": conn.__dict__,
         "reference_rules": {"lot_sizes": core.LOT_SIZES, "freeze_limits": core.FREEZE_LIMITS},
-        "system_time": "2026-08-20T10:34:00+05:30",
+        "system_time": now_ist.isoformat(),
     }
 
 

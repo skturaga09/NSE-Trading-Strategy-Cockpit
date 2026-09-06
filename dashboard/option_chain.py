@@ -128,6 +128,7 @@ def chain(underlying: str = "NIFTY") -> Dict[str, Any]:
     underlying = underlying.upper()
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     out: Dict[str, Any] = {"underlying": underlying, "timestamp": ts, "is_live": False,
+                           "market_open": False, "session": None, "has_data": False,
                            "source": "unavailable", "spot": None, "atm": None,
                            "expiry": None, "lot_size": None, "rows": []}
     if not _connected():
@@ -217,8 +218,18 @@ def chain(underlying: str = "NIFTY") -> Dict[str, Any]:
             rows.append({"strike": int(k), "atm": int(k) == int(atm),
                          "call": leg(int(k), "CE"), "put": leg(int(k), "PE")})
 
-        out.update({"is_live": True, "source": "Zerodha Kite live (/quote + instruments)",
-                    "spot": spot, "atm": int(atm), "expiry": nearest, "lot_size": lot, "rows": rows})
+        # is_live means the MARKET is open right now — not merely that Kite answered.
+        # Outside session hours Kite /quote still returns the last traded snapshot, so we
+        # keep the data (has_data) but label it honestly instead of calling it live.
+        sess = core.ZerodhaPlumbingInspector.market_session()
+        live = bool(sess.get("is_open"))
+        out.update({
+            "is_live": live, "market_open": live, "session": sess.get("session"),
+            "has_data": True,
+            "source": ("Zerodha Kite live (/quote + instruments)" if live
+                       else f"Zerodha Kite last snapshot — {sess.get('message', 'market closed')} "
+                            "Values are the last traded prices, not live."),
+            "spot": spot, "atm": int(atm), "expiry": nearest, "lot_size": lot, "rows": rows})
     except Exception as e:
         out["source"] = f"Kite request failed: {e}"
     return out
