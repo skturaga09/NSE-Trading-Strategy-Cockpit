@@ -88,5 +88,31 @@ def compare() -> Dict[str, Any]:
     return {"summary": summary, "pairs": pairs[:60]}
 
 
+def push_weekly() -> Dict[str, Any]:
+    """Friday phone push: the running early-vs-EOD tally. Honest and sample-gated —
+    reports 'accumulating' until there are enough resolved pairs to say anything."""
+    from dashboard import exit_monitor
+    r = compare()
+    s = r["summary"]
+    if s["overlap_count"] == 0:
+        body = (f"No early/EOD overlaps yet · {s['total_fires_logged']} radar fires logged.\n"
+                f"Fills in as radar names also appear on the EOD board. Nothing to read yet.")
+    elif s["resolved_count"] < s["min_sample"]:
+        body = (f"Overlaps: {s['overlap_count']} · avg entry advantage {s['avg_entry_advantage_pct']:+}%\n"
+                f"Accumulating: {s['resolved_count']}/{s['min_sample']} resolved — no next-day verdict yet.\n"
+                f"(entry advantage = how much better the early price was vs EOD.)")
+    else:
+        verdict = "EARLY is beating EOD" if (s["avg_early_edge_pct"] or 0) > 0 else "EOD is (so far) as good or better"
+        body = (f"Overlaps: {s['overlap_count']} · avg entry advantage {s['avg_entry_advantage_pct']:+}%\n"
+                f"Resolved {s['resolved_count']}: early edge {s['avg_early_edge_pct']:+}% next-day "
+                f"({s['early_better_rate']}% of the time).\n"
+                f"→ {verdict}. Measured, not advice.")
+    return exit_monitor.notify("📏 Radar week — early vs EOD", body, tags=["straight_ruler"], priority=3)
+
+
 if __name__ == "__main__":
-    print(json.dumps(compare(), indent=2, default=str))
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "push":
+        print(json.dumps(push_weekly()))
+    else:
+        print(json.dumps(compare(), indent=2, default=str))
