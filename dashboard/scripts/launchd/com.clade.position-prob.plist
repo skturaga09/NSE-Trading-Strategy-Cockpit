@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.clade.position-prob</string>
+    <!-- Monday 09:50 IST (35 min after open, so the opening-auction IV settles): push a
+         live probability read on every OPEN option position — expected ±1SD move, P(profit
+         at expiry) and P(ITM) from live IV. Self-adjusting: reads whatever is in the Exits
+         book, so it stops covering a name once you square it off. Read-only, no orders;
+         the endpoint bails cheaply if the market is shut, so the exact minute is harmless. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Frameworks/Python.framework/Versions/3.13/bin/python3</string>
+        <string>-m</string>
+        <string>dashboard.position_prob</string>
+        <string>push</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills</string>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>1</integer>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>50</integer>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/position_prob.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/position_prob.err.log</string>
+</dict>
+</plist>
