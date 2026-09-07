@@ -69,6 +69,15 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "structure_pivot_k": 2,       # fractal pivot half-width (bars each side to confirm a swing)
     "structure_intraday_interval": "15minute",  # Phase 2b: candle interval for MIS trades
     "structure_intraday_pivot_k": 2,            # pivot half-width on the intraday timeframe
+    # Phase 2d — confirmations (RSI rollover + volume climax). NEVER an exit on their own:
+    # they annotate a structure exit for conviction, and (structure_warn) fire a heads-up
+    # WEAKEN nudge when a WINNER is weakening but its structure still holds. Full-exit stays
+    # the structure break; this is the brainstorm's early-warning, not a trigger.
+    "structure_confirmations": True,
+    "structure_warn": True,
+    "structure_warn_min_confirms": 2,   # how many confirmations before a heads-up
+    "volume_climax_mult": 1.5,          # volume ≥ this × 20-bar avg to count as a climax
+    "rsi_period": 14, "rsi_overbought": 70, "rsi_oversold": 30,
     # R-based breakeven arm (Phase 2c): when the trade is journalled with a planned stop,
     # arm the breakeven lock at N×R (R = |entry − stop| in premium) instead of a guessed %.
     # This is the brainstorm's "+1R → move stop to entry", but principled per-trade. Falls
@@ -291,15 +300,18 @@ def evaluate() -> Dict[str, Any]:
                 struct = structure_exit.position_signal(sym, p.get("product"), cfg)
             except Exception:
                 struct = None
-            if struct:
+            if struct and struct.get("action") == "EXIT":
                 signal, reason = "STRUCT", struct["reason"]
+            elif struct and struct.get("action") == "WARN" and signal == "HOLD" and peak > 0:
+                # heads-up only, and only for a position that actually got into profit
+                signal, reason = "WEAKEN", struct["reason"]
 
         rows.append({"symbol": sym, "qty": qty, "is_option": _is_option(sym),
                      "entry": round(entry, 2), "ltp": round(ltp, 2), "pnl": round(pnl, 2),
                      "pnl_pct": pnl_pct, "peak_pct": round(peak, 2), "product": p.get("product"),
                      "signal": signal, "reason": reason})
     _save(_PEAKS, peaks)
-    rows.sort(key=lambda r: ({"STOP": 0, "STRUCT": 1, "TIME": 2, "TARGET": 3, "TRAIL": 4, "PULLBACK": 5, "HOLD": 6}[r["signal"]], -abs(r["pnl"])))
+    rows.sort(key=lambda r: ({"STOP": 0, "STRUCT": 1, "TIME": 2, "TARGET": 3, "TRAIL": 4, "PULLBACK": 5, "WEAKEN": 6, "HOLD": 7}[r["signal"]], -abs(r["pnl"])))
     return {"timestamp": ts, "config": cfg, "positions": rows,
             "regime": regime, "breakeven_arm": be_arm,
             "actionable": [r for r in rows if r["signal"] != "HOLD"]}
@@ -565,12 +577,14 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
         "TRAIL": ("📉", ["chart_with_downwards_trend"], 4, "EXIT"),
         "TIME": ("⏰", ["alarm_clock"], 4, "EXIT"),
         "PULLBACK": ("👀", ["eyes"], 3, "HEADS-UP"),  # a nudge, not a hard exit
+        "WEAKEN": ("⚠️", ["warning"], 3, "HEADS-UP"),  # confirmations stacking, structure still holds
     }
     TAIL = {
         "TARGET": "🎯 Target hit — BOOK IT NOW (place the exit in Kite yourself).",
         "PULLBACK": "It's coming off its peak — watch for the trail exit.",
         "STOP": "Stop breached — your rule says cut it. You place the order.",
         "STRUCT": "The stock broke its trend structure (last swing level) — your structure rule says exit. You place the order.",
+        "WEAKEN": "Momentum/volume are weakening but structure hasn't broken yet — tighten your attention, not an exit.",
     }
     cfg = res["config"]
     realert_min = float(cfg.get("realert_every_min", 15) or 0)   # 0 = one-shot

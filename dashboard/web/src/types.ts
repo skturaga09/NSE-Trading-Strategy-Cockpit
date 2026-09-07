@@ -677,6 +677,8 @@ export interface ExitConfig {
   structure_pivot_k: number;
   structure_intraday_interval: string;
   structure_intraday_pivot_k: number;
+  structure_confirmations: boolean;
+  structure_warn: boolean;
   pullback_alert_pct: number;
   time_exit: string;
   summary_every_min: number;
@@ -696,7 +698,7 @@ export interface ExitPosition {
   pnl_pct: number;
   peak_pct: number;
   product: string;
-  signal: "HOLD" | "STOP" | "TARGET" | "TRAIL" | "TIME" | "PULLBACK" | "STRUCT";
+  signal: "HOLD" | "STOP" | "TARGET" | "TRAIL" | "TIME" | "PULLBACK" | "STRUCT" | "WEAKEN";
   reason: string;
 }
 export interface ExitsStatus {

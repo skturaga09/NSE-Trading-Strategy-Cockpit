@@ -83,6 +83,63 @@ def last_confirmed_pivot(candles: List[List[Any]], k: int, kind: str) -> Optiona
     return found
 
 
+def _rsi(closes: List[float], n: int = 14) -> Optional[float]:
+    """Wilder RSI over the given closes (latest value)."""
+    if len(closes) < n + 1:
+        return None
+    gains = losses = 0.0
+    for i in range(1, n + 1):
+        d = closes[i] - closes[i - 1]
+        gains += max(d, 0.0); losses += max(-d, 0.0)
+    ag, al = gains / n, losses / n
+    for i in range(n + 1, len(closes)):
+        d = closes[i] - closes[i - 1]
+        ag = (ag * (n - 1) + max(d, 0.0)) / n
+        al = (al * (n - 1) + max(-d, 0.0)) / n
+    if al == 0:
+        return 100.0
+    return round(100.0 - 100.0 / (1.0 + ag / al), 1)
+
+
+def confirmations(candles: List[List[Any]], side: str, cfg: Dict[str, Any]) -> List[str]:
+    """Secondary weakening signals — NEVER an exit on their own (per the design principle),
+    only used to annotate a structure exit or drive an optional heads-up. Two robust ones:
+      - RSI rollover: RSI(14) reached an extreme in the last few bars and has turned back
+        (a momentum rollover, not the naive 'RSI>70 → sell').
+      - Volume climax: an above-average-volume REJECTION bar against the position's side.
+    """
+    flags: List[str] = []
+    closes = [c[4] for c in candles]
+    n = int(cfg.get("rsi_period", 14))
+    ob = float(cfg.get("rsi_overbought", 70)); os_ = float(cfg.get("rsi_oversold", 30))
+    if len(closes) >= n + 4:
+        series = [_rsi(closes[: len(closes) - j], n) for j in range(0, 3)]  # latest, -1, -2
+        series = [s for s in series if s is not None]
+        if len(series) >= 2:
+            latest, prev = series[0], series[1]
+            recent = series[:3]
+            if side == "LONG" and max(recent) >= ob and latest < prev:
+                flags.append(f"RSI rolled over from overbought ({max(recent):.0f}→{latest:.0f})")
+            if side == "SHORT" and min(recent) <= os_ and latest > prev:
+                flags.append(f"RSI rolled up from oversold ({min(recent):.0f}→{latest:.0f})")
+    # Volume climax: latest bar's volume vs the prior 20-bar average, with a rejection close.
+    vols = [c[5] for c in candles if len(c) > 5 and c[5]]
+    if len(vols) >= 6:
+        base = vols[-21:-1] if len(vols) >= 21 else vols[:-1]
+        avg = (sum(base) / len(base)) if base else 0
+        last = candles[-1]
+        o, h, l, c_, v = last[1], last[2], last[3], last[4], (last[5] if len(last) > 5 else 0)
+        mult = float(cfg.get("volume_climax_mult", 1.5))
+        rng = (h - l) or 1e-9
+        pos_in_rng = (c_ - l) / rng                       # 1 = closed at high, 0 = at low
+        if avg and v >= mult * avg:
+            if side == "LONG" and c_ < o and pos_in_rng <= 0.4:
+                flags.append(f"volume climax — {round(v/avg,1)}× avg on a rejection bar")
+            if side == "SHORT" and c_ > o and pos_in_rng >= 0.6:
+                flags.append(f"volume climax — {round(v/avg,1)}× avg on a rejection bar")
+    return flags
+
+
 def signal(candles: List[List[Any]], side: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
     """Pure structure-break check. side: 'LONG' (call) or 'SHORT' (put).
     Returns {action: 'EXIT'|'HOLD', reason, level}."""
@@ -136,9 +193,19 @@ def position_signal(symbol: str, product: Optional[str], cfg: Dict[str, Any]) ->
     if not candles or len(candles) < 2 * k + 3:
         return None
     s = signal(candles, side, {**cfg, "structure_pivot_k": k})
+    conf = confirmations(candles, side, cfg) if cfg.get("structure_confirmations", True) else []
     if s["action"] == "EXIT":
         s["timeframe"] = tf
+        s["confirmations"] = conf
+        if conf:                                   # annotate the exit for conviction
+            s["reason"] = s["reason"] + " · confirms: " + ", ".join(conf)
         return s
+    # Structure still intact, but confirmations stacking up → optional early-warning heads-up
+    # (never an exit). exit_monitor gates this to positions actually in profit.
+    if cfg.get("structure_warn", True) and len(conf) >= int(cfg.get("structure_warn_min_confirms", 2)):
+        return {"action": "WARN", "timeframe": tf, "level": s.get("level"), "confirmations": conf,
+                "reason": "weakening while structure still holds — " + ", ".join(conf)
+                          + (f"; swing level {s['level']}" if s.get("level") else "")}
     return None
 
 

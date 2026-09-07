@@ -13,9 +13,9 @@ import type { ExitConfig, ExitPosition, ThesisPosition, TargetCalcRow } from "..
 const inr = (n: number) => `${n >= 0 ? "+" : "−"}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`;
 const SIG_COLOR: Record<string, string> = {
   STOP: "var(--red)", TIME: "var(--red)", STRUCT: "var(--red)", TARGET: "var(--green)", TRAIL: "var(--gold)",
-  PULLBACK: "var(--gold)", HOLD: "var(--muted)",
+  PULLBACK: "var(--gold)", WEAKEN: "var(--gold)", HOLD: "var(--muted)",
 };
-const SIG_EMOJI: Record<string, string> = { STOP: "🛑", TARGET: "🎯", STRUCT: "🧱", TRAIL: "📉", TIME: "⏰", PULLBACK: "👀", HOLD: "·" };
+const SIG_EMOJI: Record<string, string> = { STOP: "🛑", TARGET: "🎯", STRUCT: "🧱", TRAIL: "📉", TIME: "⏰", PULLBACK: "👀", WEAKEN: "⚠️", HOLD: "·" };
 
 export function Exits() {
   const { data } = useQuery({ queryKey: ["exits"], queryFn: api.getExitsStatus, refetchInterval: 3000 });
@@ -441,10 +441,17 @@ function RulesConfig() {
             </label>
           </div>
         )}
+        {cfg.structure_exits && (
+          <label className="mt-2 flex items-center gap-2">
+            <input type="checkbox" checked={cfg.structure_warn} onChange={(e) => setCfg({ ...cfg, structure_warn: e.target.checked })} className="accent-cyan" />
+            <span className="font-mono text-[10px] text-ink">⚠️ Early-warning nudge — heads-up when a winner weakens (RSI rollover + volume climax) before structure breaks</span>
+          </label>
+        )}
         <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-muted">
           Reads the <span className="text-ink/80">underlying's</span> price structure, not the premium: a CALL exits when the stock closes below its last
           confirmed swing-low (a PUT above its last swing-high). Swing/positional (NRML/CNC) use daily candles; intraday (MIS) uses the interval above.
-          Close-based, confirmation-delayed — the premium stop stays the hard backstop. Fires a <b className="text-ink/80">STRUCT</b> exit signal.
+          Close-based, confirmation-delayed — the premium stop stays the hard backstop. Fires a <b className="text-ink/80">STRUCT</b> exit; confirmations
+          (RSI rollover, volume climax) annotate it and, if the nudge is on, raise a non-exit <b className="text-ink/80">WEAKEN</b> heads-up on a still-intact winner.
         </p>
       </div>
 
