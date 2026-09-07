@@ -50,8 +50,15 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # the PEAK (not the current price), so it can't be un-armed by a pullback. The arm is
     # deliberately above noise so tiny +1–2% blips don't whipsaw you out at scratch.
     "breakeven_lock": True,
-    "breakeven_arm_pct": 8.0,    # peak P&L% that arms the breakeven floor (0 = off)
+    "breakeven_arm_pct": 8.0,    # peak P&L% that arms the breakeven floor (0 = off); the
+                                 # static/fallback arm used when regime-aware is off or the regime is unknown
     "breakeven_floor_pct": 0.0,  # floor to hold once armed (0 = entry; raise to cover costs/slippage)
+    # Regime-aware arm: the backtest shows the lock is a chop/crash protector and a trend
+    # tax, so tighten the arm in RISK_OFF (protect harder) and loosen it in RISK_ON (let
+    # winners run, lean on the ratchet). Reuses the live HEALTH regime; falls back to the
+    # static breakeven_arm_pct if the regime is unavailable.
+    "breakeven_regime_aware": True,
+    "breakeven_arm_by_regime": {"RISK_ON": 12.0, "NEUTRAL": 8.0, "RISK_OFF": 6.0},
     "pullback_alert_pct": 5.0,  # heads-up when a winner gives back this much from peak (0=off)
     # Re-alert cadence: once an exit signal fires, keep nudging every N minutes while
     # the position is STILL open on that signal — unless it's reversing back in your
@@ -162,16 +169,44 @@ def _effective_trail(peak: float, cfg: Dict[str, Any]) -> Optional[float]:
     return cfg.get("trail_pct", 20.0) if peak >= cfg.get("trail_arm_pct", 15.0) else None
 
 
-def _exit_signal(pnl_pct: float, peak: float, cfg: Dict[str, Any], now_hhmm: str) -> tuple:
+def _current_regime() -> Optional[str]:
+    """Live market regime (RISK_ON / NEUTRAL / RISK_OFF) from the cached HEALTH breadth,
+    or None when unavailable (offline / no yfinance) so callers fall back cleanly."""
+    try:
+        from dashboard import live_market
+        lm = live_market.get_live_market()
+        if lm and lm.get("market_health"):
+            return lm["market_health"].get("regime")
+    except Exception:
+        pass
+    return None
+
+
+def _effective_be_arm(cfg: Dict[str, Any], regime: Optional[str]) -> float:
+    """Resolve the breakeven arm for the current regime. 0 = lock off. Regime-aware when
+    enabled and the regime is known, else the static breakeven_arm_pct."""
+    if not cfg.get("breakeven_lock", True):
+        return 0.0
+    if cfg.get("breakeven_regime_aware", True) and regime:
+        by = cfg.get("breakeven_arm_by_regime") or {}
+        if regime in by:
+            return float(by[regime])
+    return float(cfg.get("breakeven_arm_pct", 0.0))
+
+
+def _exit_signal(pnl_pct: float, peak: float, cfg: Dict[str, Any], now_hhmm: str,
+                 be_arm: Optional[float] = None) -> tuple:
     """Pure exit decision → (signal, reason). Separated from evaluate() so it's unit-testable
     without a live Kite feed. Precedence: hard STOP → TARGET → ratchet TRAIL (peak ≥ first
-    tier) → breakeven-lock TRAIL (fills the gap below that tier) → TIME → PULLBACK heads-up."""
+    tier) → breakeven-lock TRAIL (fills the gap below that tier) → TIME → PULLBACK heads-up.
+    `be_arm` lets the caller inject a regime-resolved arm; None = resolve from cfg."""
     gb = _effective_trail(peak, cfg)              # armed give-back %, or None
     giveback = round(peak - pnl_pct, 1)           # how much off the peak, now
     pb = cfg.get("pullback_alert_pct", 0)
     # Breakeven lock: armed once the PEAK cleared the arm bar (below the ratchet's first
     # tier), it protects the breakeven floor so a green trade can't close red.
-    be_arm = cfg.get("breakeven_arm_pct", 0) if cfg.get("breakeven_lock", True) else 0
+    if be_arm is None:
+        be_arm = cfg.get("breakeven_arm_pct", 0) if cfg.get("breakeven_lock", True) else 0
     be_floor = cfg.get("breakeven_floor_pct", 0.0)
     if pnl_pct <= -cfg["stop_pct"]:
         return "STOP", f"{pnl_pct}% ≤ −{cfg['stop_pct']}% stop"
@@ -197,6 +232,9 @@ def evaluate() -> Dict[str, Any]:
     ts = now.strftime("%Y-%m-%d %H:%M:%S")
     positions = _positions()
     fresh = _fresh_ltp(positions)
+    # Regime is market-wide, so resolve the breakeven arm once per cycle (not per position).
+    regime = _current_regime()
+    be_arm = _effective_be_arm(cfg, regime)
     rows: List[Dict[str, Any]] = []
     for p in positions:
         sym = p["tradingsymbol"]
@@ -214,7 +252,7 @@ def evaluate() -> Dict[str, Any]:
         peak = max(peaks.get(sym, pnl_pct), pnl_pct)
         peaks[sym] = round(peak, 2)
 
-        signal, reason = _exit_signal(pnl_pct, peak, cfg, now.strftime("%H:%M"))
+        signal, reason = _exit_signal(pnl_pct, peak, cfg, now.strftime("%H:%M"), be_arm=be_arm)
 
         rows.append({"symbol": sym, "qty": qty, "is_option": _is_option(sym),
                      "entry": round(entry, 2), "ltp": round(ltp, 2), "pnl": round(pnl, 2),
@@ -223,6 +261,7 @@ def evaluate() -> Dict[str, Any]:
     _save(_PEAKS, peaks)
     rows.sort(key=lambda r: ({"STOP": 0, "TIME": 1, "TARGET": 2, "TRAIL": 3, "PULLBACK": 4, "HOLD": 5}[r["signal"]], -abs(r["pnl"])))
     return {"timestamp": ts, "config": cfg, "positions": rows,
+            "regime": regime, "breakeven_arm": be_arm,
             "actionable": [r for r in rows if r["signal"] != "HOLD"]}
 
 

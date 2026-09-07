@@ -669,6 +669,8 @@ export interface ExitConfig {
   breakeven_lock: boolean;
   breakeven_arm_pct: number;
   breakeven_floor_pct: number;
+  breakeven_regime_aware: boolean;
+  breakeven_arm_by_regime: { RISK_ON: number; NEUTRAL: number; RISK_OFF: number };
   pullback_alert_pct: number;
   time_exit: string;
   summary_every_min: number;
@@ -696,6 +698,8 @@ export interface ExitsStatus {
   config: ExitConfig;
   positions: ExitPosition[];
   actionable: ExitPosition[];
+  regime?: string | null;      // live market regime driving the breakeven arm
+  breakeven_arm?: number;      // resolved breakeven arm % in effect this cycle
 }
 
 // --- Estimated Zerodha charges (NOT from Kite API — India charge model) ---

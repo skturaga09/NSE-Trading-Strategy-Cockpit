@@ -46,8 +46,14 @@ export function Exits() {
       )}
 
       <div className="panel space-y-3 rounded-lg p-5">
-        <h2 className="font-display text-base font-bold text-ink">
+        <h2 className="flex flex-wrap items-center gap-2 font-display text-base font-bold text-ink">
           🚪 Open positions <span className="font-mono text-[11px] font-normal text-muted">— {data?.timestamp ?? "loading…"} · live, polling 3s</span>
+          {data?.breakeven_arm !== undefined && data.breakeven_arm > 0 && (
+            <span className="rounded border border-cyan/40 bg-cyan/10 px-2 py-0.5 font-mono text-[10px] font-normal text-cyan"
+              title="Breakeven-lock arm in effect this cycle. Regime-aware: tighter in RISK_OFF, looser in RISK_ON.">
+              🔒 BE arm +{data.breakeven_arm}%{data.regime ? ` · ${data.regime}` : " · fallback"}
+            </span>
+          )}
         </h2>
         {positions.length === 0 ? (
           <p className="font-mono text-[11px] text-muted">No open positions (or Kite not connected — check System Check).</p>
@@ -365,23 +371,41 @@ function RulesConfig() {
           <span className="font-mono text-[11px] font-bold text-ink">🔒 Breakeven lock — don't let a green trade close red</span>
         </label>
         {cfg.breakeven_lock && (
-          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <label className="block">
-              <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Arm once peak clears (%)</span>
-              <input value={String(cfg.breakeven_arm_pct)} onChange={(e) => setCfg({ ...cfg, breakeven_arm_pct: Number(e.target.value) || 0 })} inputMode="decimal"
-                className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
+          <>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label className="block">
+                <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Arm once peak clears (%){cfg.breakeven_regime_aware ? " — fallback" : ""}</span>
+                <input value={String(cfg.breakeven_arm_pct)} onChange={(e) => setCfg({ ...cfg, breakeven_arm_pct: Number(e.target.value) || 0 })} inputMode="decimal"
+                  className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
+              </label>
+              <label className="block">
+                <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Floor to hold (%, 0 = entry)</span>
+                <input value={String(cfg.breakeven_floor_pct)} onChange={(e) => setCfg({ ...cfg, breakeven_floor_pct: Number(e.target.value) || 0 })} inputMode="decimal"
+                  className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
+              </label>
+            </div>
+            <label className="mt-2 flex items-center gap-2">
+              <input type="checkbox" checked={cfg.breakeven_regime_aware} onChange={(e) => setCfg({ ...cfg, breakeven_regime_aware: e.target.checked })} className="accent-cyan" />
+              <span className="font-mono text-[10px] text-ink">🧭 Regime-aware arm — tighten in RISK_OFF, loosen in RISK_ON</span>
             </label>
-            <label className="block">
-              <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Floor to hold (%, 0 = entry)</span>
-              <input value={String(cfg.breakeven_floor_pct)} onChange={(e) => setCfg({ ...cfg, breakeven_floor_pct: Number(e.target.value) || 0 })} inputMode="decimal"
-                className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
-            </label>
-          </div>
+            {cfg.breakeven_regime_aware && (
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {(["RISK_OFF", "NEUTRAL", "RISK_ON"] as const).map((rg) => (
+                  <label key={rg} className="block">
+                    <span className="font-mono text-[9px] uppercase tracking-wider text-muted">{rg} arm %</span>
+                    <input value={String(cfg.breakeven_arm_by_regime[rg])}
+                      onChange={(e) => setCfg({ ...cfg, breakeven_arm_by_regime: { ...cfg.breakeven_arm_by_regime, [rg]: Number(e.target.value) || 0 } })}
+                      inputMode="decimal" className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2 py-1.5 tnum text-xs text-ink outline-none focus:border-cyan/50" />
+                  </label>
+                ))}
+              </div>
+            )}
+          </>
         )}
         <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-muted">
           Fills the gap below the ratchet's first tier: once a trade's peak clears the arm %, it exits if it falls back to the floor —
           so a winner that peaks at, say, +9% (under the +15% ratchet) can't round-trip to the stop. Armed off the peak, not the live price.
-          Keep the arm above noise so tiny +1–2% blips don't stop you out at scratch.
+          {cfg.breakeven_regime_aware && " Regime-aware: the arm follows the live market regime (shown live on the positions panel above)."}
         </p>
       </div>
 
