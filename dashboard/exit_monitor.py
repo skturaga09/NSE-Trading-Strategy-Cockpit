@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from dashboard import app as core
+from dashboard import structure_exit
 from dashboard.option_chain import ensure_fresh_config
 
 _DIR = Path(__file__).parent
@@ -59,6 +60,13 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # static breakeven_arm_pct if the regime is unavailable.
     "breakeven_regime_aware": True,
     "breakeven_arm_by_regime": {"RISK_ON": 12.0, "NEUTRAL": 8.0, "RISK_OFF": 6.0},
+    # Underlying-structure exit (Phase 2a): full exit when the STOCK closes beyond its last
+    # confirmed swing (a long CALL exits on a close below the last higher-low; a PUT on a
+    # close above the last lower-high). Reads the underlying's daily structure, not the
+    # premium — the premium floors stay the hard safety net. Daily timeframe only (MIS
+    # skipped). Backtest: helps CRASH, marginal in CHOP, no harm in TREND.
+    "structure_exits": True,
+    "structure_pivot_k": 2,       # fractal pivot half-width (bars each side to confirm a swing)
     "pullback_alert_pct": 5.0,  # heads-up when a winner gives back this much from peak (0=off)
     # Re-alert cadence: once an exit signal fires, keep nudging every N minutes while
     # the position is STILL open on that signal — unless it's reversing back in your
@@ -253,13 +261,23 @@ def evaluate() -> Dict[str, Any]:
         peaks[sym] = round(peak, 2)
 
         signal, reason = _exit_signal(pnl_pct, peak, cfg, now.strftime("%H:%M"), be_arm=be_arm)
+        # Underlying-structure exit (options only, daily timeframe). Composition: the hard
+        # premium STOP always wins (capital preservation); otherwise a structure break
+        # outranks profit-taking/HOLD — it's a smarter exit than a premium give-back.
+        if _is_option(sym) and signal != "STOP":
+            try:
+                struct = structure_exit.position_signal(sym, p.get("product"), cfg)
+            except Exception:
+                struct = None
+            if struct:
+                signal, reason = "STRUCT", struct["reason"]
 
         rows.append({"symbol": sym, "qty": qty, "is_option": _is_option(sym),
                      "entry": round(entry, 2), "ltp": round(ltp, 2), "pnl": round(pnl, 2),
                      "pnl_pct": pnl_pct, "peak_pct": round(peak, 2), "product": p.get("product"),
                      "signal": signal, "reason": reason})
     _save(_PEAKS, peaks)
-    rows.sort(key=lambda r: ({"STOP": 0, "TIME": 1, "TARGET": 2, "TRAIL": 3, "PULLBACK": 4, "HOLD": 5}[r["signal"]], -abs(r["pnl"])))
+    rows.sort(key=lambda r: ({"STOP": 0, "STRUCT": 1, "TIME": 2, "TARGET": 3, "TRAIL": 4, "PULLBACK": 5, "HOLD": 6}[r["signal"]], -abs(r["pnl"])))
     return {"timestamp": ts, "config": cfg, "positions": rows,
             "regime": regime, "breakeven_arm": be_arm,
             "actionable": [r for r in rows if r["signal"] != "HOLD"]}
@@ -521,6 +539,7 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
     SIG = {
         "STOP": ("🛑", ["octagonal_sign"], 5, "EXIT"),
         "TARGET": ("🎯", ["dart", "tada"], 5, "BOOK IT"),   # max priority — hit the target
+        "STRUCT": ("🧱", ["bricks"], 5, "EXIT"),            # underlying broke trend structure
         "TRAIL": ("📉", ["chart_with_downwards_trend"], 4, "EXIT"),
         "TIME": ("⏰", ["alarm_clock"], 4, "EXIT"),
         "PULLBACK": ("👀", ["eyes"], 3, "HEADS-UP"),  # a nudge, not a hard exit
@@ -529,6 +548,7 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
         "TARGET": "🎯 Target hit — BOOK IT NOW (place the exit in Kite yourself).",
         "PULLBACK": "It's coming off its peak — watch for the trail exit.",
         "STOP": "Stop breached — your rule says cut it. You place the order.",
+        "STRUCT": "The stock broke its trend structure (last swing level) — your structure rule says exit. You place the order.",
     }
     cfg = res["config"]
     realert_min = float(cfg.get("realert_every_min", 15) or 0)   # 0 = one-shot

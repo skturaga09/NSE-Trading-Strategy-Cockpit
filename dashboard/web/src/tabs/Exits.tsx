@@ -12,10 +12,10 @@ import type { ExitConfig, ExitPosition, ThesisPosition, TargetCalcRow } from "..
 
 const inr = (n: number) => `${n >= 0 ? "+" : "−"}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`;
 const SIG_COLOR: Record<string, string> = {
-  STOP: "var(--red)", TIME: "var(--red)", TARGET: "var(--green)", TRAIL: "var(--gold)",
+  STOP: "var(--red)", TIME: "var(--red)", STRUCT: "var(--red)", TARGET: "var(--green)", TRAIL: "var(--gold)",
   PULLBACK: "var(--gold)", HOLD: "var(--muted)",
 };
-const SIG_EMOJI: Record<string, string> = { STOP: "🛑", TARGET: "🎯", TRAIL: "📉", TIME: "⏰", PULLBACK: "👀", HOLD: "·" };
+const SIG_EMOJI: Record<string, string> = { STOP: "🛑", TARGET: "🎯", STRUCT: "🧱", TRAIL: "📉", TIME: "⏰", PULLBACK: "👀", HOLD: "·" };
 
 export function Exits() {
   const { data } = useQuery({ queryKey: ["exits"], queryFn: api.getExitsStatus, refetchInterval: 3000 });

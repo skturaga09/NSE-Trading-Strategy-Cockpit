@@ -690,7 +690,7 @@ export interface ExitPosition {
   pnl_pct: number;
   peak_pct: number;
   product: string;
-  signal: "HOLD" | "STOP" | "TARGET" | "TRAIL" | "TIME";
+  signal: "HOLD" | "STOP" | "TARGET" | "TRAIL" | "TIME" | "PULLBACK" | "STRUCT";
   reason: string;
 }
 export interface ExitsStatus {
