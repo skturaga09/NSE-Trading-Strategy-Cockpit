@@ -671,6 +671,12 @@ export interface ExitConfig {
   breakeven_floor_pct: number;
   breakeven_regime_aware: boolean;
   breakeven_arm_by_regime: { RISK_ON: number; NEUTRAL: number; RISK_OFF: number };
+  breakeven_arm_by_r: boolean;
+  breakeven_arm_r_multiple: number;
+  structure_exits: boolean;
+  structure_pivot_k: number;
+  structure_intraday_interval: string;
+  structure_intraday_pivot_k: number;
   pullback_alert_pct: number;
   time_exit: string;
   summary_every_min: number;

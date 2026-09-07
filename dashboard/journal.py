@@ -102,6 +102,25 @@ def _conn():
         c.close()
 
 
+def planned_stop_for(symbol: str) -> Optional[Dict[str, float]]:
+    """The planned entry+stop for an OPEN journalled trade on this symbol, or None.
+    Lets the exit engine express the breakeven arm in R (R = |entry − stop|) instead of a
+    guessed premium %. Newest OPEN row with a real stop wins."""
+    if not symbol:
+        return None
+    try:
+        with _LOCK, _conn() as c:
+            r = c.execute(
+                "SELECT entry_price, stop FROM trade_journal "
+                "WHERE symbol=? AND status='OPEN' AND stop IS NOT NULL AND stop > 0 "
+                "ORDER BY ts_entry DESC LIMIT 1", (symbol,)).fetchone()
+        if r and r["entry_price"] and r["stop"]:
+            return {"entry": float(r["entry_price"]), "stop": float(r["stop"])}
+    except Exception:
+        pass
+    return None
+
+
 def init() -> None:
     with _LOCK, _conn() as c:
         c.executescript(_SCHEMA)

@@ -20,10 +20,45 @@ R-multiples are later phases — see docs/exit-structure-spec.md.
 """
 
 import re
+import time
+from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 # Monthly stock-option tradingsymbol → underlying / strike / CE|PE  (e.g. ADANIGREEN26SEP1300CE)
 _SYM = re.compile(r"^(?P<u>[A-Z&]+?)(?P<yy>\d{2})(?P<mon>[A-Z]{3})(?P<strike>\d+)(?P<t>CE|PE)$")
+
+# Phase 2b — intraday candle seam. MIS trades read INTRADAY structure (default 15-min)
+# instead of daily. Kite's forming intraday bar changes constantly, so cache per
+# (token, interval) with a short TTL to avoid hammering /historical on every 3s poll.
+_INTRA_CACHE: Dict[tuple, Any] = {}
+_INTRA_TTL_SEC = 300.0     # 5 min — a 15-min bar closes every 15 min, so this is plenty
+
+
+def fetch_intraday(token: str, interval: str = "15minute", lookback_days: int = 8) -> List[List[Any]]:
+    """Recent intraday OHLC candles for a token (the single intraday data seam; swap for a
+    replay to test offline). Cached per (token, interval) for _INTRA_TTL_SEC."""
+    import requests
+    from dashboard import app as core
+    key = (token, interval)
+    hit = _INTRA_CACHE.get(key)
+    if hit and (time.time() - hit[0]) < _INTRA_TTL_SEC:
+        return hit[1]
+    kc = core.KITE_CONFIG
+    headers = {"Authorization": f"token {kc.get('api_key','')}:{kc.get('access_token','')}",
+               "X-Kite-Version": "3"}
+    frm = (date.today() - timedelta(days=lookback_days)).isoformat()
+    to = date.today().isoformat()
+    candles: List[List[Any]] = []
+    try:
+        j = requests.get(f"https://api.kite.trade/instruments/historical/{token}/{interval}",
+                         params={"from": frm, "to": to}, headers=headers, timeout=10).json()
+        if j.get("status") == "success":
+            candles = j.get("data", {}).get("candles", []) or []
+    except Exception:
+        candles = []
+    if candles:
+        _INTRA_CACHE[key] = (time.time(), candles)
+    return candles
 
 
 def last_confirmed_pivot(candles: List[List[Any]], k: int, kind: str) -> Optional[float]:
@@ -74,12 +109,10 @@ def signal(candles: List[List[Any]], side: str, cfg: Dict[str, Any]) -> Dict[str
 
 
 def position_signal(symbol: str, product: Optional[str], cfg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Live wrapper for exit_monitor: parse the option symbol, pull the underlying's daily
-    candles, and return the structure signal ONLY when it's a full EXIT (else None). Daily
-    timeframe only — MIS (intraday) is deferred to Phase 2b."""
+    """Live wrapper for exit_monitor: parse the option symbol, pull the underlying's candles
+    for the right TIMEFRAME (MIS → intraday, else daily), and return the structure signal
+    ONLY when it's a full EXIT (else None)."""
     if not cfg.get("structure_exits", True):
-        return None
-    if (product or "").upper() == "MIS":          # intraday timeframe not handled in 2a
         return None
     m = _SYM.match(symbol or "")
     if not m:
@@ -89,11 +122,24 @@ def position_signal(symbol: str, product: Optional[str], cfg: Dict[str, Any]) ->
     fut = swing_scan._futures_map().get(m.group("u"))
     if not fut:
         return None
-    candles = swing_scan._daily_candles(fut["token"])   # warm daily cache — no new cost
-    if not candles or len(candles) < 5:
+    # Timeframe by product: MIS trades break down on intraday structure (Phase 2b), swing/
+    # positional on daily. Intraday needs market hours (the forming bar is meaningless once shut).
+    intraday = (product or "").upper() == "MIS"
+    if intraday:
+        if not swing_scan._market_open_now():
+            return None
+        candles = fetch_intraday(fut["token"], cfg.get("structure_intraday_interval", "15minute"))
+        tf, k = "intraday", int(cfg.get("structure_intraday_pivot_k", cfg.get("structure_pivot_k", 2)))
+    else:
+        candles = swing_scan._daily_candles(fut["token"])   # warm daily cache — no new cost
+        tf, k = "daily", int(cfg.get("structure_pivot_k", 2))
+    if not candles or len(candles) < 2 * k + 3:
         return None
-    s = signal(candles, side, cfg)
-    return s if s["action"] == "EXIT" else None
+    s = signal(candles, side, {**cfg, "structure_pivot_k": k})
+    if s["action"] == "EXIT":
+        s["timeframe"] = tf
+        return s
+    return None
 
 
 # --------------------------------------------------------------------------------------

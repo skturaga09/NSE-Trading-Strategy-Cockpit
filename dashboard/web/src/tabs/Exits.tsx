@@ -388,6 +388,13 @@ function RulesConfig() {
               <input type="checkbox" checked={cfg.breakeven_regime_aware} onChange={(e) => setCfg({ ...cfg, breakeven_regime_aware: e.target.checked })} className="accent-cyan" />
               <span className="font-mono text-[10px] text-ink">🧭 Regime-aware arm — tighten in RISK_OFF, loosen in RISK_ON</span>
             </label>
+            <label className="mt-2 flex flex-wrap items-center gap-2">
+              <input type="checkbox" checked={cfg.breakeven_arm_by_r} onChange={(e) => setCfg({ ...cfg, breakeven_arm_by_r: e.target.checked })} className="accent-cyan" />
+              <span className="font-mono text-[10px] text-ink">📏 R-based arm — arm at</span>
+              <input value={String(cfg.breakeven_arm_r_multiple)} onChange={(e) => setCfg({ ...cfg, breakeven_arm_r_multiple: Number(e.target.value) || 0 })} inputMode="decimal"
+                className="w-12 rounded border border-line bg-bg/60 px-1 py-0.5 tnum text-[10px] text-gold outline-none focus:border-cyan/50" />
+              <span className="font-mono text-[10px] text-ink">× R (needs a journalled stop; else uses the % above)</span>
+            </label>
             {cfg.breakeven_regime_aware && (
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {(["RISK_OFF", "NEUTRAL", "RISK_ON"] as const).map((rg) => (
@@ -406,6 +413,38 @@ function RulesConfig() {
           Fills the gap below the ratchet's first tier: once a trade's peak clears the arm %, it exits if it falls back to the floor —
           so a winner that peaks at, say, +9% (under the +15% ratchet) can't round-trip to the stop. Armed off the peak, not the live price.
           {cfg.breakeven_regime_aware && " Regime-aware: the arm follows the live market regime (shown live on the positions panel above)."}
+        </p>
+      </div>
+
+      {/* Underlying-structure exit (Phase 2a/2b) */}
+      <div className="rounded-md border border-line bg-raised/30 p-3">
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={cfg.structure_exits} onChange={(e) => setCfg({ ...cfg, structure_exits: e.target.checked })} className="accent-cyan" />
+          <span className="font-mono text-[11px] font-bold text-ink">🧱 Structure exit — full exit when the STOCK breaks its trend</span>
+        </label>
+        {cfg.structure_exits && (
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <label className="block">
+              <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Daily pivot k (bars ±)</span>
+              <input value={String(cfg.structure_pivot_k)} onChange={(e) => setCfg({ ...cfg, structure_pivot_k: Number(e.target.value) || 0 })} inputMode="numeric"
+                className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2 py-1.5 tnum text-xs text-ink outline-none focus:border-cyan/50" />
+            </label>
+            <label className="block">
+              <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Intraday interval (MIS)</span>
+              <input value={cfg.structure_intraday_interval} onChange={(e) => setCfg({ ...cfg, structure_intraday_interval: e.target.value })}
+                placeholder="15minute" className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
+            </label>
+            <label className="block">
+              <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Intraday pivot k</span>
+              <input value={String(cfg.structure_intraday_pivot_k)} onChange={(e) => setCfg({ ...cfg, structure_intraday_pivot_k: Number(e.target.value) || 0 })} inputMode="numeric"
+                className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2 py-1.5 tnum text-xs text-ink outline-none focus:border-cyan/50" />
+            </label>
+          </div>
+        )}
+        <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-muted">
+          Reads the <span className="text-ink/80">underlying's</span> price structure, not the premium: a CALL exits when the stock closes below its last
+          confirmed swing-low (a PUT above its last swing-high). Swing/positional (NRML/CNC) use daily candles; intraday (MIS) uses the interval above.
+          Close-based, confirmation-delayed — the premium stop stays the hard backstop. Fires a <b className="text-ink/80">STRUCT</b> exit signal.
         </p>
       </div>
 

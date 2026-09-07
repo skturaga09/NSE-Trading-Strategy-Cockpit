@@ -67,6 +67,15 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # skipped). Backtest: helps CRASH, marginal in CHOP, no harm in TREND.
     "structure_exits": True,
     "structure_pivot_k": 2,       # fractal pivot half-width (bars each side to confirm a swing)
+    "structure_intraday_interval": "15minute",  # Phase 2b: candle interval for MIS trades
+    "structure_intraday_pivot_k": 2,            # pivot half-width on the intraday timeframe
+    # R-based breakeven arm (Phase 2c): when the trade is journalled with a planned stop,
+    # arm the breakeven lock at N×R (R = |entry − stop| in premium) instead of a guessed %.
+    # This is the brainstorm's "+1R → move stop to entry", but principled per-trade. Falls
+    # back to the regime/static arm for manual trades with no journalled stop. Full-exit only
+    # (no partial TRIM yet — that's deferred per the review decision).
+    "breakeven_arm_by_r": True,
+    "breakeven_arm_r_multiple": 1.0,
     "pullback_alert_pct": 5.0,  # heads-up when a winner gives back this much from peak (0=off)
     # Re-alert cadence: once an exit signal fires, keep nudging every N minutes while
     # the position is STILL open on that signal — unless it's reversing back in your
@@ -260,7 +269,20 @@ def evaluate() -> Dict[str, Any]:
         peak = max(peaks.get(sym, pnl_pct), pnl_pct)
         peaks[sym] = round(peak, 2)
 
-        signal, reason = _exit_signal(pnl_pct, peak, cfg, now.strftime("%H:%M"), be_arm=be_arm)
+        # R-based breakeven arm (Phase 2c): if this trade is journalled with a planned stop,
+        # arm at N×R instead of the regime/static %. Per-position (R differs per trade).
+        pos_be_arm = be_arm
+        if cfg.get("breakeven_lock", True) and cfg.get("breakeven_arm_by_r", True):
+            try:
+                from dashboard import journal
+                j = journal.planned_stop_for(sym)
+            except Exception:
+                j = None
+            if j and j["entry"] > 0 and 0 < j["stop"] < j["entry"]:
+                r_pct = (j["entry"] - j["stop"]) / j["entry"] * 100.0
+                pos_be_arm = round(r_pct * float(cfg.get("breakeven_arm_r_multiple", 1.0)), 1)
+
+        signal, reason = _exit_signal(pnl_pct, peak, cfg, now.strftime("%H:%M"), be_arm=pos_be_arm)
         # Underlying-structure exit (options only, daily timeframe). Composition: the hard
         # premium STOP always wins (capital preservation); otherwise a structure break
         # outranks profit-taking/HOLD — it's a smarter exit than a premium give-back.
