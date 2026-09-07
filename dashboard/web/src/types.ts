@@ -666,6 +666,9 @@ export interface ExitConfig {
   trail_arm_pct: number;
   ratchet_enabled: boolean;
   ratchet_tiers: RatchetTier[];
+  breakeven_lock: boolean;
+  breakeven_arm_pct: number;
+  breakeven_floor_pct: number;
   pullback_alert_pct: number;
   time_exit: string;
   summary_every_min: number;

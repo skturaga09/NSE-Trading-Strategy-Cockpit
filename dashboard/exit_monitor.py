@@ -43,6 +43,15 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         {"above": 25.0, "trail": 8.0},
         {"above": 40.0, "trail": 5.0},
     ],
+    # Breakeven lock — fills the gap BELOW the first ratchet tier. The ratchet only arms
+    # at +15% peak, so a trade that peaked at, say, +9% had no floor and round-tripped to
+    # the hard stop. Once a position clears breakeven_arm_pct, don't let it close below
+    # breakeven_floor_pct: a genuinely-green trade can no longer become a loser. Armed off
+    # the PEAK (not the current price), so it can't be un-armed by a pullback. The arm is
+    # deliberately above noise so tiny +1–2% blips don't whipsaw you out at scratch.
+    "breakeven_lock": True,
+    "breakeven_arm_pct": 8.0,    # peak P&L% that arms the breakeven floor (0 = off)
+    "breakeven_floor_pct": 0.0,  # floor to hold once armed (0 = entry; raise to cover costs/slippage)
     "pullback_alert_pct": 5.0,  # heads-up when a winner gives back this much from peak (0=off)
     # Re-alert cadence: once an exit signal fires, keep nudging every N minutes while
     # the position is STILL open on that signal — unless it's reversing back in your
@@ -153,6 +162,33 @@ def _effective_trail(peak: float, cfg: Dict[str, Any]) -> Optional[float]:
     return cfg.get("trail_pct", 20.0) if peak >= cfg.get("trail_arm_pct", 15.0) else None
 
 
+def _exit_signal(pnl_pct: float, peak: float, cfg: Dict[str, Any], now_hhmm: str) -> tuple:
+    """Pure exit decision → (signal, reason). Separated from evaluate() so it's unit-testable
+    without a live Kite feed. Precedence: hard STOP → TARGET → ratchet TRAIL (peak ≥ first
+    tier) → breakeven-lock TRAIL (fills the gap below that tier) → TIME → PULLBACK heads-up."""
+    gb = _effective_trail(peak, cfg)              # armed give-back %, or None
+    giveback = round(peak - pnl_pct, 1)           # how much off the peak, now
+    pb = cfg.get("pullback_alert_pct", 0)
+    # Breakeven lock: armed once the PEAK cleared the arm bar (below the ratchet's first
+    # tier), it protects the breakeven floor so a green trade can't close red.
+    be_arm = cfg.get("breakeven_arm_pct", 0) if cfg.get("breakeven_lock", True) else 0
+    be_floor = cfg.get("breakeven_floor_pct", 0.0)
+    if pnl_pct <= -cfg["stop_pct"]:
+        return "STOP", f"{pnl_pct}% ≤ −{cfg['stop_pct']}% stop"
+    if pnl_pct >= cfg["target_pct"]:
+        return "TARGET", f"{pnl_pct}% ≥ +{cfg['target_pct']}% target"
+    if gb is not None and giveback >= gb:
+        return "TRAIL", f"gave back {giveback}% from +{round(peak,1)}% peak (ratchet trail {gb}%)"
+    if be_arm and peak >= be_arm and pnl_pct <= be_floor:
+        return "TRAIL", (f"breakeven lock — back to {pnl_pct}% from +{round(peak,1)}% peak; "
+                         f"protect profit once a trade clears +{be_arm}% (don't let a winner go red)")
+    if cfg["time_exit"] and now_hhmm >= cfg["time_exit"]:
+        return "TIME", f"past {cfg['time_exit']} cut-off"
+    if gb is not None and pb and giveback >= pb:
+        return "PULLBACK", f"off {giveback}% from +{round(peak,1)}% peak — trail exits at {gb}%"
+    return "HOLD", ""
+
+
 def evaluate() -> Dict[str, Any]:
     """Compute per-position exit signals from the configured rules. Live, read-only."""
     cfg = get_config()
@@ -178,20 +214,7 @@ def evaluate() -> Dict[str, Any]:
         peak = max(peaks.get(sym, pnl_pct), pnl_pct)
         peaks[sym] = round(peak, 2)
 
-        gb = _effective_trail(peak, cfg)              # armed give-back %, or None
-        giveback = round(peak - pnl_pct, 1)           # how much off the peak, now
-        pb = cfg.get("pullback_alert_pct", 0)
-        signal, reason = "HOLD", ""
-        if pnl_pct <= -cfg["stop_pct"]:
-            signal, reason = "STOP", f"{pnl_pct}% ≤ −{cfg['stop_pct']}% stop"
-        elif pnl_pct >= cfg["target_pct"]:
-            signal, reason = "TARGET", f"{pnl_pct}% ≥ +{cfg['target_pct']}% target"
-        elif gb is not None and giveback >= gb:
-            signal, reason = "TRAIL", f"gave back {giveback}% from +{round(peak,1)}% peak (ratchet trail {gb}%)"
-        elif cfg["time_exit"] and now.strftime("%H:%M") >= cfg["time_exit"]:
-            signal, reason = "TIME", f"past {cfg['time_exit']} cut-off"
-        elif gb is not None and pb and giveback >= pb:
-            signal, reason = "PULLBACK", f"off {giveback}% from +{round(peak,1)}% peak — trail exits at {gb}%"
+        signal, reason = _exit_signal(pnl_pct, peak, cfg, now.strftime("%H:%M"))
 
         rows.append({"symbol": sym, "qty": qty, "is_option": _is_option(sym),
                      "entry": round(entry, 2), "ltp": round(ltp, 2), "pnl": round(pnl, 2),

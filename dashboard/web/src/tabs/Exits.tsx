@@ -358,6 +358,33 @@ function RulesConfig() {
         </label>
       </div>
 
+      {/* Breakeven lock — protect small winners the ratchet is too high to catch */}
+      <div className="rounded-md border border-line bg-raised/30 p-3">
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={cfg.breakeven_lock} onChange={(e) => setCfg({ ...cfg, breakeven_lock: e.target.checked })} className="accent-cyan" />
+          <span className="font-mono text-[11px] font-bold text-ink">🔒 Breakeven lock — don't let a green trade close red</span>
+        </label>
+        {cfg.breakeven_lock && (
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label className="block">
+              <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Arm once peak clears (%)</span>
+              <input value={String(cfg.breakeven_arm_pct)} onChange={(e) => setCfg({ ...cfg, breakeven_arm_pct: Number(e.target.value) || 0 })} inputMode="decimal"
+                className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
+            </label>
+            <label className="block">
+              <span className="font-mono text-[9px] uppercase tracking-wider text-muted">Floor to hold (%, 0 = entry)</span>
+              <input value={String(cfg.breakeven_floor_pct)} onChange={(e) => setCfg({ ...cfg, breakeven_floor_pct: Number(e.target.value) || 0 })} inputMode="decimal"
+                className="mt-1 w-full rounded-md border border-line bg-bg/60 px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-cyan/50" />
+            </label>
+          </div>
+        )}
+        <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-muted">
+          Fills the gap below the ratchet's first tier: once a trade's peak clears the arm %, it exits if it falls back to the floor —
+          so a winner that peaks at, say, +9% (under the +15% ratchet) can't round-trip to the stop. Armed off the peak, not the live price.
+          Keep the arm above noise so tiny +1–2% blips don't stop you out at scratch.
+        </p>
+      </div>
+
       <div className="rounded-md border border-line bg-raised/30 p-3">
         <div className="font-mono text-[11px] font-bold text-ink">📱 Mobile alerts</div>
         <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
