@@ -292,6 +292,51 @@ class Events(unittest.TestCase):
         self.assertIsNone(st["event_time_ist"])
 
 
+class Backtest(unittest.TestCase):
+    def _contracts(self):
+        return [{"symbol": "CRUDEOIL26SEPFUT", "token": 1, "expiry": date(2026, 9, 19)},
+                {"symbol": "CRUDEOIL26OCTFUT", "token": 2, "expiry": date(2026, 10, 19)}]
+
+    def test_active_contract_rolls_before_expiry(self):
+        from dashboard.mcx_backtest import active_contract
+        cs = self._contracts()
+        self.assertEqual(active_contract(cs, date(2026, 9, 15), 3)["symbol"], "CRUDEOIL26SEPFUT")
+        self.assertEqual(active_contract(cs, date(2026, 9, 17), 3)["symbol"], "CRUDEOIL26OCTFUT")  # rolled
+
+    def test_stitch_flags_roll_transition(self):
+        from dashboard.mcx_backtest import stitch_series
+        def bar(d, c):
+            return [f"{d} 00:00:00", c, c + 1, c - 1, c, 100]
+        cbt = {
+            1: [bar("2026-09-15", 100), bar("2026-09-16", 101)],
+            2: [bar("2026-09-15", 100), bar("2026-09-16", 101), bar("2026-09-17", 102), bar("2026-09-18", 103)],
+        }
+        s = stitch_series(self._contracts(), cbt, roll_days_before=3)
+        bydate = {x["date"].isoformat(): x for x in s}
+        self.assertEqual(bydate["2026-09-16"]["contract"], "CRUDEOIL26SEPFUT")
+        self.assertEqual(bydate["2026-09-17"]["contract"], "CRUDEOIL26OCTFUT")
+        self.assertTrue(bydate["2026-09-17"]["roll_transition"])
+        self.assertFalse(bydate["2026-09-16"]["roll_transition"])
+
+    def test_regime(self):
+        from dashboard.mcx_backtest import _regime
+        self.assertEqual(_regime([100 + i for i in range(21)]), "trend")   # +20% over 20 bars
+        self.assertEqual(_regime([100 + (i % 2) * 0.2 for i in range(21)]), "range")
+
+    def test_metrics_rescued_whipsaw_drawdown(self):
+        from dashboard.mcx_backtest import _metrics
+        trades = [
+            {"pnl": 1.0, "base": -0.5, "hold": 5, "mae": -0.8, "r_mult": 0.5, "ever_fav": True},   # rescued
+            {"pnl": -1.0, "base": -1.0, "hold": 3, "mae": -1.2, "r_mult": -0.5, "ever_fav": True},  # whipsaw
+            {"pnl": 2.0, "base": 2.0, "hold": 8, "mae": -0.3, "r_mult": 1.0, "ever_fav": True},
+        ]
+        m = _metrics(trades)
+        self.assertEqual(m["rescued"], 1)
+        self.assertEqual(m["whipsaw"], 1)
+        self.assertEqual(m["trades"], 3)
+        self.assertLess(m["max_drawdown"], 0)
+
+
 class Session(unittest.TestCase):
     def test_mcx_evening_open_when_nse_closed(self):
         t = datetime(2026, 9, 8, 20, 0)  # Tuesday 20:00 — NSE shut, MCX evening
