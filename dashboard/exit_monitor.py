@@ -315,7 +315,7 @@ def evaluate() -> Dict[str, Any]:
                 # heads-up only, and only for a position that actually got into profit
                 signal, reason = "WEAKEN", struct["reason"]
 
-        rows.append({"symbol": sym, "qty": qty, "is_option": _is_option(sym),
+        rows.append({"symbol": sym, "qty": qty, "is_option": _is_option(sym), "exchange": exch,
                      "entry": round(entry, 2), "ltp": round(ltp, 2), "pnl": round(pnl, 2),
                      "pnl_pct": pnl_pct, "peak_pct": round(peak, 2), "product": p.get("product"),
                      "signal": signal, "reason": reason})
@@ -605,6 +605,15 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
     FMT = "%Y-%m-%d %H:%M:%S"
     now_dt = datetime.now()
     for r in res["actionable"]:
+        # Per-position session gate: only push when the position's OWN exchange is open.
+        # (The job runs whenever NSE OR MCX is open, but an equity signal shouldn't nudge
+        # your phone all evening while NSE is shut and you can't act; MCX in the evening does.)
+        if not force:
+            try:
+                if not core.ZerodhaPlumbingInspector.is_open(r.get("exchange", "NSE")):
+                    continue
+            except Exception:
+                pass
         key = r["symbol"]
         prev = seen.get(key)
         if isinstance(prev, str):            # migrate legacy {sym: "SIGNAL"} state
