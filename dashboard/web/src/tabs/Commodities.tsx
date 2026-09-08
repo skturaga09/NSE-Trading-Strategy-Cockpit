@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { McxWatchlist, McxWatchRow, McxPositions, McxExpiryRisk, McxContext, McxAttribution, McxPositionProb, McxOptionAnalytics, McxEvents } from "../types";
+import type { McxWatchlist, McxWatchRow, McxPositions, McxExpiryRisk, McxContext, McxAttribution, McxPositionProb, McxOptionAnalytics, McxEvents, McxSetups, McxSetupRow } from "../types";
 
 /* =============================================================================
    MCX COMMODITIES — isolated from the equity boards. Options on MCX futures.
@@ -39,12 +39,14 @@ export function Commodities() {
   const [prob, setProb] = useState<McxPositionProb | null>(null);
   const [ctx, setCtx] = useState<McxContext | null>(null);
   const [ev, setEv] = useState<McxEvents | null>(null);
+  const [setupsData, setSetups] = useState<McxSetups | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const load = () => {
     api.getMcxWatchlist().then((d) => { setWl(d); setErr(null); }).catch(() => setErr("watchlist unavailable"));
     api.getMcxPositions().then(setPos).catch(() => {});
     api.getMcxPositionProbability().then(setProb).catch(() => {});
+    api.getMcxSetups().then(setSetups).catch(() => {});
   };
   useEffect(() => {
     load();
@@ -65,6 +67,8 @@ export function Commodities() {
         (devolvement) — settlement/broker rules are <span className="text-signalred">unverified until you confirm them</span>, so expiry-sensitive
         states default to manual review. Nothing here auto-exits, rolls, or sends instructions.
       </div>
+
+      <SetupsPanel data={setupsData} />
 
       {ctx && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-raised/30 px-3 py-2 font-mono text-[10px]">
@@ -115,6 +119,50 @@ export function Commodities() {
       <EventsPanel ev={ev} />
 
       <ExpiryRiskPanel pos={pos} prob={prob} />
+    </div>
+  );
+}
+
+function SetupsPanel({ data }: { data: McxSetups | null }) {
+  const rows = data?.rows ?? [];
+  const dirColor = (d?: string) => (d === "LONG" ? "var(--green)" : d === "SHORT" ? "var(--red)" : "var(--muted)");
+  return (
+    <div className="panel space-y-3 rounded-lg p-5">
+      <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
+        🎯 Setup radar <span className="font-mono text-[11px] font-normal text-muted">— intraday trend/breakout on the future · MCX {data?.market_state ?? "…"}</span>
+      </h2>
+      {rows.length === 0 ? (
+        <p className="font-mono text-[11px] text-muted">No setups (or MCX closed — the intraday lane needs live bars).</p>
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-line">
+          <table className="w-full text-left text-[11px]">
+            <thead className="bg-raised/50 font-mono text-[9px] uppercase tracking-wider text-muted">
+              <tr>{["Commodity", "Bias", "Setup", "Score", "Option leg (ATM)", "Exp move", "Roll/Event", "State"].map((h) => <th key={h} className="px-2 py-1.5">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-line font-mono">
+              {rows.map((r: McxSetupRow) => {
+                const ol = r.option_leg;
+                return (
+                  <tr key={r.root} className="hover:bg-raised/30">
+                    <td className="px-2 py-1.5"><span className="font-bold text-ink">{r.root}</span></td>
+                    <td className="px-2 py-1.5 font-bold" style={{ color: dirColor(r.direction) }}>{r.direction ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-muted">{r.kind ?? "—"}</td>
+                    <td className="px-2 py-1.5 tnum text-ink">{r.score ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-muted">{ol ? `${ol.side} ${ol.strike} · IV ${ol.iv_mid ?? "—"}% (${ol.iv_confidence}) · liq ${ol.liquidity.grade}` : "—"}</td>
+                    <td className="px-2 py-1.5 tnum text-muted">{ol?.expected_move_pct != null ? `±${ol.expected_move_pct}%` : "—"}</td>
+                    <td className="px-2 py-1.5 text-[9px] text-muted">{r.roll ?? "—"}{r.event_guarded ? " · ⚠ event" : ""}</td>
+                    <td className="px-2 py-1.5"><Badge text={r.trade_state.state} color={STATE_COLOR[r.trade_state.state] ?? "var(--muted)"} /><div className="mt-0.5 text-[9px] text-muted">{r.trade_state.why}</div></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        {data?.note ?? "Screen, not an edge."} Direction is a technical read of the future (trend + breakout), never an event forecast.
+        A high-severity event inside the guard window flags new entries; ELIGIBLE_FOR_REVIEW = fresh + liquid + clear — <b className="text-ink/80">you</b> review and size.
+      </p>
     </div>
   );
 }

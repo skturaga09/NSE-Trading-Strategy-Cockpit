@@ -49,6 +49,15 @@ DEFAULTS: Dict[str, Any] = {
     "mcx_auto_squareoff_enabled": False,
     "mcx_auto_contrary_instruction_enabled": False,
     "mcx_auto_roll_enabled": False,
+    # C6a setup radar (intraday evening lane, trend+breakout, ATM leg). Screen, not an edge.
+    "mcx_setups_enabled": True,
+    "mcx_setup_intraday_interval": "15minute",
+    "mcx_setup_min_score": 55,
+    "mcx_setup_ema_fast": 9,
+    "mcx_setup_ema_slow": 20,
+    "mcx_setup_breakout_atr_mult": 1.0,
+    "mcx_setup_volume_mult": 1.3,
+    "mcx_setup_min_liquidity_grade": "B",
 }
 
 

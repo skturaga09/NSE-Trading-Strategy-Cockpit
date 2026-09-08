@@ -337,6 +337,63 @@ class Backtest(unittest.TestCase):
         self.assertLess(m["max_drawdown"], 0)
 
 
+class SetupRadar(unittest.TestCase):
+    CFG = {"mcx_setup_ema_fast": 9, "mcx_setup_ema_slow": 20, "structure_pivot_k": 2,
+           "mcx_setup_breakout_atr_mult": 1.0, "mcx_setup_volume_mult": 1.3}
+
+    def _bar(self, o, h, l, c, v=1000):
+        return ["d", o, h, l, c, v]
+
+    def test_trend_long_and_short(self):
+        from dashboard.mcx_setups import trend_signal
+        up = [self._bar(100 + i, 101 + i, 99 + i, 100.6 + i) for i in range(30)]
+        dn = [self._bar(100 - i, 101 - i, 99 - i, 100 - i) for i in range(30)]
+        self.assertEqual(trend_signal(up, self.CFG)["direction"], "LONG")
+        self.assertEqual(trend_signal(dn, self.CFG)["direction"], "SHORT")
+
+    def test_breakout_up(self):
+        from dashboard.mcx_setups import breakout_signal
+        base = [self._bar(100, 101, 99, 100, 1000) for _ in range(24)]
+        base[10] = self._bar(100, 103, 99, 100, 1000)     # a confirmed swing-high pivot ~103
+        brk = base + [self._bar(101, 108, 100, 107, 3000)]  # close 107 > pivot, big range, high vol
+        s = breakout_signal(brk, self.CFG)
+        self.assertEqual(s["direction"], "LONG")
+        self.assertEqual(s["kind"], "breakout")
+
+    def test_conflict_stands_aside(self):
+        # A genuine trend-vs-breakout disagreement is hard to contrive with candles, so stub the
+        # two detectors to return opposite directions and assert the resolution stands aside.
+        from dashboard import mcx_setups
+        candles = [self._bar(100, 101, 99, 100) for _ in range(30)]
+        orig_t, orig_b = mcx_setups.trend_signal, mcx_setups.breakout_signal
+        try:
+            mcx_setups.trend_signal = lambda c, cfg: {"direction": "LONG", "kind": "trend", "strength": 0.8}
+            mcx_setups.breakout_signal = lambda c, cfg: {"direction": "SHORT", "kind": "breakout", "strength": 0.8}
+            s = mcx_setups.evaluate_setup(candles, self.CFG, "high")
+            self.assertEqual(s["direction"], "NONE")
+            self.assertEqual(s["kind"], "conflict")
+        finally:
+            mcx_setups.trend_signal, mcx_setups.breakout_signal = orig_t, orig_b
+
+    def test_score_and_no_setup(self):
+        from dashboard.mcx_setups import evaluate_setup
+        flat = [self._bar(100, 100.2, 99.8, 100) for _ in range(30)]
+        self.assertEqual(evaluate_setup(flat, self.CFG)["direction"], "NONE")
+        up = [self._bar(100 + i, 101 + i, 99 + i, 100.6 + i) for i in range(30)]
+        s = evaluate_setup(up, self.CFG, "high")
+        self.assertEqual(s["direction"], "LONG")
+        self.assertGreater(s["score"], 0)
+
+    def test_trade_state_gating(self):
+        from dashboard.mcx_setups import _trade_state
+        setup = {"direction": "LONG", "kind": "trend", "score": 70}
+        self.assertEqual(_trade_state(setup, "A", "front_liquid", "high", False, 55, "B")["state"], "ELIGIBLE_FOR_REVIEW")
+        self.assertEqual(_trade_state(setup, "D", "front_liquid", "high", False, 55, "B")["state"], "ILLIQUID")
+        self.assertEqual(_trade_state(setup, "A", "expiry_risk", "high", False, 55, "B")["state"], "ROLL_GUARD")
+        self.assertEqual(_trade_state(setup, "A", "front_liquid", "high", True, 55, "B")["state"], "EVENT_GUARD")
+        self.assertEqual(_trade_state({"direction": "NONE", "kind": None, "score": 0}, "A", "front_liquid", "high", False, 55, "B")["state"], "WATCH")
+
+
 class Session(unittest.TestCase):
     def test_mcx_evening_open_when_nse_closed(self):
         t = datetime(2026, 9, 8, 20, 0)  # Tuesday 20:00 — NSE shut, MCX evening

@@ -556,6 +556,26 @@ export interface McxEvent {
   roots_resolved: string[];
 }
 export interface McxEvents { calendar_version: string | null; events: McxEvent[] }
+export interface McxSetupRow {
+  root: string;
+  economic_root: string;
+  future?: string;
+  direction?: string;
+  kind?: string | null;
+  score?: number;
+  interval?: string;
+  last?: number;
+  roll?: string;
+  event_guarded?: boolean;
+  option_leg?: {
+    side: string; strike: number; expiry: string;
+    liquidity: { grade: string };
+    iv_mid: number | null; iv_confidence: string;
+    expected_move_pct?: number; p_itm?: { low: number | null; high: number | null };
+  };
+  trade_state: McxTradeState;
+}
+export interface McxSetups { as_of: string; market_state: string; rows: McxSetupRow[]; note?: string }
 
 export interface McxMacroSrc { status: string; change_pct: number | null; last: number | null; ts: string | null }
 export interface McxAttribution {

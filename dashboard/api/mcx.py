@@ -214,6 +214,17 @@ def chain(root: str) -> Dict[str, Any]:
                                   ("iv_mid", "iv_confidence", "expected_move_pts", "expected_move_pct", "expected_range")}}
 
 
+@router.get("/setups")
+def setups() -> Dict[str, Any]:
+    """Commodity setup radar (C6a) — intraday trend/breakout setups per liquid root, gated by
+    data/liquidity/roll/event, with an ATM option leg. Screen/review only, never a buy/sell call."""
+    try:
+        from dashboard import mcx_setups
+        return mcx_setups.setups()
+    except Exception as e:
+        return {**mcx.envelope(mcx.market_state(), {}, [f"setups unavailable: {e}"]), "rows": []}
+
+
 @router.get("/position-probability")
 def position_probability() -> Dict[str, Any]:
     """Black-76 analytics for each open MCX OPTION position (future price as F, option
