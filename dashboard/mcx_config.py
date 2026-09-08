@@ -58,6 +58,12 @@ DEFAULTS: Dict[str, Any] = {
     "mcx_setups_validated": False,
     "mcx_setup_intraday_interval": "15minute",
     "mcx_setup_min_score": 55,
+    # Live detector set = pullback (mean-reversion-in-trend). C6c showed trend+breakout is
+    # anti-predictive on daily while pullback has an edge with far lower drawdown (esp. crude);
+    # trend/breakout are kept available but off. Gate STAYS off (WATCH-only) pending intraday
+    # validation + larger samples — the edge is daily-only and small-sample so far.
+    "mcx_setup_detectors": ["pullback"],
+    "mcx_setup_pullback_band": 1.0,                 # pullback within N×ATR of the 20-EMA
     "mcx_setup_ema_fast": 9,
     "mcx_setup_ema_slow": 20,
     "mcx_setup_breakout_atr_mult": 1.0,

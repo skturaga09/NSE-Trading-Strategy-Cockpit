@@ -70,19 +70,19 @@ def run(roots: Optional[List[str]] = None) -> None:
         if len(series) < 60:
             print(f"=== {root}: not enough history ({len(series)}) ===\n"); continue
         mult = amap.get(mcx.economic_root(root), amap.get("base_metals_default", 1.75))
-        setup_tr = run_setup_policy(series, cfg, mult, min_score)
-        all_tr = run_setup_policy(series, cfg, mult, 0.0)     # every firing setup, for bucketing
+        tb_cfg = {**cfg, "mcx_setup_detectors": ["trend", "breakout"]}
+        pb_cfg = {**cfg, "mcx_setup_detectors": ["pullback"]}
+        tb_tr = run_setup_policy(series, tb_cfg, mult, 0.0)      # trend+breakout (the C6a live set)
+        pb_tr = run_setup_policy(series, pb_cfg, mult, 0.0)      # pullback-only (the hypothesis)
         mom_tr = bt.run_policy(series, mult, root)
-        sm, mm = bt._metrics(setup_tr), bt._metrics(mom_tr)
         print(f"=== {root}  ({len(series)} bars, mult {mult}) ===")
-        print(f"   {'policy':<20}{'trades':>8}{'avg%':>8}{'win%':>7}{'avgR':>7}{'maxDD%':>8}")
-        for name, m in [(f"setup (>={min_score:.0f})", sm), ("momentum baseline", mm)]:
+        print(f"   {'policy':<22}{'trades':>8}{'avg%':>8}{'win%':>7}{'avgR':>7}{'maxDD%':>8}")
+        for name, m in [("trend+breakout", bt._metrics(tb_tr)), ("pullback", bt._metrics(pb_tr)),
+                        ("momentum baseline", bt._metrics(mom_tr))]:
             if m.get("trades"):
-                print(f"   {name:<20}{m['trades']:>8}{m['avg_pnl']:>8}{m['win_rate']:>7}{str(m['avg_R']):>7}{m['max_drawdown']:>8}")
-        # score monotonicity
-        buckets = score_buckets(all_tr)
-        line = " ".join(f"{b['bucket']}:{b.get('avg_pnl','—')}%/{b.get('win_rate','—')}%(n{b['n']})" for b in buckets)
-        print(f"     score→outcome: {line}")
+                print(f"   {name:<22}{m['trades']:>8}{m['avg_pnl']:>8}{m['win_rate']:>7}{str(m['avg_R']):>7}{m['max_drawdown']:>8}")
+        line = " ".join(f"{b['bucket']}:{b.get('avg_pnl','—')}%/{b.get('win_rate','—')}%(n{b['n']})" for b in score_buckets(pb_tr))
+        print(f"     pullback score→outcome: {line}")
         print()
 
 

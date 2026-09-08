@@ -78,15 +78,18 @@ premium outright), exactly as C4 already does.
 New module `dashboard/mcx_setups.py`; endpoint `GET /api/mcx/setups`; a "Setups" section at
 the top of the Commodities tab (ranked cards). Pure detectors take a candle list (fixture-testable).
 
-## VALIDATION STATUS (C6c — ran 2026-09-08): NO EDGE on daily → gated off
-`mcx_setup_backtest` on the roll-stitched daily history shows setup-entry **underperforms**
-the momentum baseline on all four liquid roots, and the **score is inverted** (higher score →
-worse outcome — e.g. CRUDEOIL 0–40 bucket +3.7% vs 70+ −0.73%). Buying daily trend+breakout
-strength mean-reverts in these markets. Consequence: `mcx_setups_validated=false`, so the radar
-is a **WATCH-only screen and never surfaces ELIGIBLE**. The intraday lane (the live one) can't
-be validated yet (shallow intraday history). Likely fix directions: a **pullback/mean-reversion**
-entry (the deferred detector), and intraday-history validation. Do not flip the gate until a
-backtest demonstrates edge.
+## VALIDATION STATUS (C6c, 2026-09-08)
+- **trend+breakout: NO edge on daily** — underperformed momentum on all four roots and the
+  score was *inverted* (higher score → worse). Buying daily breakout strength mean-reverts.
+- **pullback: promising** — a mean-reversion-in-trend entry beats trend+breakout and has far
+  lower drawdown (CRUDEOIL +6.35%/77.8% win/maxDD −3.8% vs momentum +2.3%/−35%; positive on
+  3/4 roots; SILVER still negative on a tiny sample). So the **live detector is now `pullback`**;
+  trend/breakout are kept but off.
+- **Gate STAYS off** (`mcx_setups_validated=false`) → WATCH-only, never ELIGIBLE. Reasons: the
+  edge is daily-only (the live lane is intraday — not yet validated for lack of history), samples
+  are small (11–25 trades), SILVER is negative, and the pullback SCORE does not yet discriminate
+  (trades cluster in one bucket). Before flipping: validate the pullback entry on intraday
+  history, get more samples, add per-root gating (drop SILVER), and make the score rank within it.
 
 ## Backtest / validation (C6c — before "eligible" is trusted)
 Extend `mcx_backtest.py`: replace the momentum-proxy entry with the **setup signal** entry

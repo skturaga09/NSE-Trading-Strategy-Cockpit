@@ -351,6 +351,18 @@ class SetupRadar(unittest.TestCase):
         self.assertEqual(trend_signal(up, self.CFG)["direction"], "LONG")
         self.assertEqual(trend_signal(dn, self.CFG)["direction"], "SHORT")
 
+    def test_pullback_long(self):
+        from dashboard.mcx_setups import pullback_signal
+        # uptrend, then a shallow pullback toward the 20-EMA with a bounce bar → LONG pullback
+        up = [self._bar(100 + i, 101 + i, 99 + i, 100.6 + i) for i in range(28)]
+        up += [self._bar(126, 126.5, 123, 123.5)]      # dip toward EMA20
+        up += [self._bar(123.6, 125, 123.4, 124.8)]    # bounce bar (closes up, upper half)
+        s = pullback_signal(up, {**self.CFG, "mcx_setup_pullback_band": 3.0})
+        self.assertEqual(s["direction"], "LONG")
+        self.assertEqual(s["kind"], "pullback")
+        # a wide gap above the EMA (no pullback) must NOT fire
+        self.assertEqual(pullback_signal(up, {**self.CFG, "mcx_setup_pullback_band": 1.0})["direction"], "NONE")
+
     def test_breakout_up(self):
         from dashboard.mcx_setups import breakout_signal
         base = [self._bar(100, 101, 99, 100, 1000) for _ in range(24)]

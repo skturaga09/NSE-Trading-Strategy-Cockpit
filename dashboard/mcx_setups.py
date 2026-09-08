@@ -73,37 +73,62 @@ def breakout_signal(candles: List[List[Any]], cfg: Dict[str, Any]) -> Dict[str, 
     return {"direction": "NONE", "kind": "breakout", "strength": 0.0}
 
 
+def pullback_signal(candles: List[List[Any]], cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Buy the trend on a PULLBACK to structure (near the 20-EMA) that holds — a mean-reversion
+    -within-trend entry, the opposite of chasing breakout strength. LONG: uptrend (EMA9>EMA20,
+    a recent close above EMA20), price pulled back to within `band`×ATR ABOVE EMA20, and a
+    bounce bar (close up / close in the upper half of range). SHORT mirrors."""
+    fast, slow = int(cfg.get("mcx_setup_ema_fast", 9)), int(cfg.get("mcx_setup_ema_slow", 20))
+    closes = [c[4] for c in candles]
+    ef, es = _ema(closes, fast), _ema(closes, slow)
+    atr = structure_exit._atr(candles)
+    if ef is None or es is None or not atr:
+        return {"direction": "NONE", "kind": "pullback", "strength": 0.0}
+    band = float(cfg.get("mcx_setup_pullback_band", 1.0))
+    o, h, l, c = candles[-1][1], candles[-1][2], candles[-1][3], candles[-1][4]
+    rng = (h - l) or 1e-9
+    recent = closes[-10:]
+    if ef > es and max(recent) > es:                       # established uptrend
+        dist = (c - es) / atr
+        if 0 <= dist <= band and (c > o or (c - l) / rng >= 0.5):   # near EMA20, bouncing
+            strength = max(0.0, min(1.0, (1 - dist / band))) * min(1.0, (ef - es) / atr)
+            return {"direction": "LONG", "kind": "pullback", "strength": round(strength, 3)}
+    if ef < es and min(recent) < es:                       # established downtrend
+        dist = (es - c) / atr
+        if 0 <= dist <= band and (c < o or (h - c) / rng >= 0.5):
+            strength = max(0.0, min(1.0, (1 - dist / band))) * min(1.0, (es - ef) / atr)
+            return {"direction": "SHORT", "kind": "pullback", "strength": round(strength, 3)}
+    return {"direction": "NONE", "kind": "pullback", "strength": 0.0}
+
+
 _ALIGN = {"high": 1.0, "mixed": 0.5, "low": 0.0, "unavailable": 0.5}
+_DETECTORS = {"trend": trend_signal, "breakout": breakout_signal}   # pullback added below
 
 
 def evaluate_setup(candles: List[List[Any]], cfg: Dict[str, Any],
                    alignment: str = "unavailable") -> Dict[str, Any]:
-    """Combine detectors → {direction, kind, score, components}. Conflicting detectors → NONE.
-    Score is a SCREEN RANK (0..100), not a probability or an edge."""
-    t = trend_signal(candles, cfg)
-    b = breakout_signal(candles, cfg)
-    firing = [s for s in (t, b) if s["direction"] != "NONE"]
+    """Run the configured detectors → {direction, kind, score, signals}. Conflicting detectors
+    → NONE. Detector-list driven so a subset (e.g. pullback-only) can be validated. Score is a
+    SCREEN RANK (0..100), not a probability or an edge."""
+    names = cfg.get("mcx_setup_detectors", ["trend", "breakout"])
+    funcs = {"trend": trend_signal, "breakout": breakout_signal, "pullback": pullback_signal}
+    sigs = [funcs[n](candles, cfg) for n in names if n in funcs]
+    firing = [s for s in sigs if s["direction"] != "NONE"]
     if not firing:
-        return {"direction": "NONE", "kind": None, "score": 0, "trend": t, "breakout": b}
-    dirs = {s["direction"] for s in firing}
-    if len(dirs) > 1:                       # trend vs breakout disagree → stand aside
-        return {"direction": "NONE", "kind": "conflict", "score": 0, "trend": t, "breakout": b}
+        return {"direction": "NONE", "kind": None, "score": 0, "signals": sigs}
+    if len({s["direction"] for s in firing}) > 1:          # detectors disagree → stand aside
+        return {"direction": "NONE", "kind": "conflict", "score": 0, "signals": sigs}
     direction = firing[0]["direction"]
-    kind = "+".join(s["kind"] for s in firing)
-    # volume component from the breakout bar
+    agree = [s for s in firing if s["direction"] == direction]
+    kind = "+".join(s["kind"] for s in agree)
+    det_score = sum(s["strength"] for s in agree) / len(agree)
     vols = [c[5] for c in candles[:-1] if len(c) > 5 and c[5]]
     avgv = (sum(vols[-20:]) / len(vols[-20:])) if vols else 0
     vlast = candles[-1][5] if len(candles[-1]) > 5 else 0
     vol_norm = min(1.0, (vlast / avgv) / 2.0) if avgv else 0.0
-    w_trend, w_break, w_vol, w_ctx = 0.35, 0.35, 0.15, 0.15
-    score = 100.0 * (
-        w_trend * (t["strength"] if t["direction"] == direction else 0.0) +
-        w_break * (b["strength"] if b["direction"] == direction else 0.0) +
-        w_vol * vol_norm +
-        w_ctx * _ALIGN.get(alignment, 0.5)
-    )
+    score = 100.0 * (0.70 * det_score + 0.15 * vol_norm + 0.15 * _ALIGN.get(alignment, 0.5))
     return {"direction": direction, "kind": kind, "score": round(score, 1),
-            "trend": t, "breakout": b, "components": {"vol_norm": round(vol_norm, 3), "alignment": alignment}}
+            "signals": sigs, "components": {"vol_norm": round(vol_norm, 3), "alignment": alignment}}
 
 
 # ---------------------------------------------------------------------------
