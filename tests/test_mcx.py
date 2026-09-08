@@ -141,6 +141,31 @@ class ExpiryRisk(unittest.TestCase):
         self.assertFalse(c.get("mcx_auto_roll_enabled"))
 
 
+class Context(unittest.TestCase):
+    def test_attribution_splits_move(self):
+        from dashboard.mcx_context import _attribution
+        # MCX +1.05, global +0.72, fx +0.18 → residual +0.15, aligned high
+        a = _attribution(1.05, 0.72, 0.18)
+        self.assertAlmostEqual(a["residual_return_pct"], 0.15, places=2)
+        self.assertEqual(a["alignment"], "high")
+
+    def test_attribution_low_alignment_when_residual_dominates(self):
+        from dashboard.mcx_context import _attribution
+        a = _attribution(2.0, 0.2, 0.1)     # residual 1.7 of a 2.0 move → low
+        self.assertEqual(a["alignment"], "low")
+
+    def test_attribution_unavailable_when_no_benchmark(self):
+        from dashboard.mcx_context import _attribution
+        a = _attribution(1.0, None, 0.1)
+        self.assertEqual(a["alignment"], "unavailable")
+        self.assertIsNone(a["residual_return_pct"])
+
+    def test_base_metal_has_no_free_benchmark(self):
+        from dashboard.mcx_context import GLOBAL_BENCHMARK
+        self.assertIsNone(GLOBAL_BENCHMARK.get("ZINC"))
+        self.assertIsNotNone(GLOBAL_BENCHMARK.get("CRUDEOIL"))
+
+
 class Session(unittest.TestCase):
     def test_mcx_evening_open_when_nse_closed(self):
         t = datetime(2026, 9, 8, 20, 0)  # Tuesday 20:00 — NSE shut, MCX evening

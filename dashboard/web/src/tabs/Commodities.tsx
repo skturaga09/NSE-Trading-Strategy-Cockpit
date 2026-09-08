@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { McxWatchlist, McxWatchRow, McxPositions, McxExpiryRisk } from "../types";
+import type { McxWatchlist, McxWatchRow, McxPositions, McxExpiryRisk, McxContext, McxAttribution } from "../types";
 
 /* =============================================================================
    MCX COMMODITIES — isolated from the equity boards. Options on MCX futures.
@@ -28,9 +28,15 @@ function Badge({ text, color }: { text: string; color: string }) {
   );
 }
 
+const ALIGN_COLOR: Record<string, string> = {
+  high: "var(--green)", mixed: "var(--gold)", low: "var(--red)", unavailable: "var(--muted)",
+};
+const pctStr = (v: number | null | undefined) => (v == null ? "—" : `${v >= 0 ? "+" : ""}${v}%`);
+
 export function Commodities() {
   const [wl, setWl] = useState<McxWatchlist | null>(null);
   const [pos, setPos] = useState<McxPositions | null>(null);
+  const [ctx, setCtx] = useState<McxContext | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const load = () => {
@@ -39,8 +45,10 @@ export function Commodities() {
   };
   useEffect(() => {
     load();
+    api.getMcxContext().then(setCtx).catch(() => {});
     const id = setInterval(load, 20000);
-    return () => clearInterval(id);
+    const idc = setInterval(() => api.getMcxContext().then(setCtx).catch(() => {}), 60000);
+    return () => { clearInterval(id); clearInterval(idc); };
     /* eslint-disable-next-line */
   }, []);
 
@@ -53,6 +61,19 @@ export function Commodities() {
         (devolvement) — settlement/broker rules are <span className="text-signalred">unverified until you confirm them</span>, so expiry-sensitive
         states default to manual review. Nothing here auto-exits, rolls, or sends instructions.
       </div>
+
+      {ctx && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-raised/30 px-3 py-2 font-mono text-[10px]">
+          <span className="text-muted">🌐 Global context</span>
+          {Object.entries(ctx.macro).map(([k, m]) => (
+            <span key={k} className="rounded border border-line px-2 py-0.5">
+              {k} <span className="tnum" style={{ color: (m.change_pct ?? 0) >= 0 ? "var(--green)" : "var(--red)" }}>{pctStr(m.change_pct)}</span>
+              <span className="ml-1 text-[8px] text-muted">{m.status}</span>
+            </span>
+          ))}
+          <span className="text-[9px] text-muted">context-only · delayed · not execution-grade</span>
+        </div>
+      )}
 
       <div className="panel space-y-3 rounded-lg p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -70,12 +91,12 @@ export function Commodities() {
             <table className="w-full text-left text-[11px]">
               <thead className="bg-raised/50 font-mono text-[9px] uppercase tracking-wider text-muted">
                 <tr>
-                  {["Commodity", "Active future", "Price", "Chg%", "ATR (pts / %)", "Roll", "ATM opt", "Liq", "State"].map((h) =>
+                  {["Commodity", "Active future", "Price", "Chg%", "ATR (pts / %)", "Global + FX", "Roll", "ATM opt", "Liq", "State"].map((h) =>
                     <th key={h} className="px-2 py-1.5">{h}</th>)}
                 </tr>
               </thead>
               <tbody className="divide-y divide-line font-mono">
-                {wl.rows.map((r) => <Row key={r.root} r={r} />)}
+                {wl.rows.map((r) => <Row key={r.root} r={r} attr={ctx?.roots?.[r.root]} />)}
               </tbody>
             </table>
           </div>
@@ -92,7 +113,7 @@ export function Commodities() {
   );
 }
 
-function Row({ r }: { r: McxWatchRow }) {
+function Row({ r, attr }: { r: McxWatchRow; attr?: McxAttribution }) {
   const ts = r.trade_state;
   const g = r.options?.liquidity?.grade ?? "—";
   return (
@@ -107,6 +128,14 @@ function Row({ r }: { r: McxWatchRow }) {
         {r.change_pct == null ? "—" : `${r.change_pct >= 0 ? "+" : ""}${r.change_pct}%`}
       </td>
       <td className="px-2 py-1.5 tnum text-muted">{r.atr ?? "—"}{r.atr_pct != null ? ` / ${r.atr_pct}%` : ""}</td>
+      <td className="px-2 py-1.5">
+        {attr && attr.alignment !== "unavailable" ? (
+          <>
+            <div className="text-[9px] text-muted">{attr.benchmark ?? "—"} {pctStr(attr.global_return_pct)} · INR {pctStr(attr.usdinr_return_pct)}</div>
+            <Badge text={`align ${attr.alignment}`} color={ALIGN_COLOR[attr.alignment]} />
+          </>
+        ) : <span className="text-[9px] text-muted">no benchmark</span>}
+      </td>
       <td className="px-2 py-1.5">
         {r.roll ? <Badge text={r.roll.state} color={r.roll.state === "front_liquid" ? "var(--green)" : r.roll.state.includes("risk") || r.roll.state === "contract_dislocated" ? "var(--red)" : "var(--gold)"} /> : "—"}
         {r.roll?.front_expiry_days != null && <div className="mt-0.5 text-[9px] text-muted">exp {r.roll.front_expiry_days}d</div>}

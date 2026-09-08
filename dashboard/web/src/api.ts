@@ -27,6 +27,7 @@ import type {
   IgniteCompare,
   McxWatchlist,
   McxPositions,
+  McxContext,
   ExitsStatus,
   ExitConfig,
   ThesisAlignment,
@@ -146,6 +147,8 @@ export const api = {
     getJSON<McxWatchlist>(`/api/mcx/watchlist?_t=${Date.now()}`),
   getMcxPositions: () =>
     getJSON<McxPositions>(`/api/mcx/positions?_t=${Date.now()}`),
+  getMcxContext: () =>
+    getJSON<McxContext>(`/api/mcx/context?_t=${Date.now()}`),
 
   getExitsStatus: () =>
     getJSON<ExitsStatus>(`/api/exits/status?_t=${Date.now()}`),

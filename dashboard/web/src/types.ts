@@ -530,6 +530,25 @@ export interface McxPositions {
   positions: { position: Record<string, unknown>; contract_link: Record<string, unknown>; expiry_risk: McxExpiryRisk }[];
 }
 
+export interface McxMacroSrc { status: string; change_pct: number | null; last: number | null; ts: string | null }
+export interface McxAttribution {
+  root: string;
+  economic_root: string;
+  benchmark: string | null;
+  mcx_return_pct: number | null;
+  global_return_pct: number | null;
+  usdinr_return_pct: number | null;
+  residual_return_pct: number | null;
+  alignment: "high" | "mixed" | "low" | "unavailable";
+}
+export interface McxContext {
+  as_of: string;
+  market_state: string;
+  data_quality: McxDataQuality;
+  macro: Record<string, McxMacroSrc>;
+  roots: Record<string, McxAttribution>;
+}
+
 // --- Intraday ignition radar (early-entry lane) ---
 export interface IgniteRow {
   symbol: string;

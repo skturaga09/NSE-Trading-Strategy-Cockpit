@@ -130,12 +130,23 @@ def events() -> Dict[str, Any]:
 
 @router.get("/context")
 def context() -> Dict[str, Any]:
-    return _deferred("C1b", "inter-market context (DXY/USDINR/COMEX-NYMEX) + attribution not yet implemented")
+    """Inter-market context (C1b): DXY / USDINR / US10y + per-root global attribution.
+    Context-only (delayed, different session). Never blocks MCX monitoring on its own failure."""
+    try:
+        from dashboard import mcx_context
+        return mcx_context.context()
+    except Exception as e:
+        return {**mcx.envelope(mcx.market_state(), {}, [f"context unavailable: {e}"]),
+                "macro": {}, "roots": {}}
 
 
 @router.get("/context/{root}")
 def context_root(root: str) -> Dict[str, Any]:
-    return _deferred("C1b", f"context for {root.upper()} not yet implemented")
+    try:
+        from dashboard import mcx_context
+        return mcx_context.context_for_root(root)
+    except Exception as e:
+        return {**mcx.envelope(mcx.market_state(), {}, [f"context unavailable: {e}"]), "root": root.upper()}
 
 
 @router.get("/chain/{root}")
