@@ -140,6 +140,45 @@ def confirmations(candles: List[List[Any]], side: str, cfg: Dict[str, Any]) -> L
     return flags
 
 
+def _atr(candles: List[List[Any]], n: int = 14) -> Optional[float]:
+    """Wilder ATR(n) from OHLC candles [ts,o,h,l,c,...]."""
+    if len(candles) < n + 1:
+        return None
+    trs = []
+    for i in range(1, len(candles)):
+        h, l, pc = candles[i][2], candles[i][3], candles[i - 1][4]
+        trs.append(max(h - l, abs(h - pc), abs(l - pc)))
+    a = sum(trs[:n]) / n
+    for tr in trs[n:]:
+        a = (a * (n - 1) + tr) / n
+    return a
+
+
+def chandelier(candles: List[List[Any]], side: str, mult: float,
+               lookback: int = 22, n: int = 14) -> Optional[Dict[str, Any]]:
+    """Chandelier exit (LeBeau): LONG stop = highest-high(lookback) − mult×ATR; SHORT stop =
+    lowest-low(lookback) + mult×ATR. Returns the stop dict when the latest CLOSE breaches it,
+    else None. Stateless (trails from the recent extreme, not a stored entry peak)."""
+    if len(candles) < max(lookback, n) + 2:
+        return None
+    a = _atr(candles, n)
+    if not a:
+        return None
+    close = candles[-1][4]
+    win = candles[-lookback:]
+    if side == "LONG":
+        ref = max(c[2] for c in win)
+        stop = ref - mult * a
+        if close < stop:
+            return {"stop": round(stop, 2), "atr": round(a, 2), "ref": round(ref, 2)}
+    else:
+        ref = min(c[3] for c in win)
+        stop = ref + mult * a
+        if close > stop:
+            return {"stop": round(stop, 2), "atr": round(a, 2), "ref": round(ref, 2)}
+    return None
+
+
 def signal(candles: List[List[Any]], side: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
     """Pure structure-break check. side: 'LONG' (call) or 'SHORT' (put).
     Returns {action: 'EXIT'|'HOLD', reason, level}."""
@@ -165,12 +204,73 @@ def signal(candles: List[List[Any]], side: str, cfg: Dict[str, Any]) -> Dict[str
     return hold
 
 
-def position_signal(symbol: str, product: Optional[str], cfg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _mcx_signal(symbol: str, product: Optional[str], cfg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """MCX exit signal (C2). Resolves the option's CONTRACTUAL future, pulls that future's
+    candles, and runs an ATR chandelier as the PRIMARY exit with the structure break as a
+    fallback. Per-commodity ATR multiple. Confirmations annotate; a still-intact winner with
+    stacked confirmations returns a WARN heads-up."""
+    from dashboard import mcx, mcx_config
+    rows = mcx.instruments()
+    opt = next((o for o in mcx._opts(rows) if o["tradingsymbol"] == symbol), None)
+    if not opt:
+        return None
+    link = mcx.contract_link(opt, rows)
+    if not link.underlying_future_token:
+        return None
+    side = "LONG" if opt["instrument_type"] == "CE" else "SHORT"
+    mcfg = mcx_config.get()
+    intraday = (product or "").upper() == "MIS"
+    if intraday:
+        try:
+            from dashboard import app as core
+            if not core.ZerodhaPlumbingInspector.is_open("MCX"):
+                return None
+        except Exception:
+            return None
+        candles = fetch_intraday(link.underlying_future_token, mcfg.get("mcx_structure_intraday_interval", "15minute"))
+        tf = "intraday"
+    else:
+        candles = mcx._daily_candles(link.underlying_future_token)
+        tf = "daily"
+    if not candles or len(candles) < 24:
+        return None
+    econ = link.economic_root
+    amap = mcfg.get("mcx_atr_mult", {})
+    mult = float(amap.get(econ, amap.get("base_metals_default", 1.75)))
+    conf = confirmations(candles, side, cfg) if cfg.get("structure_confirmations", True) else []
+    ann = (" · confirms: " + ", ".join(conf)) if conf else ""
+    ch = chandelier(candles, side, mult)
+    if ch:
+        reason = (f"ATR chandelier ({tf}) — {side} exit: close {candles[-1][4]} beyond {mult}×ATR "
+                  f"stop {ch['stop']} (ATR {ch['atr']}, from {ch['ref']})")
+        struct = signal(candles, side, {"structure_pivot_k": int(cfg.get("structure_pivot_k", 2))})
+        if struct["action"] == "EXIT":
+            reason += " + structure break"
+        return {"action": "EXIT", "method": "chandelier", "timeframe": tf, "level": ch["stop"],
+                "reason": reason + ann, "confirmations": conf}
+    struct = signal(candles, side, {"structure_pivot_k": int(cfg.get("structure_pivot_k", 2))})
+    if struct["action"] == "EXIT":
+        return {"action": "EXIT", "method": "structure", "timeframe": tf, "level": struct["level"],
+                "reason": struct["reason"] + ann, "confirmations": conf}
+    if cfg.get("structure_warn", True) and len(conf) >= int(cfg.get("structure_warn_min_confirms", 2)):
+        return {"action": "WARN", "timeframe": tf, "confirmations": conf,
+                "reason": "weakening while structure holds — " + ", ".join(conf)}
+    return None
+
+
+def position_signal(symbol: str, product: Optional[str], cfg: Dict[str, Any],
+                    exchange: str = "NSE") -> Optional[Dict[str, Any]]:
     """Live wrapper for exit_monitor: parse the option symbol, pull the underlying's candles
     for the right TIMEFRAME (MIS → intraday, else daily), and return the structure signal
-    ONLY when it's a full EXIT (else None)."""
+    ONLY when it's a full EXIT (else None). MCX routes through the contractual future with an
+    ATR-first exit (see _mcx_signal); NSE/NFO keep the structure-first logic below."""
     if not cfg.get("structure_exits", True):
         return None
+    if (exchange or "NSE").upper() == "MCX":
+        try:
+            return _mcx_signal(symbol, product, cfg)
+        except Exception:
+            return None
     m = _SYM.match(symbol or "")
     if not m:
         return None

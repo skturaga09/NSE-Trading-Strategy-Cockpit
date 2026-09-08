@@ -166,6 +166,35 @@ class Context(unittest.TestCase):
         self.assertIsNotNone(GLOBAL_BENCHMARK.get("CRUDEOIL"))
 
 
+class ChandelierAndArm(unittest.TestCase):
+    def test_chandelier_long_exit_and_hold(self):
+        from dashboard.structure_exit import chandelier
+        def C(o, h, l, c):
+            return ["d", o, h, l, c, 1000]
+        # 30 rising bars (range ~2 each) → ATR ~2; high ~ index. Then a sharp drop breaches stop.
+        up = [C(100 + i, 101 + i, 99 + i, 100.5 + i) for i in range(30)]
+        hold = chandelier(up + [C(129, 130, 128, 129)], "LONG", 3.0)   # close near the high → hold
+        brk = chandelier(up + [C(129, 129, 118, 119)], "LONG", 3.0)    # close far below → exit
+        self.assertIsNone(hold)
+        self.assertIsNotNone(brk)
+        self.assertIn("stop", brk)
+
+    def test_chandelier_short(self):
+        from dashboard.structure_exit import chandelier
+        def C(o, h, l, c):
+            return ["d", o, h, l, c, 1000]
+        dn = [C(100 - i, 101 - i, 99 - i, 100 - i) for i in range(30)]
+        brk = chandelier(dn + [C(71, 82, 71, 81)], "SHORT", 3.0)   # rallied above stop → exit
+        self.assertIsNotNone(brk)
+
+    def test_mcx_arm_is_static_not_regime(self):
+        # exchange-aware arm: MCX must use the flat per-exchange arm, not the equity regime.
+        from dashboard import exit_monitor as em
+        cfg = em.get_config()
+        self.assertIn("MCX", cfg.get("breakeven_arm_by_exchange", {}))
+        self.assertEqual(float(cfg["breakeven_arm_by_exchange"]["MCX"]), 8.0)
+
+
 class Session(unittest.TestCase):
     def test_mcx_evening_open_when_nse_closed(self):
         t = datetime(2026, 9, 8, 20, 0)  # Tuesday 20:00 — NSE shut, MCX evening

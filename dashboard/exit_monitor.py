@@ -60,6 +60,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     # static breakeven_arm_pct if the regime is unavailable.
     "breakeven_regime_aware": True,
     "breakeven_arm_by_regime": {"RISK_ON": 12.0, "NEUTRAL": 8.0, "RISK_OFF": 6.0},
+    # Per-exchange static arm — commodities must NOT use the equity regime. MCX gets a flat
+    # arm (a per-commodity ATR-trend regime is a later refinement).
+    "breakeven_arm_by_exchange": {"MCX": 8.0},
     # Underlying-structure exit (Phase 2a): full exit when the STOCK closes beyond its last
     # confirmed swing (a long CALL exits on a close below the last higher-low; a PUT on a
     # close above the last lower-high). Reads the underlying's daily structure, not the
@@ -278,9 +281,15 @@ def evaluate() -> Dict[str, Any]:
         peak = max(peaks.get(sym, pnl_pct), pnl_pct)
         peaks[sym] = round(peak, 2)
 
+        # Exchange-aware arm: MCX (and any other non-equity exchange) uses a flat per-exchange
+        # arm, never the equity regime. NSE/NFO keep the regime-resolved arm.
+        exch = (p.get("exchange") or "NSE").upper()
+        pos_be_arm = be_arm
+        by_exch = cfg.get("breakeven_arm_by_exchange", {})
+        if exch in by_exch:
+            pos_be_arm = float(by_exch[exch])
         # R-based breakeven arm (Phase 2c): if this trade is journalled with a planned stop,
         # arm at N×R instead of the regime/static %. Per-position (R differs per trade).
-        pos_be_arm = be_arm
         if cfg.get("breakeven_lock", True) and cfg.get("breakeven_arm_by_r", True):
             try:
                 from dashboard import journal
@@ -297,7 +306,7 @@ def evaluate() -> Dict[str, Any]:
         # outranks profit-taking/HOLD — it's a smarter exit than a premium give-back.
         if _is_option(sym) and signal != "STOP":
             try:
-                struct = structure_exit.position_signal(sym, p.get("product"), cfg)
+                struct = structure_exit.position_signal(sym, p.get("product"), cfg, exchange=exch)
             except Exception:
                 struct = None
             if struct and struct.get("action") == "EXIT":
