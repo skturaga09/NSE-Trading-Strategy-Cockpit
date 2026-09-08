@@ -92,9 +92,14 @@ the top of the Commodities tab (ranked cards). Pure detectors take a candle list
   flat and cost-dominated. Score buckets don't discriminate.
 - **Gate STAYS off** (`mcx_setups_validated=false`) → WATCH-only, never ELIGIBLE. The live
   (intraday) lane has no demonstrated edge, so it must not surface a tradeable signal.
-  **The edge lives on the DAILY (swing/positional) timeframe, not intraday** — the honest path
-  to a gated-on radar is a DAILY positional setup lane (validate per-root, drop SILVER, make the
-  score rank), NOT the intraday lane. Do not flip the gate for intraday.
+  **The edge lives on the DAILY (swing/positional) timeframe, not intraday.**
+- **DAILY positional lane — BUILT & gated per-root (OOS split).** `setups(lane="daily")` runs the
+  pullback on daily bars. Per-root out-of-sample check (both history halves positive): only
+  **CRUDEOIL** held (H1 +8.2% / H2 +5.3% / 77.8% win / R 1.15); NATGAS/GOLD/SILVER failed the
+  split. So `mcx_setup_daily_validated_roots=["CRUDEOIL"]` — CRUDEOIL daily pullbacks may surface
+  **ELIGIBLE_FOR_REVIEW** (still gated by liquidity/roll/event); every other root and the whole
+  intraday lane stay **WATCH-only**. Endpoint: `/api/mcx/setups?lane=daily|intraday`. Even CRUDEOIL
+  is ~18 trades — treat as a reviewed screen, re-validate as samples grow.
 
 ## Backtest / validation (C6c — before "eligible" is trusted)
 Extend `mcx_backtest.py`: replace the momentum-proxy entry with the **setup signal** entry

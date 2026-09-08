@@ -56,6 +56,10 @@ DEFAULTS: Dict[str, Any] = {
     # inversely related to outcome — so until a validation passes, the radar is a WATCH-only
     # screen and NEVER surfaces ELIGIBLE. Flip to true only after a backtest demonstrates edge.
     "mcx_setups_validated": False,
+    # Daily positional lane: roots whose pullback edge held OUT-OF-SAMPLE (both history halves
+    # positive) may surface ELIGIBLE. Per OOS validation only CRUDEOIL qualified (H1 +8.2% /
+    # H2 +5.3% / 77.8% win / R 1.15); NATGAS/GOLD/SILVER failed the split → WATCH-only.
+    "mcx_setup_daily_validated_roots": ["CRUDEOIL"],
     "mcx_setup_intraday_interval": "15minute",
     "mcx_setup_min_score": 55,
     # Live detector set = pullback (mean-reversion-in-trend). C6c showed trend+breakout is

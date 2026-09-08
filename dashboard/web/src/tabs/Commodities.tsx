@@ -129,7 +129,7 @@ function SetupsPanel({ data }: { data: McxSetups | null }) {
   return (
     <div className="panel space-y-3 rounded-lg p-5">
       <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
-        🎯 Setup radar <span className="font-mono text-[11px] font-normal text-muted">— intraday trend/breakout on the future · MCX {data?.market_state ?? "…"}</span>
+        🎯 Setup radar <span className="font-mono text-[11px] font-normal text-muted">— daily positional pullback · only OOS-validated roots eligible · MCX {data?.market_state ?? "…"}</span>
       </h2>
       {rows.length === 0 ? (
         <p className="font-mono text-[11px] text-muted">No setups (or MCX closed — the intraday lane needs live bars).</p>

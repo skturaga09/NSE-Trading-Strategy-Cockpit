@@ -215,12 +215,13 @@ def chain(root: str) -> Dict[str, Any]:
 
 
 @router.get("/setups")
-def setups() -> Dict[str, Any]:
-    """Commodity setup radar (C6a) — intraday trend/breakout setups per liquid root, gated by
-    data/liquidity/roll/event, with an ATM option leg. Screen/review only, never a buy/sell call."""
+def setups(lane: str = "daily") -> Dict[str, Any]:
+    """Commodity setup radar. lane='daily' = positional pullback (validated per-root — only
+    OOS-stable roots can be ELIGIBLE); lane='intraday' = 15-min lane (no edge → WATCH-only).
+    Gated by data/liquidity/roll/event, with an ATM option leg. Review only, never a buy/sell call."""
     try:
         from dashboard import mcx_setups
-        return mcx_setups.setups()
+        return mcx_setups.setups(lane=lane if lane in ("daily", "intraday") else "daily")
     except Exception as e:
         return {**mcx.envelope(mcx.market_state(), {}, [f"setups unavailable: {e}"]), "rows": []}
 

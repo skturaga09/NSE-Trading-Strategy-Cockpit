@@ -409,9 +409,9 @@ class SetupRadar(unittest.TestCase):
     def test_unvalidated_never_eligible(self):
         from dashboard.mcx_setups import _trade_state
         setup = {"direction": "LONG", "kind": "trend+breakout", "score": 90}
-        s = _trade_state(setup, "A", "front_liquid", "high", False, 55, "B", validated=False)
-        self.assertEqual(s["state"], "WATCH")          # C6c gate: no edge → never eligible
-        self.assertIn("UNVALIDATED", s["why"])
+        s = _trade_state(setup, "A", "front_liquid", "high", False, 0, "B", validated=False)
+        self.assertEqual(s["state"], "WATCH")          # not validated → never eligible
+        self.assertIn("not validated", s["why"])
 
 
 class IntradayStitch(unittest.TestCase):

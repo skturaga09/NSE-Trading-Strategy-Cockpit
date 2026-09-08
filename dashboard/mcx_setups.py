@@ -151,48 +151,49 @@ def _trade_state(setup: Dict[str, Any], liq_grade: str, roll: str, data_conf: st
     if setup["score"] < min_score:
         return {"state": "WATCH", "why": f"setup score {setup['score']} < {min_score}"}
     if not validated:
-        # C6c gate: the score has NO demonstrated edge (backtest shows it inverted on daily) —
-        # show the read but never imply it's tradeable.
-        return {"state": "WATCH", "why": f"{setup['kind']} {setup['direction']} score {setup['score']} — UNVALIDATED screen (no backtested edge), not eligible"}
+        return {"state": "WATCH", "why": f"{setup['kind']} {setup['direction']} score {setup['score']} — screen only (lane/root not validated for eligibility)"}
     return {"state": "ELIGIBLE_FOR_REVIEW", "why": f"{setup['kind']} {setup['direction']} · score {setup['score']} — review & size, not a signal"}
 
 
-def setups(roots: Optional[List[str]] = None) -> Dict[str, Any]:
+def setups(roots: Optional[List[str]] = None, lane: str = "daily") -> Dict[str, Any]:
+    """Setup radar. lane='daily' = positional pullback on daily bars (validated per-root — only
+    OOS-stable roots can be ELIGIBLE); lane='intraday' = 15-min lane (no validated edge → always
+    WATCH). Both observation/review only."""
     from dashboard import mcx, mcx_config, mcx_context, mcx_events, mcx_analytics
-    cfg = {**mcx_config.get(), "structure_pivot_k": 2}
+    cfg = {**mcx_config.get(), "structure_pivot_k": 2, "mcx_setup_detectors": ["pullback"]}
     if not cfg.get("mcx_setups_enabled", True):
-        return {**mcx.envelope(mcx.market_state(), {}), "rows": [], "note": "setups disabled"}
+        return {**mcx.envelope(mcx.market_state(), {}), "lane": lane, "rows": [], "note": "setups disabled"}
     roots = roots or cfg.get("mcx_watchlist_default", mcx.MCX_LIQUID_ROOTS)
-    interval = cfg.get("mcx_setup_intraday_interval", "15minute")
-    min_score = float(cfg.get("mcx_setup_min_score", 55))
     min_grade = cfg.get("mcx_setup_min_liquidity_grade", "B")
+    daily = lane == "daily"
+    min_score = 0.0 if daily else float(cfg.get("mcx_setup_min_score", 55))  # daily score doesn't rank
+    validated_roots = {r.upper() for r in cfg.get("mcx_setup_daily_validated_roots", [])} if daily else set()
     rows_master = mcx.instruments()
     mkt = mcx.market_state()
     out: List[Dict[str, Any]] = []
     for root in roots:
-        row: Dict[str, Any] = {"root": root.upper(), "economic_root": mcx.economic_root(root)}
+        row: Dict[str, Any] = {"root": root.upper(), "economic_root": mcx.economic_root(root), "lane": lane}
         try:
-            fn = mcx.front_next_future(root, rows_master)
-            front = fn["front"]
+            front = mcx.front_next_future(root, rows_master)["front"]
             if not front:
                 row["trade_state"] = {"state": "NO_DATA", "why": "no live MCX future"}; out.append(row); continue
             row["future"] = front["tradingsymbol"]
-            if mkt != "OPEN":
-                row["trade_state"] = {"state": "MARKET_CLOSED", "why": "MCX not in session (intraday lane needs live bars)"}
-                out.append(row); continue
-            candles = structure_exit.fetch_intraday(front["token"], interval)
+            if daily:
+                candles = mcx._daily_candles(front["token"])   # completed daily bars — positional, session-agnostic
+            else:
+                if mkt != "OPEN":
+                    row["trade_state"] = {"state": "MARKET_CLOSED", "why": "MCX not in session (intraday lane needs live bars)"}
+                    out.append(row); continue
+                candles = structure_exit.fetch_intraday(front["token"], cfg.get("mcx_setup_intraday_interval", "15minute"))
             if not candles or len(candles) < 24:
-                row["trade_state"] = {"state": "NO_DATA", "why": "insufficient intraday candles"}; out.append(row); continue
+                row["trade_state"] = {"state": "NO_DATA", "why": "insufficient candles"}; out.append(row); continue
             align = mcx_context.mcx_global_attribution(root).get("alignment", "unavailable")
             setup = evaluate_setup(candles, cfg, align)
-            row.update({"direction": setup["direction"], "kind": setup["kind"], "score": setup["score"],
-                        "interval": interval, "last": candles[-1][4]})
-            # gates
-            roll = mcx.roll_state(root, mcx.quote([front["tradingsymbol"]]), rows_master).roll_state
+            row.update({"direction": setup["direction"], "kind": setup["kind"], "score": setup["score"], "last": candles[-1][4]})
             fq = mcx.quote([front["tradingsymbol"]]).get(f"MCX:{front['tradingsymbol']}") or {}
-            fprice = fq.get("last_price")
-            data_conf = "low" if not fprice else "high"
-            # ATM option leg (CE for LONG, PE for SHORT)
+            fprice = fq.get("last_price") or candles[-1][4]        # daily lane can fall back to the last close
+            roll = mcx.roll_state(root, mcx.quote([front["tradingsymbol"]]), rows_master).roll_state
+            data_conf = "high" if (candles and fprice) else "low"
             liq_grade = "UNKNOWN"
             if setup["direction"] in ("LONG", "SHORT") and fprice:
                 is_call = setup["direction"] == "LONG"
@@ -215,11 +216,14 @@ def setups(roots: Optional[List[str]] = None) -> Dict[str, Any]:
             eg = mcx_events.new_entry_blocked(mcx.economic_root(root)).get("blocked", False)
             row["event_guarded"] = eg
             row["roll"] = roll
+            eligible_allowed = daily and mcx.economic_root(root).upper() in validated_roots
             row["trade_state"] = _trade_state(setup, liq_grade, roll, data_conf, eg, min_score, min_grade,
-                                              validated=bool(cfg.get("mcx_setups_validated", False)))
+                                              validated=eligible_allowed)
         except Exception as e:
             row["trade_state"] = {"state": "NO_DATA", "why": f"error: {e}"}
         out.append(row)
     out.sort(key=lambda r: r.get("score", 0), reverse=True)
-    return {**mcx.envelope(mkt, {}), "rows": out,
-            "note": "screen, not an edge — direction is a technical read, not an event forecast; review & size yourself"}
+    note = ("daily positional pullback — only OOS-validated roots (%s) can be ELIGIBLE; others WATCH. Review & size, not a signal."
+            % (", ".join(sorted(validated_roots)) or "none")) if daily else \
+           "intraday lane — no validated edge, WATCH-only screen."
+    return {**mcx.envelope(mkt, {}), "lane": lane, "rows": out, "note": note}
