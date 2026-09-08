@@ -387,11 +387,43 @@ class SetupRadar(unittest.TestCase):
     def test_trade_state_gating(self):
         from dashboard.mcx_setups import _trade_state
         setup = {"direction": "LONG", "kind": "trend", "score": 70}
-        self.assertEqual(_trade_state(setup, "A", "front_liquid", "high", False, 55, "B")["state"], "ELIGIBLE_FOR_REVIEW")
-        self.assertEqual(_trade_state(setup, "D", "front_liquid", "high", False, 55, "B")["state"], "ILLIQUID")
-        self.assertEqual(_trade_state(setup, "A", "expiry_risk", "high", False, 55, "B")["state"], "ROLL_GUARD")
-        self.assertEqual(_trade_state(setup, "A", "front_liquid", "high", True, 55, "B")["state"], "EVENT_GUARD")
+        # eligible ONLY when validated=True
+        self.assertEqual(_trade_state(setup, "A", "front_liquid", "high", False, 55, "B", validated=True)["state"], "ELIGIBLE_FOR_REVIEW")
+        self.assertEqual(_trade_state(setup, "D", "front_liquid", "high", False, 55, "B", validated=True)["state"], "ILLIQUID")
+        self.assertEqual(_trade_state(setup, "A", "expiry_risk", "high", False, 55, "B", validated=True)["state"], "ROLL_GUARD")
+        self.assertEqual(_trade_state(setup, "A", "front_liquid", "high", True, 55, "B", validated=True)["state"], "EVENT_GUARD")
         self.assertEqual(_trade_state({"direction": "NONE", "kind": None, "score": 0}, "A", "front_liquid", "high", False, 55, "B")["state"], "WATCH")
+
+    def test_unvalidated_never_eligible(self):
+        from dashboard.mcx_setups import _trade_state
+        setup = {"direction": "LONG", "kind": "trend+breakout", "score": 90}
+        s = _trade_state(setup, "A", "front_liquid", "high", False, 55, "B", validated=False)
+        self.assertEqual(s["state"], "WATCH")          # C6c gate: no edge → never eligible
+        self.assertIn("UNVALIDATED", s["why"])
+
+
+class SetupValidation(unittest.TestCase):
+    def test_score_buckets(self):
+        from dashboard.mcx_setup_backtest import score_buckets
+        trades = [{"pnl": 1.0, "score": 30}, {"pnl": -0.5, "score": 45},
+                  {"pnl": 2.0, "score": 60}, {"pnl": 3.0, "score": 80}, {"pnl": -1.0, "score": 80}]
+        b = {x["bucket"]: x for x in score_buckets(trades)}
+        self.assertEqual(b["0-40"]["n"], 1)
+        self.assertEqual(b["55-70"]["n"], 1)
+        self.assertEqual(b["70-101"]["n"], 2)
+        self.assertAlmostEqual(b["70-101"]["avg_pnl"], 1.0, places=2)  # (3 + -1)/2
+
+    def test_setup_policy_enters_on_trend(self):
+        from dashboard.mcx_setup_backtest import run_setup_policy
+        def bar(c):
+            return ["d", c, c + 1, c - 1, c, 1000]
+        # a clean uptrend → LONG setups should fire and produce trades
+        series = [{"bar": bar(100 + i), "roll_window": False, "roll_transition": False} for i in range(60)]
+        cfg = {"mcx_setup_ema_fast": 9, "mcx_setup_ema_slow": 20, "structure_pivot_k": 2,
+               "mcx_setup_breakout_atr_mult": 1.0, "mcx_setup_volume_mult": 1.3}
+        trades = run_setup_policy(series, cfg, 1.75, min_score=0.0)
+        self.assertGreater(len(trades), 0)
+        self.assertTrue(all("score" in t for t in trades))
 
 
 class Session(unittest.TestCase):

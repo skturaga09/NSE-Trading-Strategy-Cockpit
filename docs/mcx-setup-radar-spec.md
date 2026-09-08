@@ -78,6 +78,16 @@ premium outright), exactly as C4 already does.
 New module `dashboard/mcx_setups.py`; endpoint `GET /api/mcx/setups`; a "Setups" section at
 the top of the Commodities tab (ranked cards). Pure detectors take a candle list (fixture-testable).
 
+## VALIDATION STATUS (C6c — ran 2026-09-08): NO EDGE on daily → gated off
+`mcx_setup_backtest` on the roll-stitched daily history shows setup-entry **underperforms**
+the momentum baseline on all four liquid roots, and the **score is inverted** (higher score →
+worse outcome — e.g. CRUDEOIL 0–40 bucket +3.7% vs 70+ −0.73%). Buying daily trend+breakout
+strength mean-reverts in these markets. Consequence: `mcx_setups_validated=false`, so the radar
+is a **WATCH-only screen and never surfaces ELIGIBLE**. The intraday lane (the live one) can't
+be validated yet (shallow intraday history). Likely fix directions: a **pullback/mean-reversion**
+entry (the deferred detector), and intraday-history validation. Do not flip the gate until a
+backtest demonstrates edge.
+
 ## Backtest / validation (C6c — before "eligible" is trusted)
 Extend `mcx_backtest.py`: replace the momentum-proxy entry with the **setup signal** entry
 (enter on a firing setup in its direction, exit via the C2 chandelier), and compare to the

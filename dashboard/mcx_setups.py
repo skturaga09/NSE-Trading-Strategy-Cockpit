@@ -110,7 +110,8 @@ def evaluate_setup(candles: List[List[Any]], cfg: Dict[str, Any],
 # Live radar
 # ---------------------------------------------------------------------------
 def _trade_state(setup: Dict[str, Any], liq_grade: str, roll: str, data_conf: str,
-                 event_guarded: bool, min_score: float, min_grade: str) -> Dict[str, str]:
+                 event_guarded: bool, min_score: float, min_grade: str,
+                 validated: bool = False) -> Dict[str, str]:
     grade_rank = {"A": 3, "B": 2, "C": 1, "D": 0, "UNKNOWN": 0}
     if data_conf == "low":
         return {"state": "STALE_DATA", "why": "intraday quote stale/unavailable"}
@@ -124,6 +125,10 @@ def _trade_state(setup: Dict[str, Any], liq_grade: str, roll: str, data_conf: st
         return {"state": "EVENT_GUARD", "why": "high-severity event within the guard window — new entries flagged"}
     if setup["score"] < min_score:
         return {"state": "WATCH", "why": f"setup score {setup['score']} < {min_score}"}
+    if not validated:
+        # C6c gate: the score has NO demonstrated edge (backtest shows it inverted on daily) —
+        # show the read but never imply it's tradeable.
+        return {"state": "WATCH", "why": f"{setup['kind']} {setup['direction']} score {setup['score']} — UNVALIDATED screen (no backtested edge), not eligible"}
     return {"state": "ELIGIBLE_FOR_REVIEW", "why": f"{setup['kind']} {setup['direction']} · score {setup['score']} — review & size, not a signal"}
 
 
@@ -185,7 +190,8 @@ def setups(roots: Optional[List[str]] = None) -> Dict[str, Any]:
             eg = mcx_events.new_entry_blocked(mcx.economic_root(root)).get("blocked", False)
             row["event_guarded"] = eg
             row["roll"] = roll
-            row["trade_state"] = _trade_state(setup, liq_grade, roll, data_conf, eg, min_score, min_grade)
+            row["trade_state"] = _trade_state(setup, liq_grade, roll, data_conf, eg, min_score, min_grade,
+                                              validated=bool(cfg.get("mcx_setups_validated", False)))
         except Exception as e:
             row["trade_state"] = {"state": "NO_DATA", "why": f"error: {e}"}
         out.append(row)

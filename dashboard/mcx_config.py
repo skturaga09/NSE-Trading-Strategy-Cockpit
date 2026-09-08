@@ -51,6 +51,11 @@ DEFAULTS: Dict[str, Any] = {
     "mcx_auto_roll_enabled": False,
     # C6a setup radar (intraday evening lane, trend+breakout, ATM leg). Screen, not an edge.
     "mcx_setups_enabled": True,
+    # C6c gate: the setup SCORE is not a validated edge. The daily backtest
+    # (mcx_setup_backtest) shows setup-entry UNDERPERFORMS momentum and the score is
+    # inversely related to outcome — so until a validation passes, the radar is a WATCH-only
+    # screen and NEVER surfaces ELIGIBLE. Flip to true only after a backtest demonstrates edge.
+    "mcx_setups_validated": False,
     "mcx_setup_intraday_interval": "15minute",
     "mcx_setup_min_score": 55,
     "mcx_setup_ema_fast": 9,
