@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { McxWatchlist, McxWatchRow, McxPositions, McxExpiryRisk, McxContext, McxAttribution } from "../types";
+import type { McxWatchlist, McxWatchRow, McxPositions, McxExpiryRisk, McxContext, McxAttribution, McxPositionProb, McxOptionAnalytics } from "../types";
 
 /* =============================================================================
    MCX COMMODITIES — isolated from the equity boards. Options on MCX futures.
@@ -36,12 +36,14 @@ const pctStr = (v: number | null | undefined) => (v == null ? "—" : `${v >= 0 
 export function Commodities() {
   const [wl, setWl] = useState<McxWatchlist | null>(null);
   const [pos, setPos] = useState<McxPositions | null>(null);
+  const [prob, setProb] = useState<McxPositionProb | null>(null);
   const [ctx, setCtx] = useState<McxContext | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const load = () => {
     api.getMcxWatchlist().then((d) => { setWl(d); setErr(null); }).catch(() => setErr("watchlist unavailable"));
     api.getMcxPositions().then(setPos).catch(() => {});
+    api.getMcxPositionProbability().then(setProb).catch(() => {});
   };
   useEffect(() => {
     load();
@@ -108,9 +110,14 @@ export function Commodities() {
         </p>
       </div>
 
-      <ExpiryRiskPanel pos={pos} />
+      <ExpiryRiskPanel pos={pos} prob={prob} />
     </div>
   );
+}
+
+function pband(b?: { low: number | null; high: number | null }) {
+  if (!b || b.low == null || b.high == null) return "—";
+  return b.low === b.high ? `${b.low}%` : `${b.low}–${b.high}%`;
 }
 
 function Row({ r, attr }: { r: McxWatchRow; attr?: McxAttribution }) {
@@ -147,8 +154,10 @@ function Row({ r, attr }: { r: McxWatchRow; attr?: McxAttribution }) {
   );
 }
 
-function ExpiryRiskPanel({ pos }: { pos: McxPositions | null }) {
+function ExpiryRiskPanel({ pos, prob }: { pos: McxPositions | null; prob: McxPositionProb | null }) {
   const items = pos?.positions ?? [];
+  const anBySym: Record<string, McxOptionAnalytics> = {};
+  (prob?.positions ?? []).forEach((p) => { anBySym[p.symbol] = p.analytics; });
   return (
     <div className="panel space-y-3 rounded-lg p-5">
       <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
@@ -176,6 +185,18 @@ function ExpiryRiskPanel({ pos }: { pos: McxPositions | null }) {
                   {r.estimated_devolved_future_side !== "NONE" && r.estimated_devolved_future_side !== "UNKNOWN" &&
                     <> · devolves <span className="text-signalred">{r.estimated_devolved_future_side}</span> future{r.estimated_devolved_future_notional ? ` ≈ ₹${Math.round(r.estimated_devolved_future_notional).toLocaleString("en-IN")}` : ""}</>}
                 </div>
+                {anBySym[r.option_symbol] && (() => {
+                  const a = anBySym[r.option_symbol];
+                  return (
+                    <div className="mt-1 text-muted">
+                      Black-76: IV <span className="text-ink/80">{a.iv_mid ?? "—"}%</span> ({a.iv_confidence})
+                      {a.expected_move_pts != null && <> · ±1SD {a.expected_move_pts} ({a.expected_move_pct}%)</>}
+                      {a.breakeven != null && <> · BE {a.breakeven}</>}
+                      · P(ITM) {pband(a.p_itm)} · P(profit) {pband(a.p_profit)}
+                      {a.note && <span className="text-gold"> · {a.note}</span>}
+                    </div>
+                  );
+                })()}
                 {r.warnings?.length > 0 && (
                   <ul className="mt-1 list-disc pl-4 text-gold">{r.warnings.map((w, j) => <li key={j}>{w}</li>)}</ul>
                 )}

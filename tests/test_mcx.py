@@ -195,6 +195,57 @@ class ChandelierAndArm(unittest.TestCase):
         self.assertEqual(float(cfg["breakeven_arm_by_exchange"]["MCX"]), 8.0)
 
 
+class Black76(unittest.TestCase):
+    def test_call_put_parity_and_positivity(self):
+        from dashboard import black76
+        F, K, T, s = 8800.0, 8800.0, 20 / 365, 0.35
+        c = black76.price(F, K, T, s, True)
+        p = black76.price(F, K, T, s, False)
+        self.assertGreater(c, 0); self.assertGreater(p, 0)
+        self.assertAlmostEqual(c, p, places=2)          # ATM on a future: call ≈ put
+        # put-call parity: C - P = disc*(F-K) = 0 at ATM
+        self.assertAlmostEqual(c - p, 0.0, places=2)
+
+    def test_iv_round_trip(self):
+        from dashboard import black76
+        F, K, T = 8800.0, 9000.0, 25 / 365
+        px = black76.price(F, K, T, 0.42, True)
+        iv = black76.implied_vol(px, F, K, T, True)
+        self.assertAlmostEqual(iv, 42.0, places=1)
+
+    def test_prob_and_expected_move(self):
+        from dashboard import black76
+        F, T, s = 8800.0, 25 / 365, 0.40
+        self.assertAlmostEqual(black76.prob_above(F, F, T, s), 0.5, delta=0.03)  # ATM ≈ 50%
+        self.assertAlmostEqual(black76.expected_move(F, s, T), F * s * (25 / 365) ** 0.5, places=2)
+
+    def test_iv_none_below_intrinsic(self):
+        from dashboard import black76
+        # deep ITM call priced below intrinsic → no IV
+        self.assertIsNone(black76.implied_vol(50.0, 9000.0, 8000.0, 0.05, True))
+
+
+class Analytics(unittest.TestCase):
+    def test_probability_suppressed_on_one_sided_quote(self):
+        from dashboard import mcx_analytics
+        an = mcx_analytics.option_analytics(8800.0, 8800.0, date(2026, 9, 25), True,
+                                            bid=120.0, ask=None, ltp=125.0, lot_size=100,
+                                            entry_premium=110.0, today=date(2026, 9, 8))
+        self.assertIn(an["iv_confidence"], ("low", "medium"))
+        self.assertEqual(an["p_itm"], {"low": None, "high": None})   # no two-sided → no precise prob
+
+    def test_two_sided_produces_iv_band_and_prob(self):
+        from dashboard import mcx_analytics
+        an = mcx_analytics.option_analytics(8800.0, 8800.0, date(2026, 9, 25), True,
+                                            bid=118.0, ask=124.0, ltp=121.0, lot_size=100,
+                                            entry_premium=110.0, today=date(2026, 9, 8))
+        self.assertEqual(an["iv_confidence"], "high")
+        self.assertIsNotNone(an["iv_bid"]); self.assertIsNotNone(an["iv_ask"])
+        self.assertIsNotNone(an["p_itm"]["low"]); self.assertIsNotNone(an["p_itm"]["high"])
+        self.assertLessEqual(an["p_itm"]["low"], an["p_itm"]["high"])
+        self.assertIsNotNone(an["expected_move_pts"])
+
+
 class Session(unittest.TestCase):
     def test_mcx_evening_open_when_nse_closed(self):
         t = datetime(2026, 9, 8, 20, 0)  # Tuesday 20:00 — NSE shut, MCX evening

@@ -529,6 +529,21 @@ export interface McxPositions {
   market_state: string;
   positions: { position: Record<string, unknown>; contract_link: Record<string, unknown>; expiry_risk: McxExpiryRisk }[];
 }
+export interface McxOptionAnalytics {
+  iv_mid: number | null;
+  iv_bid: number | null;
+  iv_ask: number | null;
+  iv_confidence: string;
+  expected_move_pts?: number;
+  expected_move_pct?: number;
+  breakeven?: number;
+  p_itm?: { low: number | null; high: number | null };
+  p_profit?: { low: number | null; high: number | null };
+  note?: string;
+}
+export interface McxPositionProb {
+  positions: { symbol: string; side: string; entry_premium: number | null; linked_future: string | null; analytics: McxOptionAnalytics }[];
+}
 
 export interface McxMacroSrc { status: string; change_pct: number | null; last: number | null; ts: string | null }
 export interface McxAttribution {
