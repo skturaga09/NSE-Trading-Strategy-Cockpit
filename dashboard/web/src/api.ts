@@ -25,6 +25,8 @@ import type {
   SwingScan,
   IgniteScan,
   IgniteCompare,
+  McxWatchlist,
+  McxPositions,
   ExitsStatus,
   ExitConfig,
   ThesisAlignment,
@@ -139,6 +141,11 @@ export const api = {
 
   getSwingScan: (force = false) =>
     getJSON<SwingScan>(`/api/swing/scan?${force ? "force=1&" : ""}_t=${Date.now()}`),
+
+  getMcxWatchlist: () =>
+    getJSON<McxWatchlist>(`/api/mcx/watchlist?_t=${Date.now()}`),
+  getMcxPositions: () =>
+    getJSON<McxPositions>(`/api/mcx/positions?_t=${Date.now()}`),
 
   getExitsStatus: () =>
     getJSON<ExitsStatus>(`/api/exits/status?_t=${Date.now()}`),

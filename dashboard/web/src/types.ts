@@ -477,6 +477,59 @@ export interface FnoScan {
   shorts: FnoCandidate[];
 }
 
+// --- MCX commodities (isolated) ---
+export interface McxDataQuality {
+  overall_confidence: "high" | "medium" | "low";
+  warnings: string[];
+  sources: Record<string, { status: string; age_seconds: number | null; timestamp: string | null }>;
+}
+export interface McxTradeState { state: string; why: string }
+export interface McxWatchRow {
+  root: string;
+  economic_root: string;
+  active_future: string | null;
+  future_expiry: string | null;
+  lot_size: number | null;
+  tick_size: number | null;
+  price: number | null;
+  change_pct: number | null;
+  day_high: number | null;
+  day_low: number | null;
+  atr: number | null;
+  atr_pct: number | null;
+  notional_per_lot: number | null;
+  roll: { state: string; front_expiry_days: number | null; next: string | null } | null;
+  options: { atm_strike: number; expiry: string; bid: number | null; ask: number | null; ltp: number | null;
+             liquidity: { grade: string; grade_confidence: string; spread_pct: number | null; reason: string } } | null;
+  trade_state: McxTradeState;
+  data_quality?: McxDataQuality;
+}
+export interface McxWatchlist {
+  as_of: string;
+  market_state: string;
+  data_quality: McxDataQuality;
+  rows: McxWatchRow[];
+}
+export interface McxExpiryRisk {
+  option_symbol: string;
+  option_type: string;
+  side: string;
+  quantity_lots: number;
+  settlement_mode: string;
+  itm_state: string;
+  estimated_devolved_future_side: string;
+  estimated_devolved_future_notional: number | null;
+  linked_future_symbol: string | null;
+  linked_future_expiry: string | null;
+  expiry_risk_state: string;
+  warnings: string[];
+}
+export interface McxPositions {
+  as_of: string;
+  market_state: string;
+  positions: { position: Record<string, unknown>; contract_link: Record<string, unknown>; expiry_risk: McxExpiryRisk }[];
+}
+
 // --- Intraday ignition radar (early-entry lane) ---
 export interface IgniteRow {
   symbol: string;

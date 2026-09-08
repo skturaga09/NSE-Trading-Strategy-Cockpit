@@ -7,6 +7,7 @@ import { Journal } from "./tabs/Journal";
 import { Intraday } from "./tabs/Intraday";
 import { Swing } from "./tabs/Swing";
 import { Radar } from "./tabs/Radar";
+import { Commodities } from "./tabs/Commodities";
 import { Exits } from "./tabs/Exits";
 import { VcpScreener } from "./tabs/VcpScreener";
 import { Options } from "./tabs/Options";
@@ -41,6 +42,7 @@ export default function App() {
             {tab === "intraday" && <Intraday />}
             {tab === "swing" && <Swing />}
             {tab === "radar" && <Radar />}
+            {tab === "commodities" && <Commodities />}
             {tab === "exits" && <Exits />}
             {tab === "vcp" && <VcpScreener />}
             {tab === "options" && <Options />}

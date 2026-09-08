@@ -1,4 +1,4 @@
-export type TabId = "ideas" | "plumbing" | "journal" | "intraday" | "swing" | "exits" | "vcp" | "options" | "fno" | "backtest" | "radar";
+export type TabId = "ideas" | "plumbing" | "journal" | "intraday" | "swing" | "exits" | "vcp" | "options" | "fno" | "backtest" | "radar" | "commodities";
 
 // Ordered by the daily workflow: take trades → manage → review → find.
 // Greeks/F&O Plan/Backtest/Plumbing are HIDDEN (low-value for the live workflow) but
@@ -15,6 +15,7 @@ const TABS: { id: TabId; label: string; no: string; hint: string }[] = [
   { id: "journal", label: "Journal", no: "05", hint: "review + costs" },
   { id: "ideas", label: "Ideas", no: "06", hint: "trade ideas" },
   { id: "vcp", label: "Screener", no: "07", hint: "VCP setups" },
+  { id: "commodities", label: "Commodities", no: "08", hint: "MCX options" },
 ];
 
 export function TabNav({ active, onChange }: { active: TabId; onChange: (t: TabId) => void }) {

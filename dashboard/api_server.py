@@ -37,6 +37,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Isolated MCX commodities router (routes under /api/mcx). Kept out of the NSE handlers so
+# equity boards are untouched; failure to import must not break the rest of the API.
+try:
+    from dashboard.api.mcx import router as _mcx_router
+    app.include_router(_mcx_router)
+except Exception as _e:  # pragma: no cover
+    import logging
+    logging.getLogger("uvicorn.error").warning("MCX router not mounted: %s", _e)
+
 
 def _bool(v: Any, default: bool = False) -> bool:
     if isinstance(v, str):

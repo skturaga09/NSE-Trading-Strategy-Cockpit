@@ -1,0 +1,16 @@
+{
+  "_README": "Broker-specific MCX operational rules — SEPARATE from exchange contract semantics. These determine what actually happens to YOUR account near expiry (contrary-instruction cutoff, forced square-off, devolvement/margin handling). They are NOT in any instrument master and must be entered manually from your broker's policy. Every null below is treated as UNKNOWN → surfaced as a risk warning; expiry-sensitive states stay in manual-review until filled and verified.",
+  "broker_mcx_operations": {
+    "broker_name": "kite",
+    "contrary_instruction_supported": null,
+    "contrary_instruction_cutoff": null,
+    "forced_squareoff_cutoff": null,
+    "expiry_devolvement_policy_verified": false,
+    "option_squareoff_before_expiry_cutoff": null,
+    "margin_treatment_near_expiry": null,
+    "mis_nrml_conversion_policy": null,
+    "product_restrictions": null,
+    "last_verified_at": null,
+    "source_reference": null
+  }
+}
