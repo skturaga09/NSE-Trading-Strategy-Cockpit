@@ -29,6 +29,7 @@ import type {
   McxPositions,
   McxContext,
   McxPositionProb,
+  McxEvents,
   ExitsStatus,
   ExitConfig,
   ThesisAlignment,
@@ -152,6 +153,8 @@ export const api = {
     getJSON<McxContext>(`/api/mcx/context?_t=${Date.now()}`),
   getMcxPositionProbability: () =>
     getJSON<McxPositionProb>(`/api/mcx/position-probability?_t=${Date.now()}`),
+  getMcxEvents: () =>
+    getJSON<McxEvents>(`/api/mcx/events?_t=${Date.now()}`),
 
   getExitsStatus: () =>
     getJSON<ExitsStatus>(`/api/exits/status?_t=${Date.now()}`),

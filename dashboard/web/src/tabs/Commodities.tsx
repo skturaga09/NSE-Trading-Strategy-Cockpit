@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { McxWatchlist, McxWatchRow, McxPositions, McxExpiryRisk, McxContext, McxAttribution, McxPositionProb, McxOptionAnalytics } from "../types";
+import type { McxWatchlist, McxWatchRow, McxPositions, McxExpiryRisk, McxContext, McxAttribution, McxPositionProb, McxOptionAnalytics, McxEvents } from "../types";
 
 /* =============================================================================
    MCX COMMODITIES — isolated from the equity boards. Options on MCX futures.
@@ -38,6 +38,7 @@ export function Commodities() {
   const [pos, setPos] = useState<McxPositions | null>(null);
   const [prob, setProb] = useState<McxPositionProb | null>(null);
   const [ctx, setCtx] = useState<McxContext | null>(null);
+  const [ev, setEv] = useState<McxEvents | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const load = () => {
@@ -48,8 +49,9 @@ export function Commodities() {
   useEffect(() => {
     load();
     api.getMcxContext().then(setCtx).catch(() => {});
+    api.getMcxEvents().then(setEv).catch(() => {});
     const id = setInterval(load, 20000);
-    const idc = setInterval(() => api.getMcxContext().then(setCtx).catch(() => {}), 60000);
+    const idc = setInterval(() => { api.getMcxContext().then(setCtx).catch(() => {}); api.getMcxEvents().then(setEv).catch(() => {}); }, 60000);
     return () => { clearInterval(id); clearInterval(idc); };
     /* eslint-disable-next-line */
   }, []);
@@ -110,7 +112,55 @@ export function Commodities() {
         </p>
       </div>
 
+      <EventsPanel ev={ev} />
+
       <ExpiryRiskPanel pos={pos} prob={prob} />
+    </div>
+  );
+}
+
+function fmtCountdown(min: number | null) {
+  if (min == null) return "—";
+  if (min < 60) return `${min}m`;
+  const h = Math.floor(min / 60), m = min % 60;
+  return h < 24 ? `${h}h ${m}m` : `${Math.floor(h / 24)}d ${h % 24}h`;
+}
+
+function EventsPanel({ ev }: { ev: McxEvents | null }) {
+  const events = ev?.events ?? [];
+  return (
+    <div className="panel space-y-3 rounded-lg p-5">
+      <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
+        📅 Event calendar & guard
+        <span className="font-mono text-[11px] font-normal text-muted">— EIA / macro, native-TZ → IST · calendar {ev?.calendar_version ?? "…"}</span>
+      </h2>
+      {events.length === 0 ? (
+        <p className="font-mono text-[11px] text-muted">No events configured.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-line">
+          <table className="w-full text-left text-[11px]">
+            <thead className="bg-raised/50 font-mono text-[9px] uppercase tracking-wider text-muted">
+              <tr>{["Event", "Status", "When (IST)", "In", "Roots", "Guard"].map((h) => <th key={h} className="px-2 py-1.5">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-line font-mono">
+              {events.map((e) => (
+                <tr key={e.id}>
+                  <td className="px-2 py-1.5 text-ink">{e.name}<div className="text-[9px] text-muted">{e.severity}</div></td>
+                  <td className="px-2 py-1.5"><Badge text={e.status} color={e.status === "scheduled" ? "var(--green)" : e.status === "released" ? "var(--gold)" : "var(--muted)"} /></td>
+                  <td className="px-2 py-1.5 text-muted">{e.event_time_ist ? e.event_time_ist.slice(0, 16).replace("T", " ") : (e.schedule_type === "override_only" ? "date not set — add override" : "—")}</td>
+                  <td className="px-2 py-1.5 tnum text-muted">{fmtCountdown(e.time_to_event_minutes)}</td>
+                  <td className="px-2 py-1.5 text-[9px] text-muted">{e.roots_resolved.join(", ")}</td>
+                  <td className="px-2 py-1.5">{e.within_guard ? <Badge text="GUARD" color="var(--gold)" /> : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        Times convert from the event's native timezone to IST at runtime (DST-aware). FOMC/CPI/OPEC are override-only — add dated entries from the
+        official source. Calendar + exposure guard only: no bullish/bearish inference, no auto-exit. Within-guard high-severity events block <b className="text-ink/80">new naked short-premium</b> entries.
+      </p>
     </div>
   );
 }

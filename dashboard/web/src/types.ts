@@ -544,6 +544,18 @@ export interface McxOptionAnalytics {
 export interface McxPositionProb {
   positions: { symbol: string; side: string; entry_premium: number | null; linked_future: string | null; analytics: McxOptionAnalytics }[];
 }
+export interface McxEvent {
+  id: string;
+  name: string;
+  severity: string;
+  status: string;
+  event_time_ist: string | null;
+  time_to_event_minutes: number | null;
+  within_guard: boolean;
+  schedule_type: string;
+  roots_resolved: string[];
+}
+export interface McxEvents { calendar_version: string | null; events: McxEvent[] }
 
 export interface McxMacroSrc { status: string; change_pct: number | null; last: number | null; ts: string | null }
 export interface McxAttribution {

@@ -246,6 +246,52 @@ class Analytics(unittest.TestCase):
         self.assertIsNotNone(an["expected_move_pts"])
 
 
+class Events(unittest.TestCase):
+    def setUp(self):
+        from zoneinfo import ZoneInfo
+        self.IST = ZoneInfo("Asia/Kolkata")
+
+    def _eia(self):
+        return {"id": "eia", "name": "EIA Petroleum", "commodity_roots": ["CRUDEOIL"],
+                "timezone": "America/New_York", "schedule_type": "recurring",
+                "rule": "WEEKLY WEDNESDAY 10:30", "severity": "high",
+                "pre_event_minutes": 360, "post_event_cooldown_minutes": 30, "overrides": []}
+
+    def test_eia_summer_edt_to_ist(self):
+        from dashboard import mcx_events
+        # Monday 2026-07-13 IST; next EIA = Wed 2026-07-15 10:30 EDT = 20:00 IST (UTC+5:30, EDT=UTC-4)
+        now = datetime(2026, 7, 13, 9, 0, tzinfo=self.IST)
+        st = mcx_events.event_state(self._eia(), now)
+        self.assertEqual(st["status"], "scheduled")
+        ist = datetime.fromisoformat(st["event_time_ist"])
+        self.assertEqual((ist.hour, ist.minute), (20, 0))     # EDT → 20:00 IST
+
+    def test_eia_winter_est_to_ist(self):
+        from dashboard import mcx_events
+        # Monday 2026-01-12 IST; next EIA = Wed 2026-01-14 10:30 EST = 21:00 IST (EST=UTC-5)
+        now = datetime(2026, 1, 12, 9, 0, tzinfo=self.IST)
+        st = mcx_events.event_state(self._eia(), now)
+        ist = datetime.fromisoformat(st["event_time_ist"])
+        self.assertEqual((ist.hour, ist.minute), (21, 0))     # EST → 21:00 IST (DST shift handled)
+
+    def test_within_guard_flag(self):
+        from dashboard import mcx_events
+        # 3h before the Wed 20:00 IST EIA (summer) → within the 360-min guard
+        now = datetime(2026, 7, 15, 17, 0, tzinfo=self.IST)
+        st = mcx_events.event_state(self._eia(), now)
+        self.assertTrue(st["within_guard"])
+        self.assertLessEqual(st["time_to_event_minutes"], 360)
+
+    def test_override_only_unknown_without_dates(self):
+        from dashboard import mcx_events
+        fomc = {"id": "fomc", "name": "FOMC", "commodity_roots": ["ALL"], "timezone": "America/New_York",
+                "schedule_type": "override_only", "rule": None, "severity": "high",
+                "pre_event_minutes": 720, "post_event_cooldown_minutes": 60, "overrides": []}
+        st = mcx_events.event_state(fomc, datetime(2026, 3, 2, 9, 0, tzinfo=self.IST))
+        self.assertEqual(st["status"], "unknown")            # no fabricated date
+        self.assertIsNone(st["event_time_ist"])
+
+
 class Session(unittest.TestCase):
     def test_mcx_evening_open_when_nse_closed(self):
         t = datetime(2026, 9, 8, 20, 0)  # Tuesday 20:00 — NSE shut, MCX evening

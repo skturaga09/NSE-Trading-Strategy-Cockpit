@@ -117,15 +117,24 @@ def positions() -> Dict[str, Any]:
 
 @router.get("/event-risk")
 def event_risk() -> Dict[str, Any]:
-    """Expiry/devolvement risk on open MCX options is live (C0.5). Macro/EIA event guard is C4."""
-    base = positions()
-    base["event_calendar"] = {"deferred": "C4", "detail": "timezone-aware macro/EIA event guard not yet implemented"}
-    return base
+    """Event guard on open MCX options (C4) + expiry/devolvement risk (C0.5). Alerts only."""
+    try:
+        from dashboard import mcx_events
+        er = mcx_events.position_event_risk()
+    except Exception as e:
+        er = {**mcx.envelope(mcx.market_state(), {}, [f"event-risk unavailable: {e}"]), "positions": [], "events": []}
+    er["expiry_risk"] = positions().get("positions", [])
+    return er
 
 
 @router.get("/events")
 def events() -> Dict[str, Any]:
-    return _deferred("C4", "timezone-aware event calendar (EIA/FOMC/CPI/NFP/OPEC) not yet implemented")
+    """Timezone-aware event calendar (EIA/NFP recurring; FOMC/CPI/OPEC override-only)."""
+    try:
+        from dashboard import mcx_events
+        return mcx_events.events()
+    except Exception as e:
+        return {**mcx.envelope(mcx.market_state(), {}, [f"events unavailable: {e}"]), "events": []}
 
 
 @router.get("/context")
