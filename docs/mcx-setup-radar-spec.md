@@ -85,11 +85,16 @@ the top of the Commodities tab (ranked cards). Pure detectors take a candle list
   lower drawdown (CRUDEOIL +6.35%/77.8% win/maxDD −3.8% vs momentum +2.3%/−35%; positive on
   3/4 roots; SILVER still negative on a tiny sample). So the **live detector is now `pullback`**;
   trend/breakout are kept but off.
-- **Gate STAYS off** (`mcx_setups_validated=false`) → WATCH-only, never ELIGIBLE. Reasons: the
-  edge is daily-only (the live lane is intraday — not yet validated for lack of history), samples
-  are small (11–25 trades), SILVER is negative, and the pullback SCORE does not yet discriminate
-  (trades cluster in one bucket). Before flipping: validate the pullback entry on intraday
-  history, get more samples, add per-root gating (drop SILVER), and make the score rank within it.
+- **INTRADAY validation (mcx_intraday_backtest, 15-min roll-stitched): NO edge.** The daily
+  pullback edge did NOT translate to the live 15-min lane — CRUDEOIL pullback 0.0%/29.5% win
+  (vs momentum 0.01%/42%), NATGAS +0.05% (marginal, 33.7% win), GOLD no intraday history from
+  Kite, SILVER too thin. The daily edge was multi-day swing mean-reversion; at 15-min it's
+  flat and cost-dominated. Score buckets don't discriminate.
+- **Gate STAYS off** (`mcx_setups_validated=false`) → WATCH-only, never ELIGIBLE. The live
+  (intraday) lane has no demonstrated edge, so it must not surface a tradeable signal.
+  **The edge lives on the DAILY (swing/positional) timeframe, not intraday** — the honest path
+  to a gated-on radar is a DAILY positional setup lane (validate per-root, drop SILVER, make the
+  score rank), NOT the intraday lane. Do not flip the gate for intraday.
 
 ## Backtest / validation (C6c — before "eligible" is trusted)
 Extend `mcx_backtest.py`: replace the momentum-proxy entry with the **setup signal** entry

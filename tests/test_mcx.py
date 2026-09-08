@@ -414,6 +414,28 @@ class SetupRadar(unittest.TestCase):
         self.assertIn("UNVALIDATED", s["why"])
 
 
+class IntradayStitch(unittest.TestCase):
+    def test_keeps_intraday_resolution_and_flags_roll(self):
+        from dashboard.mcx_intraday_backtest import stitch_intraday
+        contracts = [{"symbol": "CRUDEOIL26SEPFUT", "token": 1, "expiry": date(2026, 9, 19)},
+                     {"symbol": "CRUDEOIL26OCTFUT", "token": 2, "expiry": date(2026, 10, 19)}]
+
+        def bar(ts, c):
+            return [ts, c, c + 1, c - 1, c, 100]
+        # two 15-min bars per day on each contract; SEP active 09-15, OCT active from 09-17 (roll 3d before 09-19)
+        cbt = {
+            1: [bar("2026-09-15 09:15:00", 100), bar("2026-09-15 09:30:00", 101)],
+            2: [bar("2026-09-15 09:15:00", 100), bar("2026-09-15 09:30:00", 101),
+                bar("2026-09-17 09:15:00", 103), bar("2026-09-17 09:30:00", 104)],
+        }
+        s = stitch_intraday(contracts, cbt, roll_days_before=3)
+        by = [(x["ts"], x["contract"], x["roll_transition"]) for x in s]
+        # 09-15 keeps SEP's two bars (intraday resolution preserved), 09-17 keeps OCT's two
+        self.assertEqual([b[1] for b in by], ["CRUDEOIL26SEPFUT", "CRUDEOIL26SEPFUT",
+                                              "CRUDEOIL26OCTFUT", "CRUDEOIL26OCTFUT"])
+        self.assertEqual(sum(1 for b in by if b[2]), 1)   # exactly one roll transition
+
+
 class SetupValidation(unittest.TestCase):
     def test_score_buckets(self):
         from dashboard.mcx_setup_backtest import score_buckets
