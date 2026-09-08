@@ -78,8 +78,9 @@ def market_cockpit() -> Dict[str, Any]:
 
 
 @app.get("/api/market/session")
-def market_session() -> Dict[str, Any]:
-    return core.ZerodhaPlumbingInspector.market_session()
+def market_session(exchange: str = "NSE") -> Dict[str, Any]:
+    """Session state for an exchange — NSE (09:15–15:30) or MCX (non-agri, to ~23:55 IST)."""
+    return core.ZerodhaPlumbingInspector.market_session(exchange=exchange)
 
 
 @app.get("/api/journal/attribution")

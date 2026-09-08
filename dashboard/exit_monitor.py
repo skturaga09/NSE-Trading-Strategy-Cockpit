@@ -542,24 +542,28 @@ def send_overnight(cfg: Optional[Dict[str, Any]] = None, top: int = 6, warm: boo
                   tags=["crescent_moon"], priority=4)
 
 
-def _market_open() -> bool:
-    """NSE cash/F&O hours, weekdays (no holiday calendar). IST assumed = local."""
+def _any_market_open() -> bool:
+    """True if NSE OR MCX is open — the monitor serves positions on both exchanges, and
+    MCX runs a long evening session (to ~23:55 IST) well after NSE's 15:30 close. Without
+    this, MCX option positions got NO exit alerts during their most volatile hours."""
     try:
-        from zoneinfo import ZoneInfo
-        now = datetime.now(ZoneInfo("Asia/Kolkata"))
+        Z = core.ZerodhaPlumbingInspector
+        return Z.is_open("NSE") or Z.is_open("MCX")
     except Exception:
-        now = datetime.now()
-    if now.weekday() >= 5:
-        return False
-    hm = now.strftime("%H:%M")
-    return "09:15" <= hm <= "15:30"
+        # Fallback: NSE weekday hours only.
+        try:
+            from zoneinfo import ZoneInfo
+            now = datetime.now(ZoneInfo("Asia/Kolkata"))
+        except Exception:
+            now = datetime.now()
+        return now.weekday() < 5 and "09:15" <= now.strftime("%H:%M") <= "15:30"
 
 
 def check_and_notify(force: bool = False) -> Dict[str, Any]:
     """Run by the background job: evaluate, and push any NEW exit signal once.
     Skips outside market hours unless forced (so the 2-min job stays quiet)."""
-    if not force and not _market_open():
-        return {"skipped": "market closed", "alerts_sent": 0, "actionable": []}
+    if not force and not _any_market_open():
+        return {"skipped": "market closed (NSE + MCX)", "alerts_sent": 0, "actionable": []}
     # Hands-off learning: resolve any settled overnight/ignition signals each sweep, so
     # the swing-signal outcomes stay current without anyone opening the Journal tab.
     try:

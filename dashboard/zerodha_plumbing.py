@@ -147,8 +147,11 @@ class ZerodhaPlumbingInspector:
             )
 
     @staticmethod
-    def market_session(now=None) -> Dict[str, Any]:
-        """NSE equity session state (IST). Note: does not account for trading holidays."""
+    def market_session(now=None, exchange: str = "NSE") -> Dict[str, Any]:
+        """Session state for an exchange (IST; no holiday calendar).
+        NSE = equity/F&O 09:15–15:30. MCX = non-agri commodities (bullion / energy / base
+        metals) 09:00–~23:55 IST — the long evening session that lets Indian traders react
+        to global cues (EIA, FOMC, COMEX/NYMEX). Agri MCX (~09:00–17:00) is not modelled."""
         from datetime import datetime, time as dtime
         if now is None:
             try:
@@ -157,20 +160,39 @@ class ZerodhaPlumbingInspector:
             except Exception:
                 now = datetime.now()
         stamp = now.strftime("%Y-%m-%d %H:%M IST")
+        ex = (exchange or "NSE").upper()
         t = now.time()
         if now.weekday() >= 5:
-            return {"is_open": False, "session": "WEEKEND", "now_ist": stamp,
-                    "message": "Markets closed (weekend). NSE trades Mon–Fri 09:15–15:30 IST."}
+            return {"is_open": False, "session": "WEEKEND", "exchange": ex, "now_ist": stamp,
+                    "message": f"{ex} closed (weekend)."}
+        if ex == "MCX":
+            if t < dtime(9, 0):
+                return {"is_open": False, "session": "PRE_MARKET", "exchange": ex, "now_ist": stamp,
+                        "message": "MCX opens 09:00 IST."}
+            if t <= dtime(23, 55):
+                return {"is_open": True, "session": "OPEN", "exchange": ex, "now_ist": stamp,
+                        "message": "MCX open (non-agri, to ~23:30/23:55 IST evening session)."}
+            return {"is_open": False, "session": "CLOSED", "exchange": ex, "now_ist": stamp,
+                    "message": "MCX closed for the day (non-agri to ~23:30/23:55 IST)."}
+        # NSE (default) — unchanged behaviour
         if t < dtime(9, 0):
-            return {"is_open": False, "session": "PRE_MARKET", "now_ist": stamp,
+            return {"is_open": False, "session": "PRE_MARKET", "exchange": ex, "now_ist": stamp,
                     "message": "Market not open yet. NSE opens 09:15 IST (pre-open from 09:00)."}
         if t < dtime(9, 15):
-            return {"is_open": False, "session": "PRE_OPEN", "now_ist": stamp,
+            return {"is_open": False, "session": "PRE_OPEN", "exchange": ex, "now_ist": stamp,
                     "message": "Pre-open session (09:00–09:15). Continuous trading starts 09:15 IST."}
         if t <= dtime(15, 30):
-            return {"is_open": True, "session": "OPEN", "now_ist": stamp, "message": "Market open."}
-        return {"is_open": False, "session": "CLOSED", "now_ist": stamp,
+            return {"is_open": True, "session": "OPEN", "exchange": ex, "now_ist": stamp, "message": "Market open."}
+        return {"is_open": False, "session": "CLOSED", "exchange": ex, "now_ist": stamp,
                 "message": "Market closed for the day. NSE trades 09:15–15:30 IST (AMO for after-hours)."}
+
+    @staticmethod
+    def is_open(exchange: str = "NSE") -> bool:
+        """Convenience boolean for a single exchange's session."""
+        try:
+            return bool(ZerodhaPlumbingInspector.market_session(exchange=exchange)["is_open"])
+        except Exception:
+            return False
 
     @staticmethod
     def get_kite_instrument_candidates(symbol: str) -> List[str]:
