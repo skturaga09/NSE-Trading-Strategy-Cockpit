@@ -491,11 +491,11 @@ function HeroExpectancy({ a }: { a: AttributionResponse }) {
         <Stat label="Win rate" value={n ? `${o.win_rate}%` : "—"} color="var(--ink)" />
         <Stat label="Avg win" value={r2(o.avg_win_r)} color="var(--green)" />
         <Stat label="Avg loss" value={r2(o.avg_loss_r)} color="var(--red)" />
-        <Stat label="Net P&L" value={n ? signed(o.net_pnl ?? 0) : "—"} color={posColor(o.net_pnl)} />
+        <Stat label="Gross P&L" value={n ? signed(o.net_pnl ?? 0) : "—"} color={posColor(o.net_pnl)} />
         <Stat label="Closed trades" value={String(n)} color="var(--ink)" />
       </div>
       <p className="font-mono text-[10px] leading-relaxed text-muted">
-        Expectancy = avg R per trade after costs. Positive = the signal pays; win rate alone is not edge.
+        Expectancy = avg R per trade (gross of charges). Positive = the signal pays; win rate alone is not edge.
         MFE/MAE below track how far winners ran and losers dug — captured live per position.
       </p>
     </div>
@@ -641,14 +641,14 @@ function EquityCurve({ trades }: { trades: JournalTrade[] }) {
   return (
     <div className="panel space-y-3 rounded-lg p-6">
       <h3 className="font-display text-sm font-bold text-ink">
-        📈 Equity curve <span className="font-mono text-[11px] font-normal text-muted">— cumulative net P&L, closed trades in order</span>
+        📈 Equity curve <span className="font-mono text-[11px] font-normal text-gold">— cumulative P&L, GROSS of charges (before brokerage/STT/etc)</span>
       </h3>
       {closed.length < 2 ? (
         <p className="font-mono text-[11px] text-muted">Need at least 2 closed trades to draw a curve ({closed.length} so far).</p>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-            <Kpi label="Net P&L" value={signed(stats.net)} color={posColor(stats.net)} />
+            <Kpi label="Gross P&L" value={signed(stats.net)} color={posColor(stats.net)} sub="before charges" />
             <Kpi label="Win rate" value={`${stats.winRate.toFixed(0)}%`} sub={`${stats.wins}W / ${stats.losses}L`} />
             <Kpi label="Profit factor" value={stats.profitFactor === null ? "∞" : stats.profitFactor.toFixed(2)}
               color={(stats.profitFactor ?? 2) >= 1 ? "var(--green)" : "var(--red)"} />
@@ -661,8 +661,12 @@ function EquityCurve({ trades }: { trades: JournalTrade[] }) {
           <div className="flex flex-wrap justify-between gap-2 font-mono text-[10px] text-muted">
             <span>{closed.length} trades · best {signed(stats.best)} · worst {signed(stats.worst)}</span>
             <span>streak: max {stats.winStreak}W / {stats.lossStreak}L · now {stats.curStreak > 0 ? `${stats.curStreak}W` : stats.curStreak < 0 ? `${-stats.curStreak}L` : "—"}</span>
-            <span style={{ color: posColor(stats.net) }}>ending {signed(stats.net)}</span>
+            <span style={{ color: posColor(stats.net) }}>ending {signed(stats.net)} (gross)</span>
           </div>
+          <p className="font-mono text-[9px] leading-relaxed text-muted">
+            ⚠ P&L here is <span className="text-gold">gross — before charges</span>. Net-of-charges is in the Charges card below, but those charges are
+            <span className="text-gold"> estimated</span> (Kite's API doesn't expose actual brokerage/STT). Broker-actual charges from a Zerodha Console import are planned.
+          </p>
         </>
       )}
     </div>
