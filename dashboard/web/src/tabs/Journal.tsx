@@ -592,60 +592,137 @@ function AttributionTable({ title, rows, min }: { title: string; rows: Expectanc
 
 /* ---------------- Equity curve (cumulative net P&L, closed trades) ---------------- */
 
+interface EqStats {
+  net: number; wins: number; losses: number; winRate: number;
+  profitFactor: number | null; avgWin: number; avgLoss: number;
+  expectancy: number; expIsR: boolean; maxDD: number; maxDDidx: number; peakIdx: number;
+  best: number; worst: number; winStreak: number; lossStreak: number; curStreak: number;
+}
+
+function computeEquity(closed: JournalTrade[]) {
+  const cum: number[] = []; const hwm: number[] = []; const dd: number[] = [];
+  let run = 0, peak = 0;
+  for (const t of closed) { run += t.net_pnl ?? 0; peak = Math.max(peak, run); cum.push(run); hwm.push(peak); dd.push(run - peak); }
+  const pnls = closed.map((t) => t.net_pnl ?? 0);
+  const wins = pnls.filter((p) => p > 0); const losses = pnls.filter((p) => p < 0);
+  const grossP = wins.reduce((a, b) => a + b, 0); const grossL = Math.abs(losses.reduce((a, b) => a + b, 0));
+  const rVals = closed.map((t) => t.r_multiple).filter((r): r is number => r !== null && r !== undefined);
+  const expIsR = rVals.length >= Math.max(3, closed.length * 0.6);
+  let maxDD = 0, maxDDidx = 0; dd.forEach((d, i) => { if (d < maxDD) { maxDD = d; maxDDidx = i; } });
+  let peakIdx = 0; hwm.forEach((h, i) => { if (h >= hwm[peakIdx]) peakIdx = i; });
+  // streaks
+  let ws = 0, ls = 0, curWs = 0, curLs = 0;
+  for (const p of pnls) {
+    if (p > 0) { curWs++; curLs = 0; } else if (p < 0) { curLs++; curWs = 0; } else { curWs = 0; curLs = 0; }
+    ws = Math.max(ws, curWs); ls = Math.max(ls, curLs);
+  }
+  const lastP = pnls[pnls.length - 1] ?? 0;
+  const curStreak = lastP > 0 ? curWs : lastP < 0 ? -curLs : 0;
+  const stats: EqStats = {
+    net: cum[cum.length - 1] ?? 0, wins: wins.length, losses: losses.length,
+    winRate: closed.length ? (wins.length / closed.length) * 100 : 0,
+    profitFactor: grossL > 0 ? grossP / grossL : null,
+    avgWin: wins.length ? grossP / wins.length : 0, avgLoss: losses.length ? -grossL / losses.length : 0,
+    expectancy: expIsR ? rVals.reduce((a, b) => a + b, 0) / rVals.length : (pnls.reduce((a, b) => a + b, 0) / (pnls.length || 1)),
+    expIsR, maxDD, maxDDidx, peakIdx,
+    best: Math.max(0, ...pnls), worst: Math.min(0, ...pnls),
+    winStreak: ws, lossStreak: ls, curStreak,
+  };
+  return { cum, hwm, dd, stats };
+}
+
 function EquityCurve({ trades }: { trades: JournalTrade[] }) {
   const closed = useMemo(
-    () =>
-      trades
-        .filter((t) => t.status === "CLOSED" && t.ts_exit)
-        .sort((a, b) => (a.ts_exit! < b.ts_exit! ? -1 : 1)),
+    () => trades.filter((t) => t.status === "CLOSED" && t.ts_exit).sort((a, b) => (a.ts_exit! < b.ts_exit! ? -1 : 1)),
     [trades],
   );
-
-  const pts = useMemo(() => {
-    let cum = 0;
-    return closed.map((t) => {
-      cum += t.net_pnl ?? 0;
-      return cum;
-    });
-  }, [closed]);
+  const { cum, hwm, stats } = useMemo(() => computeEquity(closed), [closed]);
 
   return (
     <div className="panel space-y-3 rounded-lg p-6">
       <h3 className="font-display text-sm font-bold text-ink">
         📈 Equity curve <span className="font-mono text-[11px] font-normal text-muted">— cumulative net P&L, closed trades in order</span>
       </h3>
-      {pts.length < 2 ? (
-        <p className="font-mono text-[11px] text-muted">Need at least 2 closed trades to draw a curve ({pts.length} so far).</p>
+      {closed.length < 2 ? (
+        <p className="font-mono text-[11px] text-muted">Need at least 2 closed trades to draw a curve ({closed.length} so far).</p>
       ) : (
-        <Sparkline values={pts} />
+        <>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            <Kpi label="Net P&L" value={signed(stats.net)} color={posColor(stats.net)} />
+            <Kpi label="Win rate" value={`${stats.winRate.toFixed(0)}%`} sub={`${stats.wins}W / ${stats.losses}L`} />
+            <Kpi label="Profit factor" value={stats.profitFactor === null ? "∞" : stats.profitFactor.toFixed(2)}
+              color={(stats.profitFactor ?? 2) >= 1 ? "var(--green)" : "var(--red)"} />
+            <Kpi label={stats.expIsR ? "Expectancy" : "Avg / trade"} value={stats.expIsR ? `${stats.expectancy >= 0 ? "+" : ""}${stats.expectancy.toFixed(2)}R` : signed(stats.expectancy)}
+              color={posColor(stats.expectancy)} />
+            <Kpi label="Max drawdown" value={signed(stats.maxDD)} color="var(--red)" />
+            <Kpi label="Avg win / loss" value={`${signed(stats.avgWin)}`} sub={`${signed(stats.avgLoss)}`} />
+          </div>
+          <EquityChart closed={closed} cum={cum} hwm={hwm} stats={stats} />
+          <div className="flex flex-wrap justify-between gap-2 font-mono text-[10px] text-muted">
+            <span>{closed.length} trades · best {signed(stats.best)} · worst {signed(stats.worst)}</span>
+            <span>streak: max {stats.winStreak}W / {stats.lossStreak}L · now {stats.curStreak > 0 ? `${stats.curStreak}W` : stats.curStreak < 0 ? `${-stats.curStreak}L` : "—"}</span>
+            <span style={{ color: posColor(stats.net) }}>ending {signed(stats.net)}</span>
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-function Sparkline({ values }: { values: number[] }) {
-  const W = 900, H = 160, pad = 8;
-  const min = Math.min(0, ...values);
-  const max = Math.max(0, ...values);
+function Kpi({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
+  return (
+    <div className="rounded-md border border-line bg-raised/40 px-2.5 py-1.5">
+      <div className="font-mono text-[9px] uppercase tracking-wider text-muted">{label}</div>
+      <div className="tnum font-mono text-sm font-bold" style={{ color: color ?? "var(--ink)" }}>{value}</div>
+      {sub && <div className="tnum font-mono text-[9px] text-muted">{sub}</div>}
+    </div>
+  );
+}
+
+function EquityChart({ closed, cum, hwm, stats }: { closed: JournalTrade[]; cum: number[]; hwm: number[]; stats: EqStats }) {
+  const W = 900, H = 200, pad = 10;
+  const min = Math.min(0, ...cum);
+  const max = Math.max(0, ...hwm);
   const span = max - min || 1;
-  const x = (i: number) => pad + (i / (values.length - 1)) * (W - 2 * pad);
+  const n = cum.length;
+  const x = (i: number) => pad + (i / (n - 1)) * (W - 2 * pad);
   const y = (v: number) => H - pad - ((v - min) / span) * (H - 2 * pad);
-  const path = values.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   const zeroY = y(0);
-  const last = values[values.length - 1];
-  const up = last >= 0;
-  const stroke = up ? "var(--green)" : "var(--red)";
+  const line = (arr: number[]) => arr.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const eqPath = line(cum);
+  const hwmPath = line(hwm);
+  // underwater polygon: forward along hwm, back along cum
+  const under = `${hwmPath} ${cum.map((_, i) => `L${x(n - 1 - i).toFixed(1)},${y(cum[n - 1 - i]).toFixed(1)}`).join(" ")} Z`;
+  const stroke = stats.net >= 0 ? "var(--green)" : "var(--red)";
+  const fmtDate = (s: string | null) => (s ? s.slice(0, 10) : "");
   return (
     <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 320 }} preserveAspectRatio="none">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 340 }}>
         <line x1={pad} y1={zeroY} x2={W - pad} y2={zeroY} stroke="var(--line)" strokeWidth="1" strokeDasharray="3 3" />
-        <path d={`${path} L${x(values.length - 1)},${zeroY} L${x(0)},${zeroY} Z`} fill={stroke} opacity="0.08" />
-        <path d={path} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
-        <circle cx={x(values.length - 1)} cy={y(last)} r="3.5" fill={stroke} />
+        {/* underwater drawdown shading (equity below its running peak) */}
+        <path d={under} fill="var(--red)" opacity="0.10" />
+        {/* high-water mark */}
+        <path d={hwmPath} fill="none" stroke="var(--gold)" strokeWidth="1" strokeDasharray="4 3" opacity="0.7" />
+        {/* equity line */}
+        <path d={eqPath} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
+        {/* per-trade dots, coloured by outcome, hoverable */}
+        {closed.map((t, i) => {
+          const p = t.net_pnl ?? 0;
+          const c = p > 0 ? "var(--green)" : p < 0 ? "var(--red)" : "var(--muted)";
+          return (
+            <circle key={t.order_id} cx={x(i)} cy={y(cum[i])} r={2.6} fill={c}>
+              <title>{`${t.symbol} · ${signed(p)}${t.r_multiple != null ? ` (${t.r_multiple >= 0 ? "+" : ""}${t.r_multiple}R)` : ""}\n${fmtDate(t.ts_exit)}${t.exit_reason ? ` · ${t.exit_reason}` : ""}`}</title>
+            </circle>
+          );
+        })}
+        {/* peak + max-drawdown markers */}
+        <circle cx={x(stats.peakIdx)} cy={y(hwm[stats.peakIdx])} r={3.4} fill="none" stroke="var(--gold)" strokeWidth="1.5" />
+        {stats.maxDD < 0 && <circle cx={x(stats.maxDDidx)} cy={y(cum[stats.maxDDidx])} r={3.8} fill="none" stroke="var(--red)" strokeWidth="1.5" />}
       </svg>
-      <div className="mt-1 flex justify-between font-mono text-[10px] text-muted">
-        <span>{values.length} trades</span>
-        <span style={{ color: posColor(last) }}>ending {signed(last)}</span>
+      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[9px] text-muted">
+        <span><span style={{ color: "var(--gold)" }}>┈</span> high-water mark</span>
+        <span><span style={{ color: "var(--red)" }}>▨</span> drawdown (below peak)</span>
+        <span><span style={{ color: "var(--green)" }}>●</span> win <span style={{ color: "var(--red)" }}>●</span> loss — hover a dot for the trade</span>
       </div>
     </div>
   );
