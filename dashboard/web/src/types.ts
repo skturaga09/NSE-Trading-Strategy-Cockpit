@@ -708,8 +708,13 @@ export interface SwingSigAgg {
   hit_rate: number | null;
   avg_gap: number | null;
   avg_fwd: number | null;
+  avg_excess: number | null;
+  n_excess?: number;
   avg_mfe: number | null;
   sufficient: boolean;
+  hit_significant?: boolean;
+  edge_significant?: boolean;
+  verdict?: string;
 }
 export interface SwingSignalStats {
   min_sample: number;

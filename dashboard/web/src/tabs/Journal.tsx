@@ -245,15 +245,22 @@ function SwingSignalLearning({ data }: { data: SwingSignalsResponse | undefined 
   const pct = (v: number | null) => (v === null ? "—" : `${v}%`);
   const rr = (v: number | null) => (v === null ? "—" : `${v >= 0 ? "+" : ""}${v}%`);
 
+  const VERDICT_COLOR: Record<string, string> = {
+    "edge vs market": "var(--green)", "worse than market": "var(--red)",
+    "no edge (≈ market)": "var(--gold)", "accumulating": "var(--muted)",
+  };
   const AggCard = ({ label, agg }: { label: string; agg: SwingSigAgg }) => {
-    const edge = agg.hit_rate !== null ? agg.hit_rate - s.coinflip : 0;
-    const color = !agg.sufficient ? "var(--muted)" : edge > 5 ? "var(--green)" : edge < -5 ? "var(--red)" : "var(--gold)";
+    const v = agg.verdict ?? "accumulating";
+    const color = VERDICT_COLOR[v] ?? "var(--muted)";
     return (
       <div className="rounded-md border border-line bg-raised/40 p-3">
         <div className="font-mono text-[9px] uppercase tracking-wider text-muted">{label}</div>
-        <div className="tnum text-lg font-bold" style={{ color }}>{agg.n > 0 ? pct(agg.hit_rate) : "—"}</div>
+        <div className="tnum text-lg font-bold" style={{ color }}>
+          {agg.n > 0 && agg.avg_excess !== null ? rr(agg.avg_excess) : "—"}{agg.edge_significant ? " ✓" : ""}
+        </div>
+        <div className="font-mono text-[9px]" style={{ color }}>{agg.n > 0 ? v : "—"}</div>
         <div className="font-mono text-[9px] text-muted">
-          n={agg.n}{agg.n > 0 ? ` · gap ${rr(agg.avg_gap)} · run ${rr(agg.avg_mfe)}` : ""}{agg.n > 0 && !agg.sufficient ? " · thin" : ""}
+          n={agg.n}{agg.n > 0 ? ` · hit ${pct(agg.hit_rate)} · run ${rr(agg.avg_mfe)}` : ""}{agg.n > 0 && !agg.sufficient ? " · thin" : ""}
         </div>
       </div>
     );
@@ -263,7 +270,7 @@ function SwingSignalLearning({ data }: { data: SwingSignalsResponse | undefined 
     <div className="panel space-y-3 rounded-lg p-5">
       <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
         🌙 Overnight OI signal — learning
-        <span className="font-mono text-[11px] font-normal text-muted">— does the buildup actually gap your way next day?</span>
+        <span className="font-mono text-[11px] font-normal text-muted">— does the buildup BEAT THE MARKET next day (excess return), not just gap up?</span>
       </h2>
 
       {!o.sufficient ? (
@@ -273,12 +280,13 @@ function SwingSignalLearning({ data }: { data: SwingSignalsResponse | undefined 
         </div>
       ) : (
         <div className="font-mono text-[10px] text-muted">
-          {o.n} resolved · overall <span className="font-bold text-ink">{pct(o.hit_rate)}</span> gapped in your favour vs {s.coinflip}% coin-flip · {s.open_pending} pending
+          {o.n} resolved · market-relative edge <span className="font-bold" style={{ color: VERDICT_COLOR[o.verdict ?? ""] ?? "var(--ink)" }}>{rr(o.avg_excess)}/trade</span>
+          {" "}({o.verdict}{o.edge_significant ? ", significant" : ""}) · hit {pct(o.hit_rate)} vs {s.coinflip}% coin-flip · {s.open_pending} pending
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        <AggCard label="Overall hit-rate" agg={o} />
+        <AggCard label="Overall edge" agg={o} />
         {s.ignition && <AggCard label="🔥 Ignition" agg={s.ignition} />}
         <AggCard label="Strong (≥20%)" agg={s.by_tier.strong} />
         <AggCard label="Notable (10–20%)" agg={s.by_tier.notable} />
@@ -286,6 +294,12 @@ function SwingSignalLearning({ data }: { data: SwingSignalsResponse | undefined 
         <AggCard label="Long buildup" agg={s.by_bias.LONG} />
         <AggCard label="Short buildup" agg={s.by_bias.SHORT} />
       </div>
+
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        Headline = <span className="text-ink/80">market-relative edge</span>: next-day return minus NIFTY's move (strips out drift — a rising market
+        makes every long "gap up" regardless). <span className="text-ink/80">✓</span> = statistically distinguishable from the market at ≥{s.min_sample} sample.
+        <span className="text-gold"> hit%</span> (gapped your way) is secondary — direction isn't money. Measure-only; it doesn't auto-change what's surfaced.
+      </p>
 
       {data.recent.length > 0 && (
         <div className="overflow-x-auto rounded-md border border-line">

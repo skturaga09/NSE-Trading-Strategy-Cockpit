@@ -17,12 +17,15 @@ Design honesty (anti-overfitting):
     changed rule stays a deliberate, human decision.
 """
 
+import math
 import sqlite3
 import threading
 from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+NIFTY_TOKEN = 256265   # for the market-relative (excess-return) benchmark
 
 DB_PATH = Path(__file__).parent / "journal.db"
 _LOCK = threading.Lock()
@@ -48,6 +51,7 @@ CREATE TABLE IF NOT EXISTS swing_signals (
     next_open      REAL, next_high REAL, next_low REAL, next_close REAL,
     gap_pct        REAL,     -- direction-adjusted open gap vs ref
     fwd_return_pct REAL,     -- direction-adjusted close-to-close
+    excess_fwd_pct REAL,     -- fwd return MINUS NIFTY's same-day move (market-relative edge)
     mfe_pct        REAL,     -- direction-adjusted best excursion next day (max opportunity)
     worked         INTEGER,  -- 1 if gap_pct > 0 (gapped in your favour)
     resolved_at    TEXT,
@@ -74,7 +78,7 @@ def init() -> None:
         # Migrate older DBs that predate the ignition columns (ADD COLUMN is a no-op
         # error once present, so swallow it).
         for col, decl in (("rel_volume", "REAL"), ("ignition_score", "REAL"),
-                          ("is_ignition", "INTEGER DEFAULT 0")):
+                          ("is_ignition", "INTEGER DEFAULT 0"), ("excess_fwd_pct", "REAL")):
             try:
                 c.execute(f"ALTER TABLE swing_signals ADD COLUMN {col} {decl}")
             except Exception:
@@ -143,6 +147,12 @@ def resolve_due() -> int:
     if not due:
         return 0
     futmap = swing_scan._futures_map()
+    # NIFTY close-by-date for the market-relative (excess) return benchmark.
+    try:
+        nifty = swing_scan._daily_candles(NIFTY_TOKEN, days=45)
+        nifty_close = {cd[0][:10]: cd[4] for cd in nifty if cd and cd[0]}
+    except Exception:
+        nifty_close = {}
     bysym: Dict[str, List[sqlite3.Row]] = {}
     for r in due:
         bysym.setdefault(r["symbol"], []).append(r)
@@ -173,7 +183,11 @@ def resolve_due() -> int:
             gap = (o - ref) / ref * 100 * d
             fwd = (cl - ref) / ref * 100 * d
             mfe = ((h - ref) if d == 1 else (ref - l)) / ref * 100
-            updates.append((nxt, o, h, l, cl, round(gap, 2), round(fwd, 2), round(mfe, 2),
+            # Market-relative (excess) return: strip out NIFTY's move over the same day, so a
+            # signal that merely rode market drift shows ~0 edge. excess = fwd − NIFTY_move*d.
+            mkt0, mkt1 = nifty_close.get(r["signal_date"]), nifty_close.get(nxt)
+            excess = round(fwd - ((mkt1 - mkt0) / mkt0 * 100 * d), 2) if (mkt0 and mkt1) else None
+            updates.append((nxt, o, h, l, cl, round(gap, 2), round(fwd, 2), excess, round(mfe, 2),
                             1 if gap > 0 else 0, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                             r["signal_date"], r["symbol"], r["bias"]))
     if not updates:
@@ -181,24 +195,83 @@ def resolve_due() -> int:
     with _LOCK, _conn() as c:
         c.executemany(
             "UPDATE swing_signals SET status='RESOLVED', next_date=?, next_open=?, next_high=?, "
-            "next_low=?, next_close=?, gap_pct=?, fwd_return_pct=?, mfe_pct=?, worked=?, resolved_at=? "
-            "WHERE signal_date=? AND symbol=? AND bias=?", updates)
+            "next_low=?, next_close=?, gap_pct=?, fwd_return_pct=?, excess_fwd_pct=?, mfe_pct=?, "
+            "worked=?, resolved_at=? WHERE signal_date=? AND symbol=? AND bias=?", updates)
     return len(updates)
+
+
+def backfill_excess() -> int:
+    """One-time: compute excess_fwd_pct for already-RESOLVED rows (resolved before the column
+    existed) from NIFTY history, where the dates are within reach."""
+    from dashboard import swing_scan
+    try:
+        nifty = swing_scan._daily_candles(NIFTY_TOKEN, days=250)
+        nc = {cd[0][:10]: cd[4] for cd in nifty if cd and cd[0]}
+    except Exception:
+        return 0
+    if not nc:
+        return 0
+    with _LOCK, _conn() as c:
+        rows = c.execute("SELECT signal_date, symbol, bias, next_date, fwd_return_pct FROM swing_signals "
+                         "WHERE status='RESOLVED' AND excess_fwd_pct IS NULL AND next_date IS NOT NULL "
+                         "AND fwd_return_pct IS NOT NULL").fetchall()
+        ups = []
+        for r in rows:
+            m0, m1 = nc.get(r["signal_date"]), nc.get(r["next_date"])
+            if not (m0 and m1):
+                continue
+            d = 1 if r["bias"] == "LONG" else -1
+            ups.append((round(r["fwd_return_pct"] - ((m1 - m0) / m0 * 100 * d), 2),
+                        r["signal_date"], r["symbol"], r["bias"]))
+        if ups:
+            c.executemany("UPDATE swing_signals SET excess_fwd_pct=? WHERE signal_date=? AND symbol=? AND bias=?", ups)
+    return len(ups)
+
+
+def _has(rows: List[sqlite3.Row], col: str) -> bool:
+    return bool(rows) and col in rows[0].keys()
 
 
 def _agg(rows: List[sqlite3.Row]) -> Dict[str, Any]:
     n = len(rows)
     if n == 0:
-        return {"n": 0, "hit_rate": None, "avg_gap": None, "avg_fwd": None, "avg_mfe": None,
-                "sufficient": False}
+        return {"n": 0, "hit_rate": None, "avg_gap": None, "avg_fwd": None, "avg_excess": None,
+                "avg_mfe": None, "sufficient": False, "hit_significant": False,
+                "edge_significant": False, "verdict": "accumulating"}
     worked = sum(1 for r in rows if r["worked"])
+    p = worked / n
+    # excess (market-relative) returns — the honest edge metric
+    ex = [r["excess_fwd_pct"] for r in rows if _has(rows, "excess_fwd_pct") and r["excess_fwd_pct"] is not None]
+    n_ex = len(ex)
+    mean_ex = (sum(ex) / n_ex) if n_ex else None
+    # significance: hit-rate vs a 50% coin-flip; excess vs 0. ~95% (1.96σ), gated by sample.
+    se_p = math.sqrt(0.25 / n)
+    hit_sig = n >= MIN_SAMPLE and abs(p - 0.5) > 1.96 * se_p
+    edge_sig = False
+    if n_ex >= MIN_SAMPLE and mean_ex is not None:
+        var = sum((x - mean_ex) ** 2 for x in ex) / n_ex
+        se_ex = math.sqrt(var / n_ex) if var > 0 else 0.0
+        edge_sig = se_ex > 0 and abs(mean_ex) > 1.96 * se_ex
+    if n < MIN_SAMPLE or (n_ex and n_ex < MIN_SAMPLE):
+        verdict = "accumulating"
+    elif edge_sig and (mean_ex or 0) > 0:
+        verdict = "edge vs market"
+    elif edge_sig and (mean_ex or 0) < 0:
+        verdict = "worse than market"
+    else:
+        verdict = "no edge (≈ market)"
     return {
         "n": n,
-        "hit_rate": round(worked / n * 100, 1),           # % that gapped in your favour
+        "hit_rate": round(p * 100, 1),                    # % that gapped in your favour (direction only)
         "avg_gap": round(sum(r["gap_pct"] or 0 for r in rows) / n, 2),
         "avg_fwd": round(sum(r["fwd_return_pct"] or 0 for r in rows) / n, 2),
+        "avg_excess": round(mean_ex, 2) if mean_ex is not None else None,   # market-relative edge
+        "n_excess": n_ex,
         "avg_mfe": round(sum(r["mfe_pct"] or 0 for r in rows) / n, 2),
         "sufficient": n >= MIN_SAMPLE,
+        "hit_significant": hit_sig,
+        "edge_significant": edge_sig,
+        "verdict": verdict,
     }
 
 
