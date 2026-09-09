@@ -2,8 +2,31 @@ import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import { gateName, gateShort } from "../gates";
 import type { AttributionResponse, ExpectancyStat, JournalTrade, DecisionsResponse, CostsSummary,
   SwingSignalsResponse, SwingSigAgg, SwingSignalRow, FnoNavResponse } from "../types";
+
+/* Decision-log "gates failed" — the log stores "N[STATUS]" (number + status); map the number
+   to the gate's real name so it reads meaningfully instead of "1[UNKNOWN]". */
+function GatesFailed({ raw }: { raw?: string | null }) {
+  if (!raw || raw === "none") return <span style={{ color: "var(--green)" }}>all gates passed</span>;
+  const entries = [...raw.matchAll(/(\d+)\[(\w+)\]/g)].map((m) => ({ n: Number(m[1]), s: m[2] }));
+  if (!entries.length) return <>{raw}</>;
+  const fails = entries.filter((e) => e.s === "FAIL");
+  const unknown = entries.filter((e) => e.s === "UNKNOWN");
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {fails.map((e) => (
+        <span key={e.n} style={{ color: "var(--red)" }} title={`Gate ${e.n}: ${gateName(e.n)} — FAILED`}>⛔ {gateShort(e.n)}</span>
+      ))}
+      {unknown.length > 0 && (
+        <span style={{ color: "var(--gold)" }} title={`Not classified:\n${unknown.map((e) => `${e.n}. ${gateName(e.n)}`).join("\n")}`}>
+          ◻ {unknown.length} not classified
+        </span>
+      )}
+    </span>
+  );
+}
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${inr(n)}`;
@@ -355,7 +378,7 @@ function DecisionLog({ data }: { data: DecisionsResponse | undefined }) {
                 <td className="px-3 py-2 text-muted">{d.regime ?? "—"}</td>
                 <td className="px-3 py-2 text-muted">{d.setup ?? "—"}{d.direction ? ` ${d.direction}` : ""}</td>
                 <td className="px-3 py-2 font-bold" style={{ color: V_COLOR[d.verdict ?? ""] ?? "var(--muted)" }}>{d.decision ?? d.verdict}</td>
-                <td className="px-3 py-2 text-[10px] text-muted">{d.gates_failed ?? "—"}</td>
+                <td className="px-3 py-2 text-[10px] text-muted"><GatesFailed raw={d.gates_failed} /></td>
                 <td className="px-3 py-2 text-right tnum text-muted">{d.planned_risk ?? "—"}</td>
               </tr>
             ))}

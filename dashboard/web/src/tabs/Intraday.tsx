@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import { GATE_LABELS } from "../gates";
 import type { IntradayContext, OptionChain, OptionLeg, FnoScan, FnoCandidate, IntradayPlan } from "../types";
 
 /* =============================================================================
@@ -42,22 +43,6 @@ const REGIMES: [string, string][] = [
   ["unclear", "6 · Unclear / mixed regime"],
 ];
 
-const GATE_LABELS = [
-  "Market regime is clearly identified",
-  "Candidate exactly matches one approved setup",
-  "15-min & 5-min price structure supports the direction",
-  "VWAP location and slope support the direction",
-  "Relative volume confirms the trigger",
-  "Defined S/R leaves distance for at least 2R after costs",
-  "NIFTY/BANKNIFTY alignment or breadth does not materially conflict",
-  "No high-impact scheduled event in the restricted window",
-  "Option contract is liquid with acceptable bid-ask spread",
-  "Underlying, premium, expiry, lot size, entry, stop & costs verified",
-  "Max loss ≤ ₹1,000 including costs & slippage",
-  "Daily P&L, entries & consecutive-loss count permit a new trade",
-  "Documented backtest / paper sample in the SAME regime",
-  "Defined entry trigger, invalidation, time stop, target & cancellation",
-];
 // Gates the engine derives (0-indexed): regime, sizing, daily-rules. Others = user judgment.
 const AUTO = { REGIME: 0, SIZING: 10, DAILY: 11 };
 
