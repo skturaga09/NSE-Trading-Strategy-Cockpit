@@ -99,7 +99,9 @@ def journal_attribution() -> Dict[str, Any]:
 
 @app.get("/api/journal/recent")
 def journal_recent() -> Dict[str, Any]:
-    return {"trades": journal.recent()}
+    # 2000 so the equity/realized curve always covers the full closed-trade set and stays
+    # reconciled with the fund-value realized-to-date (daily_pnl sums ALL closed trades).
+    return {"trades": journal.recent(2000)}
 
 
 @app.get("/api/journal/fno-nav")
