@@ -104,10 +104,13 @@ def journal_recent() -> Dict[str, Any]:
 
 @app.get("/api/journal/fno-nav")
 def journal_fno_nav() -> Dict[str, Any]:
-    """Anchor for the F&O NAV curve — today's real F&O account value (cash + open MTM), so the
-    curve reads as account value instead of P&L-from-zero. The series is built client-side from
-    closed trades' realized P&L by date + this anchor."""
-    return journal.fno_nav_anchor()
+    """F&O fund-value history (daily snapshots) + today's live composition. NAV = free cash +
+    current market value of open F&O positions. history builds forward from the daily job."""
+    from dashboard import fno_nav_snapshot
+    hist = fno_nav_snapshot.history()
+    live = fno_nav_snapshot.snapshot()   # also records today's point (idempotent per day)
+    return {"history": hist if hist else ([live] if live.get("success") else []),
+            "latest": live if live.get("success") else (hist[-1] if hist else None)}
 
 
 @app.get("/api/journal/daily-pnl")

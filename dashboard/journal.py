@@ -450,25 +450,6 @@ def daily_pnl() -> Dict[str, float]:
     return out
 
 
-def fno_nav_anchor() -> Dict[str, Any]:
-    """Anchor the F&O NAV curve to a REAL number: your current F&O segment balance from Kite
-    (equity `net` — which already nets margin used and open-position MTM). The curve is then
-    base + cumulative realized P&L by date, where base = anchor − total realized, so the line
-    ENDS at your real current balance. Honest limits: the historical shape is realized-only
-    (steps on closes, not daily MTM), today's point already includes open unrealized MTM, and
-    it assumes no fund transfers in the window (a deposit/withdrawal shifts the base)."""
-    try:
-        import requests
-        from dashboard.option_chain import _headers
-        r = requests.get("https://api.kite.trade/user/margins", headers=_headers(), timeout=8).json()
-        if r.get("status") != "success":
-            return {"anchored": False, "note": "could not read F&O funds from Kite"}
-        funds = float(((r.get("data") or {}).get("equity") or {}).get("net") or 0.0)
-        return {"anchored": True, "anchor": round(funds, 2), "source": "kite equity-segment net balance"}
-    except Exception as e:
-        return {"anchored": False, "note": f"anchor unavailable: {e}"}
-
-
 if __name__ == "__main__":
     import json
     print("Journal DB:", DB_PATH)

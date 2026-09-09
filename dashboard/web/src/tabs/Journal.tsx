@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type { AttributionResponse, ExpectancyStat, JournalTrade, DecisionsResponse, CostsSummary,
-  SwingSignalsResponse, SwingSigAgg, SwingSignalRow, FnoNavAnchor } from "../types";
+  SwingSignalsResponse, SwingSigAgg, SwingSignalRow, FnoNavResponse } from "../types";
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${inr(n)}`;
@@ -66,6 +66,7 @@ export function Journal() {
         <AttributionTable title="By conviction" rows={a.by_conviction} min={a.min_sample} />
         <AttributionTable title="By regime" rows={a.by_regime} min={a.min_sample} />
       </div>
+      <FundValue />
       <EquityCurve trades={trades} />
       <CostsCard data={costs.data} />
       <RecentTrades trades={trades} />
@@ -637,26 +638,12 @@ function EquityCurve({ trades }: { trades: JournalTrade[] }) {
     [trades],
   );
   const { cum, hwm, stats } = useMemo(() => computeEquity(closed), [closed]);
-  const navQ = useQuery({ queryKey: ["fno-nav"], queryFn: api.getFnoNav, refetchInterval: 60000 });
-  const anchor = navQ.data as FnoNavAnchor | undefined;
-  const anchored = !!anchor?.anchored && anchor.anchor != null;
-  const base = anchored ? (anchor!.anchor! - stats.net) : 0;   // stats.net = total realized P&L
-  const curNav = base + stats.net;                              // == the live anchor when anchored
 
   return (
     <div className="panel space-y-3 rounded-lg p-6">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <h3 className="font-display text-sm font-bold text-ink">
-          📈 {anchored ? "F&O NAV" : "Equity curve"}
-          <span className="font-mono text-[11px] font-normal text-muted"> — {anchored ? "account value over time, anchored to your live Kite balance" : "cumulative P&L over time (set-up: connect Kite for NAV)"}</span>
-        </h3>
-        {anchored && (
-          <div className="rounded-md border border-cyan/30 bg-cyan/[0.06] px-3 py-1 text-right">
-            <div className="font-mono text-[9px] uppercase tracking-wider text-muted">F&O NAV now</div>
-            <div className="tnum font-mono text-base font-bold" style={{ color: "var(--ink)" }}>{inr(curNav)}</div>
-          </div>
-        )}
-      </div>
+      <h3 className="font-display text-sm font-bold text-ink">
+        📈 Realized P&L <span className="font-mono text-[11px] font-normal text-muted">— cumulative realized P&L per closed trade, over time (gross of estimated charges)</span>
+      </h3>
       {closed.length < 2 ? (
         <p className="font-mono text-[11px] text-muted">Need at least 2 closed trades to draw a curve ({closed.length} so far).</p>
       ) : (
@@ -671,22 +658,105 @@ function EquityCurve({ trades }: { trades: JournalTrade[] }) {
             <Kpi label="Max drawdown" value={signed(stats.maxDD)} color="var(--red)" />
             <Kpi label="Avg win / loss" value={`${signed(stats.avgWin)}`} sub={`${signed(stats.avgLoss)}`} />
           </div>
-          <EquityChart closed={closed} cum={cum} hwm={hwm} stats={stats} base={base} isNav={anchored} />
+          <EquityChart closed={closed} cum={cum} hwm={hwm} stats={stats} base={0} isNav={false} />
           <div className="flex flex-wrap justify-between gap-2 font-mono text-[10px] text-muted">
             <span>{closed.length} trades · best {signed(stats.best)} · worst {signed(stats.worst)}</span>
             <span>streak: max {stats.winStreak}W / {stats.lossStreak}L · now {stats.curStreak > 0 ? `${stats.curStreak}W` : stats.curStreak < 0 ? `${-stats.curStreak}L` : "—"}</span>
-            <span style={{ color: posColor(stats.net) }}>{anchored ? `NAV ${inr(curNav)}` : `ending ${signed(stats.net)}`}</span>
+            <span style={{ color: posColor(stats.net) }}>ending {signed(stats.net)}</span>
           </div>
           <p className="font-mono text-[9px] leading-relaxed text-muted">
-            {anchored ? (
-              <>NAV = your closed-trade realized P&L anchored to today's <span className="text-ink/80">live F&O balance</span> ({inr(anchor!.anchor!)}).
-              ⚠ <span className="text-gold">Realized-only</span>: the line steps on closes (not daily MTM), today's point already includes open-position MTM, and it assumes no fund transfers in the window. Charges are estimated (see below).</>
-            ) : (
-              <>Cumulative realized P&L over time, <span className="text-gold">gross of estimated charges</span>. Connect Kite to anchor this to your live F&O balance and read it as NAV.</>
-            )}
+            This is <span className="text-gold">realized trading P&L</span> (closed trades only, gross of estimated charges) — <span className="text-ink/80">not your fund value</span>.
+            Your overall F&O fund value (invested + cash + open MTM) is the Fund value panel above.
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+/* ---------------- F&O fund value (NAV) — real account value over time ---------------- */
+
+function FundValue() {
+  const q = useQuery({ queryKey: ["fno-nav"], queryFn: api.getFnoNav, refetchInterval: 60000 });
+  const data = q.data as FnoNavResponse | undefined;
+  const hist = data?.history ?? [];
+  const latest = data?.latest ?? (hist.length ? hist[hist.length - 1] : null);
+  return (
+    <div className="panel space-y-3 rounded-lg p-6">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <h3 className="font-display text-sm font-bold text-ink">
+          💰 F&O fund value <span className="font-mono text-[11px] font-normal text-muted">— overall account value: cash + current value of open F&O positions</span>
+        </h3>
+        {latest && (
+          <div className="rounded-md border border-cyan/30 bg-cyan/[0.06] px-3 py-1 text-right">
+            <div className="font-mono text-[9px] uppercase tracking-wider text-muted">Overall NAV</div>
+            <div className="tnum font-mono text-lg font-bold text-ink">{inr(latest.nav)}</div>
+          </div>
+        )}
+      </div>
+      {!latest ? (
+        <p className="font-mono text-[11px] text-muted">Fund value unavailable — connect Kite (System Check). It snapshots daily at 15:40 IST.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <Kpi label="Overall NAV" value={inr(latest.nav)} color="var(--ink)" sub="cash + positions" />
+            <Kpi label="Free cash" value={inr(latest.cash)} />
+            <Kpi label="Invested (open)" value={inr(latest.invested)} sub={`${latest.open_positions} positions`} />
+            <Kpi label="Open MTM" value={signed(latest.open_mtm)} color={posColor(latest.open_mtm)} sub="unrealized" />
+            <Kpi label="Realized to date" value={signed(latest.realized_to_date)} color={posColor(latest.realized_to_date)} sub="booked" />
+          </div>
+          {/* composition bar: current position value + cash = NAV */}
+          <div className="flex h-3 w-full overflow-hidden rounded-full border border-line">
+            {(() => {
+              const posV = Math.max(0, latest.current_value); const cash = Math.max(0, latest.cash); const tot = posV + cash || 1;
+              return (<>
+                <div style={{ width: `${(posV / tot) * 100}%`, background: "var(--cyan)" }} title={`Open positions ${inr(posV)}`} />
+                <div style={{ width: `${(cash / tot) * 100}%`, background: "var(--green)" }} title={`Cash ${inr(cash)}`} />
+              </>);
+            })()}
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[9px] text-muted">
+            <span><span style={{ color: "var(--cyan)" }}>█</span> open positions {inr(latest.current_value)}</span>
+            <span><span style={{ color: "var(--green)" }}>█</span> cash {inr(latest.cash)}</span>
+          </div>
+          {hist.length >= 2 ? (
+            <NavHistoryChart hist={hist} />
+          ) : (
+            <p className="font-mono text-[10px] text-muted">📈 The daily NAV line builds from here — one snapshot so far ({latest.date}). It records each weekday at 15:40 IST.</p>
+          )}
+          <p className="font-mono text-[9px] leading-relaxed text-muted">
+            NAV = live Kite F&O balance (cash) + current market value of open F&O positions. Daily-marked going forward; charges are separate (estimated).
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function NavHistoryChart({ hist }: { hist: FnoNavResponse["history"] }) {
+  const W = 900, H = 180, padX = 10, padTop = 12, padBot = 20;
+  const nav = hist.map((h) => h.nav);
+  const t = hist.map((h) => Date.parse(h.date) || 0);
+  const t0 = t[0], tN = t[t.length - 1], tSpan = tN - t0 || 1;
+  const n = nav.length;
+  const lo = Math.min(...nav), hi = Math.max(...nav), span = hi - lo || 1;
+  const x = (i: number) => padX + (tSpan > 0 ? (t[i] - t0) / tSpan : i / (n - 1)) * (W - 2 * padX);
+  const y = (v: number) => H - padBot - ((v - lo) / span) * (H - padTop - padBot);
+  const path = nav.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const area = `${path} L${x(n - 1).toFixed(1)},${(H - padBot).toFixed(1)} L${x(0).toFixed(1)},${(H - padBot).toFixed(1)} Z`;
+  const peak = Math.max(...nav);
+  return (
+    <div className="overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 340 }}>
+        <line x1={padX} y1={y(peak)} x2={W - padX} y2={y(peak)} stroke="var(--gold)" strokeWidth="1" strokeDasharray="4 3" opacity="0.6" />
+        <path d={area} fill="var(--cyan)" opacity="0.08" />
+        <path d={path} fill="none" stroke="var(--cyan)" strokeWidth="2" strokeLinejoin="round" />
+        {hist.map((h, i) => (
+          <circle key={h.date} cx={x(i)} cy={y(h.nav)} r={2.4} fill="var(--cyan)"><title>{`${h.date} · NAV ${inr(h.nav)}\ncash ${inr(h.cash)} · open ${inr(h.current_value)} · MTM ${signed(h.open_mtm)}`}</title></circle>
+        ))}
+        <circle cx={x(n - 1)} cy={y(nav[n - 1])} r={3.6} fill="var(--cyan)" />
+      </svg>
+      <div className="mt-1 font-mono text-[9px] text-muted">daily F&O NAV · {hist.length} days · peak {inr(peak)}</div>
     </div>
   );
 }

@@ -843,11 +843,20 @@ export interface CostPerTrade extends CostBreakdownEst {
   symbol: string;
   net_pnl: number | null;
 }
-export interface FnoNavAnchor {
-  anchored: boolean;
-  anchor?: number;
-  source?: string;
-  note?: string;
+export interface FnoNavSnapshot {
+  date: string;
+  ts?: string;
+  nav: number;
+  cash: number;
+  invested: number;
+  current_value: number;
+  open_mtm: number;
+  realized_to_date: number;
+  open_positions: number;
+}
+export interface FnoNavResponse {
+  history: FnoNavSnapshot[];
+  latest: FnoNavSnapshot | null;
 }
 export interface CostsSummary {
   trades: number;
