@@ -102,6 +102,14 @@ def journal_recent() -> Dict[str, Any]:
     return {"trades": journal.recent()}
 
 
+@app.get("/api/journal/fno-nav")
+def journal_fno_nav() -> Dict[str, Any]:
+    """Anchor for the F&O NAV curve — today's real F&O account value (cash + open MTM), so the
+    curve reads as account value instead of P&L-from-zero. The series is built client-side from
+    closed trades' realized P&L by date + this anchor."""
+    return journal.fno_nav_anchor()
+
+
 @app.get("/api/journal/daily-pnl")
 def journal_daily_pnl() -> Dict[str, Any]:
     """Net P&L per day (YYYY-MM-DD -> ₹) for the year-heatmap."""

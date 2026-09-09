@@ -18,6 +18,7 @@ import type {
   JournalRecentResponse,
   DecisionsResponse,
   CostsSummary,
+  FnoNavAnchor,
   IntradayContext,
   OptionChain,
   IntradayPlan,
@@ -124,6 +125,8 @@ export const api = {
 
   getCosts: () =>
     getJSON<CostsSummary>(`/api/journal/costs?_t=${Date.now()}`),
+  getFnoNav: () =>
+    getJSON<FnoNavAnchor>(`/api/journal/fno-nav?_t=${Date.now()}`),
 
   getIntradayContext: (underlying: string) =>
     getJSON<IntradayContext>(`/api/intraday/context?underlying=${underlying}&_t=${Date.now()}`),

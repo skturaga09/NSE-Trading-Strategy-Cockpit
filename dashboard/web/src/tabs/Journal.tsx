@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type { AttributionResponse, ExpectancyStat, JournalTrade, DecisionsResponse, CostsSummary,
-  SwingSignalsResponse, SwingSigAgg, SwingSignalRow } from "../types";
+  SwingSignalsResponse, SwingSigAgg, SwingSignalRow, FnoNavAnchor } from "../types";
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${inr(n)}`;
@@ -637,18 +637,32 @@ function EquityCurve({ trades }: { trades: JournalTrade[] }) {
     [trades],
   );
   const { cum, hwm, stats } = useMemo(() => computeEquity(closed), [closed]);
+  const navQ = useQuery({ queryKey: ["fno-nav"], queryFn: api.getFnoNav, refetchInterval: 60000 });
+  const anchor = navQ.data as FnoNavAnchor | undefined;
+  const anchored = !!anchor?.anchored && anchor.anchor != null;
+  const base = anchored ? (anchor!.anchor! - stats.net) : 0;   // stats.net = total realized P&L
+  const curNav = base + stats.net;                              // == the live anchor when anchored
 
   return (
     <div className="panel space-y-3 rounded-lg p-6">
-      <h3 className="font-display text-sm font-bold text-ink">
-        📈 Equity curve <span className="font-mono text-[11px] font-normal text-gold">— cumulative P&L, GROSS of charges (before brokerage/STT/etc)</span>
-      </h3>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <h3 className="font-display text-sm font-bold text-ink">
+          📈 {anchored ? "F&O NAV" : "Equity curve"}
+          <span className="font-mono text-[11px] font-normal text-muted"> — {anchored ? "account value over time, anchored to your live Kite balance" : "cumulative P&L over time (set-up: connect Kite for NAV)"}</span>
+        </h3>
+        {anchored && (
+          <div className="rounded-md border border-cyan/30 bg-cyan/[0.06] px-3 py-1 text-right">
+            <div className="font-mono text-[9px] uppercase tracking-wider text-muted">F&O NAV now</div>
+            <div className="tnum font-mono text-base font-bold" style={{ color: "var(--ink)" }}>{inr(curNav)}</div>
+          </div>
+        )}
+      </div>
       {closed.length < 2 ? (
         <p className="font-mono text-[11px] text-muted">Need at least 2 closed trades to draw a curve ({closed.length} so far).</p>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-            <Kpi label="Gross P&L" value={signed(stats.net)} color={posColor(stats.net)} sub="before charges" />
+            <Kpi label="Realized P&L" value={signed(stats.net)} color={posColor(stats.net)} sub="gross of charges" />
             <Kpi label="Win rate" value={`${stats.winRate.toFixed(0)}%`} sub={`${stats.wins}W / ${stats.losses}L`} />
             <Kpi label="Profit factor" value={stats.profitFactor === null ? "∞" : stats.profitFactor.toFixed(2)}
               color={(stats.profitFactor ?? 2) >= 1 ? "var(--green)" : "var(--red)"} />
@@ -657,15 +671,19 @@ function EquityCurve({ trades }: { trades: JournalTrade[] }) {
             <Kpi label="Max drawdown" value={signed(stats.maxDD)} color="var(--red)" />
             <Kpi label="Avg win / loss" value={`${signed(stats.avgWin)}`} sub={`${signed(stats.avgLoss)}`} />
           </div>
-          <EquityChart closed={closed} cum={cum} hwm={hwm} stats={stats} />
+          <EquityChart closed={closed} cum={cum} hwm={hwm} stats={stats} base={base} isNav={anchored} />
           <div className="flex flex-wrap justify-between gap-2 font-mono text-[10px] text-muted">
             <span>{closed.length} trades · best {signed(stats.best)} · worst {signed(stats.worst)}</span>
             <span>streak: max {stats.winStreak}W / {stats.lossStreak}L · now {stats.curStreak > 0 ? `${stats.curStreak}W` : stats.curStreak < 0 ? `${-stats.curStreak}L` : "—"}</span>
-            <span style={{ color: posColor(stats.net) }}>ending {signed(stats.net)} (gross)</span>
+            <span style={{ color: posColor(stats.net) }}>{anchored ? `NAV ${inr(curNav)}` : `ending ${signed(stats.net)}`}</span>
           </div>
           <p className="font-mono text-[9px] leading-relaxed text-muted">
-            ⚠ P&L here is <span className="text-gold">gross — before charges</span>. Net-of-charges is in the Charges card below, but those charges are
-            <span className="text-gold"> estimated</span> (Kite's API doesn't expose actual brokerage/STT). Broker-actual charges from a Zerodha Console import are planned.
+            {anchored ? (
+              <>NAV = your closed-trade realized P&L anchored to today's <span className="text-ink/80">live F&O balance</span> ({inr(anchor!.anchor!)}).
+              ⚠ <span className="text-gold">Realized-only</span>: the line steps on closes (not daily MTM), today's point already includes open-position MTM, and it assumes no fund transfers in the window. Charges are estimated (see below).</>
+            ) : (
+              <>Cumulative realized P&L over time, <span className="text-gold">gross of estimated charges</span>. Connect Kite to anchor this to your live F&O balance and read it as NAV.</>
+            )}
           </p>
         </>
       )}
@@ -683,50 +701,62 @@ function Kpi({ label, value, sub, color }: { label: string; value: string; sub?:
   );
 }
 
-function EquityChart({ closed, cum, hwm, stats }: { closed: JournalTrade[]; cum: number[]; hwm: number[]; stats: EqStats }) {
-  const W = 900, H = 200, pad = 10;
-  const min = Math.min(0, ...cum);
-  const max = Math.max(0, ...hwm);
-  const span = max - min || 1;
-  const n = cum.length;
-  const x = (i: number) => pad + (i / (n - 1)) * (W - 2 * pad);
-  const y = (v: number) => H - pad - ((v - min) / span) * (H - 2 * pad);
-  const zeroY = y(0);
+function EquityChart({ closed, cum, hwm, stats, base, isNav }: { closed: JournalTrade[]; cum: number[]; hwm: number[]; stats: EqStats; base: number; isNav: boolean }) {
+  const W = 900, H = 210, padX = 10, padTop = 14, padBot = 22;
+  const nav = cum.map((v) => base + v);          // account value = base + cumulative realized
+  const navHwm = hwm.map((v) => base + v);
+  // time (calendar) x-axis, like Zerodha — position each point by its exit date
+  const t = closed.map((c) => Date.parse(c.ts_exit || c.ts_entry) || 0);
+  const t0 = t[0], tN = t[t.length - 1], tSpan = tN - t0 || 1;
+  const n = nav.length;
+  const x = (i: number) => padX + (tSpan > 0 ? (t[i] - t0) / tSpan : i / (n - 1)) * (W - 2 * padX);
+  const floorV = Math.min(isNav ? Math.min(...nav) : 0, ...nav);
+  const ceilV = Math.max(...navHwm);
+  const span = ceilV - floorV || 1;
+  const y = (v: number) => H - padBot - ((v - floorV) / span) * (H - padTop - padBot);
   const line = (arr: number[]) => arr.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  const eqPath = line(cum);
-  const hwmPath = line(hwm);
-  // underwater polygon: forward along hwm, back along cum
-  const under = `${hwmPath} ${cum.map((_, i) => `L${x(n - 1 - i).toFixed(1)},${y(cum[n - 1 - i]).toFixed(1)}`).join(" ")} Z`;
-  const stroke = stats.net >= 0 ? "var(--green)" : "var(--red)";
+  const navPath = line(nav);
+  const area = `${navPath} L${x(n - 1).toFixed(1)},${(H - padBot).toFixed(1)} L${x(0).toFixed(1)},${(H - padBot).toFixed(1)} Z`;
+  const stroke = isNav ? "var(--cyan)" : stats.net >= 0 ? "var(--green)" : "var(--red)";
+  const peakV = navHwm[stats.peakIdx];
   const fmtDate = (s: string | null) => (s ? s.slice(0, 10) : "");
+  // month tick labels
+  const ticks: { x: number; label: string }[] = [];
+  let lastM = "";
+  closed.forEach((_, i) => {
+    const d = new Date(t[i]); const m = `${d.getFullYear()}-${d.getMonth()}`;
+    if (m !== lastM) { lastM = m; ticks.push({ x: x(i), label: d.toLocaleString("en-IN", { month: "short" }) }); }
+  });
   return (
     <div className="overflow-x-auto">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 340 }}>
-        <line x1={pad} y1={zeroY} x2={W - pad} y2={zeroY} stroke="var(--line)" strokeWidth="1" strokeDasharray="3 3" />
-        {/* underwater drawdown shading (equity below its running peak) */}
-        <path d={under} fill="var(--red)" opacity="0.10" />
-        {/* high-water mark */}
-        <path d={hwmPath} fill="none" stroke="var(--gold)" strokeWidth="1" strokeDasharray="4 3" opacity="0.7" />
-        {/* equity line */}
-        <path d={eqPath} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
+        {/* peak (high-water) dashed horizontal line, Zerodha-style */}
+        <line x1={padX} y1={y(peakV)} x2={W - padX} y2={y(peakV)} stroke="var(--gold)" strokeWidth="1" strokeDasharray="4 3" opacity="0.6" />
+        <text x={W - padX} y={y(peakV) - 3} textAnchor="end" className="fill-muted" style={{ fontSize: 9, fontFamily: "monospace" }}>peak {inr(peakV)}</text>
+        {!isNav && <line x1={padX} y1={y(0)} x2={W - padX} y2={y(0)} stroke="var(--line)" strokeWidth="1" strokeDasharray="3 3" />}
+        <path d={area} fill={stroke} opacity="0.08" />
+        <path d={navPath} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
         {/* per-trade dots, coloured by outcome, hoverable */}
-        {closed.map((t, i) => {
-          const p = t.net_pnl ?? 0;
-          const c = p > 0 ? "var(--green)" : p < 0 ? "var(--red)" : "var(--muted)";
+        {closed.map((c, i) => {
+          const p = c.net_pnl ?? 0;
+          const col = p > 0 ? "var(--green)" : p < 0 ? "var(--red)" : "var(--muted)";
           return (
-            <circle key={t.order_id} cx={x(i)} cy={y(cum[i])} r={2.6} fill={c}>
-              <title>{`${t.symbol} · ${signed(p)}${t.r_multiple != null ? ` (${t.r_multiple >= 0 ? "+" : ""}${t.r_multiple}R)` : ""}\n${fmtDate(t.ts_exit)}${t.exit_reason ? ` · ${t.exit_reason}` : ""}`}</title>
+            <circle key={c.order_id} cx={x(i)} cy={y(nav[i])} r={2.4} fill={col}>
+              <title>{`${c.symbol} · ${signed(p)}${c.r_multiple != null ? ` (${c.r_multiple >= 0 ? "+" : ""}${c.r_multiple}R)` : ""}\n${fmtDate(c.ts_exit)}${isNav ? ` · NAV ${inr(nav[i])}` : ""}${c.exit_reason ? ` · ${c.exit_reason}` : ""}`}</title>
             </circle>
           );
         })}
-        {/* peak + max-drawdown markers */}
-        <circle cx={x(stats.peakIdx)} cy={y(hwm[stats.peakIdx])} r={3.4} fill="none" stroke="var(--gold)" strokeWidth="1.5" />
-        {stats.maxDD < 0 && <circle cx={x(stats.maxDDidx)} cy={y(cum[stats.maxDDidx])} r={3.8} fill="none" stroke="var(--red)" strokeWidth="1.5" />}
+        {/* current value marker + callout */}
+        <circle cx={x(n - 1)} cy={y(nav[n - 1])} r={3.6} fill={stroke} />
+        {/* month ticks */}
+        {ticks.map((tk, i) => (
+          <text key={i} x={tk.x} y={H - 6} textAnchor="middle" className="fill-muted" style={{ fontSize: 8, fontFamily: "monospace" }}>{tk.label}</text>
+        ))}
       </svg>
       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[9px] text-muted">
-        <span><span style={{ color: "var(--gold)" }}>┈</span> high-water mark</span>
-        <span><span style={{ color: "var(--red)" }}>▨</span> drawdown (below peak)</span>
-        <span><span style={{ color: "var(--green)" }}>●</span> win <span style={{ color: "var(--red)" }}>●</span> loss — hover a dot for the trade</span>
+        <span><span style={{ color: "var(--gold)" }}>┈</span> peak (high-water)</span>
+        <span><span style={{ color: "var(--green)" }}>●</span> win <span style={{ color: "var(--red)" }}>●</span> loss — hover a point for the trade</span>
+        <span>x-axis: exit date{isNav ? " · y-axis: F&O account value" : " · y-axis: cumulative P&L"}</span>
       </div>
     </div>
   );
