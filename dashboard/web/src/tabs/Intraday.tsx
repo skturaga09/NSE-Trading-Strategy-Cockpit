@@ -602,6 +602,12 @@ function FnoCandidates({ scan, scanning, onScan, onPick, selected }: {
           <span className="flex min-w-0 items-baseline gap-1.5">
             <span className="text-ink/90">{c.symbol}</span>
             <span className="text-[9px] text-muted">×{c.lot_size ?? "?"}</span>
+            {c.dma50_state && (
+              <span className="text-[9px] font-bold" style={{ color: c.dma50_state === "ABOVE" ? "var(--green)" : "var(--red)" }}
+                title={`${c.dma50_state === "ABOVE" ? "Above" : "Below"} its 50-day MA by ${c.dma50_dist_pct}% — trend context (don't fight it), not a signal`}>
+                50{c.dma50_state === "ABOVE" ? "▲" : "▼"}
+              </span>
+            )}
           </span>
           <span className="flex items-center gap-2 tnum">
             <span style={{ color: c.pct_change >= 0 ? "var(--green)" : "var(--red)" }}>{c.pct_change >= 0 ? "+" : ""}{c.pct_change}%</span>
@@ -648,7 +654,8 @@ function FnoCandidates({ scan, scanning, onScan, onPick, selected }: {
             ahead, not the move that already happened. <span className="text-red">Red (≤0.3% left)</span> = it has already run its usual
             range → you'd be <span className="text-gold">chasing</span>; <span className="text-green">green (≥1% left)</span> = room remains.
             NOT a forecast — a strong day can over-run ADR and a dull one under-run it. Ranked by momentum only (vs day VWAP + range
-            position + % change); it shows where movement is, not that a trade has edge. Confirm the setup and pass every gate before acting.
+            position + % change); it shows where movement is, not that a trade has edge. <span className="text-green">50▲</span>/<span className="text-red">50▼</span> =
+            above/below the 50-day MA — trend context (don't fight it), not a signal. Confirm the setup and pass every gate before acting.
           </p>
         </>
       )}

@@ -468,6 +468,8 @@ export interface FnoCandidate {
   adr_pct: number | null;
   headroom_pct: number | null;
   headroom_per_lot: number | null;
+  dma50_state: "ABOVE" | "BELOW" | null;
+  dma50_dist_pct: number | null;
 }
 export interface FnoScan {
   timestamp: string;

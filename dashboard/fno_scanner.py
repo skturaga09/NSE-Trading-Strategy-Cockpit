@@ -47,19 +47,18 @@ def _chunk(xs: List[str], n: int):
         yield xs[i:i + n]
 
 
-_ADR: Dict[Any, Any] = {}  # instrument_token -> (date_iso, adr_pct)
+_DAILY: Dict[Any, Any] = {}  # instrument_token -> (date_iso, candles) — ~70 sessions
 
 
-def _adr_pct(token: Any, days: int = 14) -> Optional[float]:
-    """Average Daily Range % = mean of (high-low)/prev_close over the last `days` sessions.
-    This is the typical room a name has in a day — the baseline for 'how much is left'.
-    Cached per day (ADR barely moves intraday), and only called for the handful of RANKED
-    names actually shown, so the live scan stays cheap (no 200-name history sweep)."""
+def _daily(token: Any) -> List[Any]:
+    """Recent daily candles for a token, cached per day. ~100 calendar days (~68 sessions)
+    — enough for both ADR(14) and the 50-DMA. Only called for the handful of RANKED names
+    shown, so the live scan stays cheap (no 200-name history sweep)."""
     today = date.today().isoformat()
-    hit = _ADR.get(token)
+    hit = _DAILY.get(token)
     if hit and hit[0] == today:
         return hit[1]
-    frm = (date.today() - timedelta(days=days * 2 + 12)).isoformat()  # calendar buffer for weekends/holidays
+    frm = (date.today() - timedelta(days=100)).isoformat()
     cs: List[Any] = []
     try:
         j = requests.get(f"https://api.kite.trade/instruments/historical/{token}/day",
@@ -68,22 +67,46 @@ def _adr_pct(token: Any, days: int = 14) -> Optional[float]:
             cs = j.get("data", {}).get("candles", []) or []
     except Exception:
         cs = []
-    cs = cs[-(days + 1):]
+    if cs:
+        _DAILY[token] = (today, cs)
+    return cs
+
+
+def _adr_pct(token: Any, days: int = 14) -> Optional[float]:
+    """Average Daily Range % = mean of (high-low)/prev_close over the last `days` sessions."""
+    cs = _daily(token)[-(days + 1):]
     ranges = [(cs[i][2] - cs[i][3]) / cs[i - 1][4] * 100 for i in range(1, len(cs)) if cs[i - 1][4]]
-    adr = round(sum(ranges) / len(ranges), 2) if ranges else None
-    _ADR[token] = (today, adr)
-    return adr
+    return round(sum(ranges) / len(ranges), 2) if ranges else None
+
+
+def _dma50(token: Any, n: int = 50) -> Optional[Dict[str, Any]]:
+    """50-day moving average CONTEXT (not a signal): is price above or below it, and by how
+    much. Above = buyers in control / don't-fight-the-trend; below = sellers. A filter, not
+    an edge (our backtests: the cross alone is ~breakeven)."""
+    cs = _daily(token)
+    if len(cs) < n:
+        return None
+    closes = [c[4] for c in cs]
+    dma = sum(closes[-n:]) / n
+    last = closes[-1]
+    if not dma:
+        return None
+    return {"state": "ABOVE" if last >= dma else "BELOW", "dist_pct": round((last / dma - 1) * 100, 2)}
 
 
 def _attach_headroom(rows: List[Dict[str, Any]]) -> None:
     """For each ranked row, attach ADR-remaining headroom: how much of its TYPICAL daily
     range is still unused, sized to a lot. This is forward (room left), not hindsight —
     a floor near 0 means 'already ran its usual range today → chasing'. Not a forecast:
-    the day can over- or under-run its average; it's a context gauge for the entry."""
+    the day can over- or under-run its average; it's a context gauge for the entry.
+    Also attaches the 50-DMA trend context (above/below), from the same daily fetch."""
     for r in rows:
         tok, used, ltp, lot = r.get("instrument_token"), r.get("range_used_pct"), r.get("ltp"), r.get("lot_size")
         adr = _adr_pct(tok) if tok else None
+        dma = _dma50(tok) if tok else None
         r["adr_pct"] = adr
+        r["dma50_state"] = dma["state"] if dma else None
+        r["dma50_dist_pct"] = dma["dist_pct"] if dma else None
         if adr is None or used is None or not ltp or not lot:
             r["headroom_pct"] = None
             r["headroom_per_lot"] = None
