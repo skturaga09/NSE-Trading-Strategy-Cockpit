@@ -24,6 +24,7 @@ import type {
   IntradayPlan,
   FnoScan,
   PremarketGapScan,
+  ExitLevelsResponse,
   SwingScan,
   IgniteScan,
   IgniteCompare,
@@ -186,6 +187,16 @@ export const api = {
 
   getTargetCalc: () =>
     getJSON<TargetCalc>(`/api/exits/target-calc?_t=${Date.now()}`),
+
+  getExitLevels: () =>
+    getJSON<ExitLevelsResponse>(`/api/exits/levels?_t=${Date.now()}`),
+
+  setExitLevel: (body: { symbol: string; stop: number | null; target: number | null; basis: "premium" | "underlying" }) =>
+    postJSON<typeof body, { success: boolean; message?: string }>("/api/exits/levels", body),
+
+  clearExitLevel: async (symbol: string) => {
+    await fetch(`/api/exits/levels?symbol=${encodeURIComponent(symbol)}`, { method: "DELETE" });
+  },
 
   sendCandidates: () =>
     postJSON<Record<string, never>, { success: boolean; channel?: string; message?: string }>("/api/exits/candidates-now", {}),

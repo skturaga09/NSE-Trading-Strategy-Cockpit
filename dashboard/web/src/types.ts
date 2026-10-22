@@ -478,6 +478,14 @@ export interface FnoScan {
   longs: FnoCandidate[];
   shorts: FnoCandidate[];
 }
+export interface ExitLevel {
+  stop: number | null;
+  target: number | null;
+  basis: "premium" | "underlying";
+}
+export interface ExitLevelsResponse {
+  levels: Record<string, ExitLevel>;
+}
 export interface GapRow {
   symbol: string;
   ref_price: number;

@@ -146,6 +146,46 @@ def set_config(patch: Dict[str, Any]) -> Dict[str, Any]:
     return cfg
 
 
+# --- Custom per-position exit levels ----------------------------------------------------
+# YOUR plan's stop/target for a specific position, so the monitor alerts on the levels you
+# set at entry — not just the generic premium floors. 'premium' basis = the bought option's
+# own LTP; 'underlying' basis = the underlying spot (the plan's levels, e.g. COFORGE 1880/1966).
+_LEVELS = _DIR / "exit_levels.json"
+
+
+def get_levels() -> Dict[str, Any]:
+    return _load(_LEVELS, {})
+
+
+def set_level(sym: str, stop: Any, target: Any, basis: str = "premium") -> Dict[str, Any]:
+    lv = get_levels()
+    lv[sym] = {"stop": float(stop) if stop not in (None, "") else None,
+               "target": float(target) if target not in (None, "") else None,
+               "basis": basis if basis in ("premium", "underlying") else "premium"}
+    _save(_LEVELS, lv)
+    return lv[sym]
+
+
+def clear_level(sym: str) -> None:
+    lv = get_levels()
+    lv.pop(sym, None)
+    _save(_LEVELS, lv)
+
+
+def _custom_signal(bullish: bool, price: Optional[float], stop: Optional[float],
+                   target: Optional[float], label: str) -> tuple:
+    """Pure check of a price against YOUR stop/target. bullish: the position profits when
+    price RISES (a call, a long future, or any bought-premium position). Returns
+    ('CSTOP'|'CTGT'|'HOLD', reason)."""
+    if price is None:
+        return ("HOLD", "")
+    if stop is not None and (price <= stop if bullish else price >= stop):
+        return ("CSTOP", f"{label} {round(price, 2)} hit your stop {stop}")
+    if target is not None and (price >= target if bullish else price <= target):
+        return ("CTGT", f"{label} {round(price, 2)} hit your target {target}")
+    return ("HOLD", "")
+
+
 def _headers() -> Dict[str, str]:
     ensure_fresh_config()
     kc = core.KITE_CONFIG
@@ -261,6 +301,7 @@ def evaluate() -> Dict[str, Any]:
     ts = now.strftime("%Y-%m-%d %H:%M:%S")
     positions = _positions()
     fresh = _fresh_ltp(positions)
+    levels = get_levels()               # your per-position stop/target overrides
     # Regime is market-wide, so resolve the breakeven arm once per cycle (not per position).
     regime = _current_regime()
     be_arm = _effective_be_arm(cfg, regime)
@@ -315,12 +356,26 @@ def evaluate() -> Dict[str, Any]:
                 # heads-up only, and only for a position that actually got into profit
                 signal, reason = "WEAKEN", struct["reason"]
 
+        # YOUR plan's levels: override everything except the hard premium STOP (capital
+        # preservation always wins). For 'underlying' basis, compare the underlying spot.
+        lvl = levels.get(sym)
+        if lvl and signal != "STOP":
+            m = structure_exit._SYM.match(sym)
+            if lvl.get("basis") == "underlying" and m:
+                from dashboard.option_chain import _spot_ltp
+                px, bullish, label = _spot_ltp(m.group("u")), (m.group("t") == "CE"), "underlying"
+            else:
+                px, bullish, label = ltp, True, "premium ₹"   # a bought option profits as premium rises
+            csig, creason = _custom_signal(bullish, px, lvl.get("stop"), lvl.get("target"), label)
+            if csig != "HOLD":
+                signal, reason = csig, creason + " (your level)"
+
         rows.append({"symbol": sym, "qty": qty, "is_option": _is_option(sym), "exchange": exch,
                      "entry": round(entry, 2), "ltp": round(ltp, 2), "pnl": round(pnl, 2),
                      "pnl_pct": pnl_pct, "peak_pct": round(peak, 2), "product": p.get("product"),
                      "signal": signal, "reason": reason})
     _save(_PEAKS, peaks)
-    rows.sort(key=lambda r: ({"STOP": 0, "STRUCT": 1, "TIME": 2, "TARGET": 3, "TRAIL": 4, "PULLBACK": 5, "WEAKEN": 6, "HOLD": 7}[r["signal"]], -abs(r["pnl"])))
+    rows.sort(key=lambda r: ({"STOP": 0, "CSTOP": 1, "STRUCT": 2, "CTGT": 3, "TIME": 4, "TARGET": 5, "TRAIL": 6, "PULLBACK": 7, "WEAKEN": 8, "HOLD": 9}[r["signal"]], -abs(r["pnl"])))
     return {"timestamp": ts, "config": cfg, "positions": rows,
             "regime": regime, "breakeven_arm": be_arm,
             "actionable": [r for r in rows if r["signal"] != "HOLD"]}
@@ -585,6 +640,8 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
     sent = 0
     SIG = {
         "STOP": ("🛑", ["octagonal_sign"], 5, "EXIT"),
+        "CSTOP": ("🛑", ["octagonal_sign"], 5, "EXIT"),     # YOUR planned stop
+        "CTGT": ("🎯", ["dart", "tada"], 5, "BOOK IT"),     # YOUR planned target
         "TARGET": ("🎯", ["dart", "tada"], 5, "BOOK IT"),   # max priority — hit the target
         "STRUCT": ("🧱", ["bricks"], 5, "EXIT"),            # underlying broke trend structure
         "TRAIL": ("📉", ["chart_with_downwards_trend"], 4, "EXIT"),
@@ -593,6 +650,8 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
         "WEAKEN": ("⚠️", ["warning"], 3, "HEADS-UP"),  # confirmations stacking, structure still holds
     }
     TAIL = {
+        "CSTOP": "Your planned stop hit — your rule says cut it. You place the order in Kite.",
+        "CTGT": "🎯 Your planned target hit — BOOK IT NOW (place the exit in Kite yourself).",
         "TARGET": "🎯 Target hit — BOOK IT NOW (place the exit in Kite yourself).",
         "PULLBACK": "It's coming off its peak — watch for the trail exit.",
         "STOP": "Stop breached — your rule says cut it. You place the order.",

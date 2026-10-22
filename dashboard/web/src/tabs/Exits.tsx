@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
-import type { ExitConfig, ExitPosition, ThesisPosition, TargetCalcRow } from "../types";
+import type { ExitConfig, ExitPosition, ThesisPosition, TargetCalcRow, ExitLevel } from "../types";
 
 /* =============================================================================
    EXIT MONITOR — rule-based exit signals on your LIVE Kite positions + phone
@@ -12,10 +12,10 @@ import type { ExitConfig, ExitPosition, ThesisPosition, TargetCalcRow } from "..
 
 const inr = (n: number) => `${n >= 0 ? "+" : "−"}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`;
 const SIG_COLOR: Record<string, string> = {
-  STOP: "var(--red)", TIME: "var(--red)", STRUCT: "var(--red)", TARGET: "var(--green)", TRAIL: "var(--gold)",
-  PULLBACK: "var(--gold)", WEAKEN: "var(--gold)", HOLD: "var(--muted)",
+  STOP: "var(--red)", CSTOP: "var(--red)", TIME: "var(--red)", STRUCT: "var(--red)", TARGET: "var(--green)",
+  CTGT: "var(--green)", TRAIL: "var(--gold)", PULLBACK: "var(--gold)", WEAKEN: "var(--gold)", HOLD: "var(--muted)",
 };
-const SIG_EMOJI: Record<string, string> = { STOP: "🛑", TARGET: "🎯", STRUCT: "🧱", TRAIL: "📉", TIME: "⏰", PULLBACK: "👀", WEAKEN: "⚠️", HOLD: "·" };
+const SIG_EMOJI: Record<string, string> = { STOP: "🛑", CSTOP: "🛑", TARGET: "🎯", CTGT: "🎯", STRUCT: "🧱", TRAIL: "📉", TIME: "⏰", PULLBACK: "👀", WEAKEN: "⚠️", HOLD: "·" };
 
 export function Exits() {
   const { data } = useQuery({ queryKey: ["exits"], queryFn: api.getExitsStatus, refetchInterval: 3000 });
@@ -71,11 +71,91 @@ export function Exits() {
         )}
       </div>
 
+      <MyExitLevels positions={positions.map((p) => p.symbol)} />
+
       <TargetCalculator />
 
       <ThesisMonitor />
 
       <RulesConfig />
+    </div>
+  );
+}
+
+function MyExitLevels({ positions }: { positions: string[] }) {
+  const { data, refetch } = useQuery({ queryKey: ["exit-levels"], queryFn: api.getExitLevels, refetchInterval: 5000 });
+  const levels = data?.levels ?? {};
+  const [sym, setSym] = useState("");
+  const [stop, setStop] = useState("");
+  const [target, setTarget] = useState("");
+  const [basis, setBasis] = useState<"premium" | "underlying">("underlying");
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    if (!sym.trim()) return;
+    setBusy(true);
+    try {
+      await api.setExitLevel({
+        symbol: sym.trim().toUpperCase(),
+        stop: stop ? Number(stop) : null,
+        target: target ? Number(target) : null,
+        basis,
+      });
+      setSym(""); setStop(""); setTarget("");
+      await refetch();
+    } finally { setBusy(false); }
+  };
+  const clear = async (s: string) => { await api.clearExitLevel(s); await refetch(); };
+
+  const entries = Object.entries(levels) as [string, ExitLevel][];
+  const inp = "rounded-md border border-line bg-raised/40 px-2 py-1.5 font-mono text-[11px] text-ink";
+  return (
+    <div className="panel space-y-3 rounded-lg p-5">
+      <h2 className="font-display text-base font-bold text-ink">
+        🎚 My exit levels <span className="font-mono text-[11px] font-normal text-muted">— alert on YOUR plan's stop/target, not just the generic floors</span>
+      </h2>
+      <div className="flex flex-wrap items-end gap-2">
+        <input list="pos-syms" className={`${inp} w-40`} placeholder="SYMBOL" value={sym} onChange={(e) => setSym(e.target.value)} />
+        <datalist id="pos-syms">{positions.map((s) => <option key={s} value={s} />)}</datalist>
+        <input className={`${inp} w-24`} placeholder="stop" inputMode="decimal" value={stop} onChange={(e) => setStop(e.target.value)} />
+        <input className={`${inp} w-24`} placeholder="target" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
+        <select className={inp} value={basis} onChange={(e) => setBasis(e.target.value as "premium" | "underlying")}
+          title="underlying = the plan's spot levels (e.g. 1880/1966); premium = the option's own LTP">
+          <option value="underlying">underlying (spot)</option>
+          <option value="premium">premium (₹ LTP)</option>
+        </select>
+        <button onClick={save} disabled={busy || !sym.trim()}
+          className="rounded-md border border-cyan/50 bg-cyan/15 px-3 py-1.5 font-mono text-[11px] font-bold text-cyan hover:bg-cyan/25 disabled:opacity-50">
+          {busy ? "saving…" : "Save"}
+        </button>
+      </div>
+      {entries.length === 0 ? (
+        <p className="font-mono text-[10px] text-muted">No custom levels set. Add one above and the monitor will alert when your stop/target is hit (phone push + the Signal column shows 🛑 CSTOP / 🎯 CTGT).</p>
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-line">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-raised/50 font-mono text-[10px] uppercase tracking-wider text-muted">
+              <tr>{["Symbol", "Basis", "Stop", "Target", ""].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-line font-mono text-[11px]">
+              {entries.map(([s, l]) => (
+                <tr key={s}>
+                  <td className="px-3 py-1.5 text-ink/90">{s}</td>
+                  <td className="px-3 py-1.5 text-muted">{l.basis}</td>
+                  <td className="px-3 py-1.5" style={{ color: "var(--red)" }}>{l.stop ?? "—"}</td>
+                  <td className="px-3 py-1.5" style={{ color: "var(--green)" }}>{l.target ?? "—"}</td>
+                  <td className="px-3 py-1.5"><button onClick={() => clear(s)} className="text-muted hover:text-signalred">clear</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        <span className="text-ink/80">underlying</span> basis watches the stock/index spot (the plan's levels, e.g. COFORGE 1880/1966) and knows CE vs PE direction;
+        <span className="text-ink/80"> premium</span> basis watches the option's own ₹ LTP. Your stop overrides the generic floors; the hard −{""}
+        {"premium"} stop still fires as a backstop. The monitor only tells you — <span className="text-gold">you place the exit in Kite</span>.
+      </p>
     </div>
   );
 }

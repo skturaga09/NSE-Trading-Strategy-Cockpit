@@ -259,6 +259,34 @@ def exits_target_calc() -> Dict[str, Any]:
     return target_calc.compute()
 
 
+@app.get("/api/exits/levels")
+def exits_levels_get() -> Dict[str, Any]:
+    """Your per-position custom exit levels (stop/target the monitor alerts on)."""
+    from dashboard import exit_monitor
+    return {"levels": exit_monitor.get_levels()}
+
+
+@app.post("/api/exits/levels")
+async def exits_levels_set(request: Request) -> JSONResponse:
+    """Register YOUR stop/target for a position so the monitor alerts on them.
+    Body: {symbol, stop, target, basis: 'premium'|'underlying'}."""
+    from dashboard import exit_monitor
+    p = await request.json()
+    sym = (p.get("symbol") or "").strip().upper()
+    if not sym:
+        return JSONResponse({"success": False, "message": "symbol required"}, status_code=400)
+    lvl = exit_monitor.set_level(sym, p.get("stop"), p.get("target"), p.get("basis", "premium"))
+    return JSONResponse({"success": True, "symbol": sym, "level": lvl})
+
+
+@app.delete("/api/exits/levels")
+def exits_levels_clear(symbol: str) -> Dict[str, Any]:
+    """Remove a position's custom exit levels."""
+    from dashboard import exit_monitor
+    exit_monitor.clear_level(symbol.strip().upper())
+    return {"success": True}
+
+
 @app.get("/api/exits/thesis")
 def exits_thesis() -> Dict[str, Any]:
     """Thesis-drift: does each open option's underlying still agree with the bet."""
