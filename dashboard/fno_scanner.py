@@ -14,6 +14,7 @@ edge or profit is claimed. Every figure is live and timestamped.
 import threading
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -141,8 +142,13 @@ def premarket_scan(top: int = 12) -> Dict[str, Any]:
     or today's open, vs prev close). A big gap flags a likely WIDE-range day (validated
     magnitude edge) — it does NOT predict direction. A watchlist, never a buy list."""
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # True only during the NSE pre-open auction window (09:00–09:08 IST, weekdays). Outside
+    # it the gap is TODAY's realised open vs prev close — already played out, not a forward
+    # setup. shortcut: ignores exchange holidays; upgrade with a holiday calendar if needed.
+    now_ist = datetime.now(ZoneInfo("Asia/Kolkata"))
+    in_preopen = now_ist.weekday() < 5 and (9, 0) <= (now_ist.hour, now_ist.minute) <= (9, 8)
     out: Dict[str, Any] = {"timestamp": ts, "is_live": False, "source": "unavailable",
-                           "universe": 0, "gap_up": [], "gap_down": []}
+                           "universe": 0, "in_preopen": in_preopen, "gap_up": [], "gap_down": []}
     if not _connected():
         out["source"] = "Kite not connected — connect on System Check"
         return out

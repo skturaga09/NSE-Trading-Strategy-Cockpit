@@ -494,6 +494,7 @@ export interface PremarketGapScan {
   source: string;
   universe: number;
   scanned?: number;
+  in_preopen: boolean;
   gap_up: GapRow[];
   gap_down: GapRow[];
 }

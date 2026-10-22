@@ -563,6 +563,11 @@ function PremarketGap({ gap, loading, onScan, onPick }: {
       ) : (
         <>
           <div className="font-mono text-[10px] text-muted">● {gap.source} · {gap.scanned}/{gap.universe} scanned · {gap.timestamp}</div>
+          {!gap.in_preopen && (
+            <div className="rounded-md border border-gold/40 bg-gold/10 px-2.5 py-1.5 font-mono text-[10px] text-gold">
+              ⚠ Showing TODAY's realised open gaps — already played out. Run during the pre-open window (09:00–09:08 IST) for tomorrow's setups.
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {col(gap.gap_up, "▲ Gap up", "var(--green)", "LONG")}
             {col(gap.gap_down, "▼ Gap down", "var(--red)", "SHORT")}
