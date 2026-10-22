@@ -482,6 +482,7 @@ export interface ExitLevel {
   stop: number | null;
   target: number | null;
   basis: "premium" | "underlying";
+  auto?: boolean;
 }
 export interface ExitLevelsResponse {
   levels: Record<string, ExitLevel>;

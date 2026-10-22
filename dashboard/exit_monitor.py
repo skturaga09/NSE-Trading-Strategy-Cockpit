@@ -100,6 +100,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "candidate_every_min": 60,  # periodic "top F&O candidates" digest (0 = off)
     "candidate_top": 5,         # how many longs/shorts to list
     "breakout_alerts": True,    # push VCP breakouts (pivot cross) as they happen
+    "auto_levels": True,        # auto-snapshot the plan's stop/target when a NEW position appears
+    "auto_levels_min_rr": 1.2,  # skip auto-set if the plan's reward:risk is below this (weak setup)
     # Tapping an alert opens this. Universal link → opens the Kite iOS/Android app
     # when installed (else the browser). Change if you find a scheme that opens the app.
     "kite_link": "https://kite.zerodha.com/positions",
@@ -157,11 +159,11 @@ def get_levels() -> Dict[str, Any]:
     return _load(_LEVELS, {})
 
 
-def set_level(sym: str, stop: Any, target: Any, basis: str = "premium") -> Dict[str, Any]:
+def set_level(sym: str, stop: Any, target: Any, basis: str = "premium", auto: bool = False) -> Dict[str, Any]:
     lv = get_levels()
     lv[sym] = {"stop": float(stop) if stop not in (None, "") else None,
                "target": float(target) if target not in (None, "") else None,
-               "basis": basis if basis in ("premium", "underlying") else "premium"}
+               "basis": basis if basis in ("premium", "underlying") else "premium", "auto": auto}
     _save(_LEVELS, lv)
     return lv[sym]
 
@@ -170,6 +172,41 @@ def clear_level(sym: str) -> None:
     lv = get_levels()
     lv.pop(sym, None)
     _save(_LEVELS, lv)
+
+
+_AUTO_SEEN = _DIR / "exit_auto_seen.json"
+
+
+def _auto_set_levels(sym: str, cfg: Dict[str, Any], levels: Dict[str, Any]) -> None:
+    """When a NEW option position appears with no level yet, snapshot the dashboard's
+    intraday structure plan (stop/target FIXED at this moment) and register it — so you
+    never type levels. Each position is auto-set at most once; a manual level always wins
+    and is never overwritten. shortcut: options only (symbol parse); futures/equity later."""
+    if sym in levels or not cfg.get("auto_levels", True):
+        return
+    seen = _load(_AUTO_SEEN, [])
+    if sym in seen:
+        return                                  # already tried → don't fight a cleared level
+    m = structure_exit._SYM.match(sym)
+    if not m:
+        return
+    try:
+        from dashboard import swing_scan
+        plan = swing_scan.intraday_structure_plan(m.group("u"))
+    except Exception:
+        plan = None
+    side = (plan or {}).get("long" if m.group("t") == "CE" else "short") if plan and plan.get("is_live") else None
+    if not side or not side.get("stop") or not side.get("target"):
+        return                                  # plan not computable now → retry next cycle (not marked seen)
+    if (side.get("rr") or 0) < float(cfg.get("auto_levels_min_rr", 1.2)):
+        _save(_AUTO_SEEN, seen + [sym])         # weak setup → don't auto-set, and don't retry
+        return
+    set_level(sym, side["stop"], side["target"], "underlying", auto=True)
+    levels[sym] = {"stop": side["stop"], "target": side["target"], "basis": "underlying", "auto": True}
+    _save(_AUTO_SEEN, seen + [sym])
+    notify("🎚 Auto exit levels set · " + sym,
+           f"From the plan: stop {side['stop']} · target {side['target']} (underlying, R:R {side.get('rr')}). "
+           f"The monitor will alert when either is hit. Edit/clear on the Exits tab.", cfg)
 
 
 def _custom_signal(bullish: bool, price: Optional[float], stop: Optional[float],
@@ -356,6 +393,10 @@ def evaluate() -> Dict[str, Any]:
                 # heads-up only, and only for a position that actually got into profit
                 signal, reason = "WEAKEN", struct["reason"]
 
+        # Auto-snapshot the plan's stop/target the first time a new position is seen, so you
+        # never type levels (manual levels always win and are never overwritten).
+        if _is_option(sym):
+            _auto_set_levels(sym, cfg, levels)
         # YOUR plan's levels: override everything except the hard premium STOP (capital
         # preservation always wins). For 'underlying' basis, compare the underlying spot.
         lvl = levels.get(sym)

@@ -112,7 +112,7 @@ function MyExitLevels({ positions }: { positions: string[] }) {
   return (
     <div className="panel space-y-3 rounded-lg p-5">
       <h2 className="font-display text-base font-bold text-ink">
-        🎚 My exit levels <span className="font-mono text-[11px] font-normal text-muted">— alert on YOUR plan's stop/target, not just the generic floors</span>
+        🎚 My exit levels <span className="font-mono text-[11px] font-normal text-muted">— auto-set from the plan when you take a trade; edit any time</span>
       </h2>
       <div className="flex flex-wrap items-end gap-2">
         <input list="pos-syms" className={`${inp} w-40`} placeholder="SYMBOL" value={sym} onChange={(e) => setSym(e.target.value)} />
@@ -130,7 +130,7 @@ function MyExitLevels({ positions }: { positions: string[] }) {
         </button>
       </div>
       {entries.length === 0 ? (
-        <p className="font-mono text-[10px] text-muted">No custom levels set. Add one above and the monitor will alert when your stop/target is hit (phone push + the Signal column shows 🛑 CSTOP / 🎯 CTGT).</p>
+        <p className="font-mono text-[10px] text-muted">No levels yet — when you take a trade, the monitor <span className="text-cyan">auto-sets</span> the plan's stop/target on its next cycle (≤2 min) and pushes a confirmation. Or add one manually above. Alerts show 🛑 CSTOP / 🎯 CTGT.</p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-line">
           <table className="w-full text-left text-xs">
@@ -140,7 +140,7 @@ function MyExitLevels({ positions }: { positions: string[] }) {
             <tbody className="divide-y divide-line font-mono text-[11px]">
               {entries.map(([s, l]) => (
                 <tr key={s}>
-                  <td className="px-3 py-1.5 text-ink/90">{s}</td>
+                  <td className="px-3 py-1.5 text-ink/90">{s} {l.auto && <span className="rounded border border-cyan/40 bg-cyan/10 px-1 text-[9px] text-cyan" title="Auto-set from the plan when the position appeared; edit to override.">AUTO</span>}</td>
                   <td className="px-3 py-1.5 text-muted">{l.basis}</td>
                   <td className="px-3 py-1.5" style={{ color: "var(--red)" }}>{l.stop ?? "—"}</td>
                   <td className="px-3 py-1.5" style={{ color: "var(--green)" }}>{l.target ?? "—"}</td>
