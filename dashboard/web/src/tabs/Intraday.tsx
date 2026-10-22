@@ -529,6 +529,12 @@ function PremarketGap({ gap, loading, onScan, onPick }: {
           <span className="flex min-w-0 items-baseline gap-1.5">
             <span className="text-ink/90">{g.symbol}</span>
             <span className="text-[9px] text-muted">×{g.lot_size ?? "?"}</span>
+            {g.dma50_state && (
+              <span className="text-[9px] font-bold" style={{ color: g.dma50_state === "ABOVE" ? "var(--green)" : "var(--red)" }}
+                title={`${g.dma50_state === "ABOVE" ? "Above" : "Below"} its 50-day MA by ${g.dma50_dist_pct}% — trend context, not a signal`}>
+                50{g.dma50_state === "ABOVE" ? "▲" : "▼"}
+              </span>
+            )}
           </span>
           <span className="flex items-center gap-2 tnum">
             <span style={{ color }}>{g.gap_pct >= 0 ? "+" : ""}{g.gap_pct}%</span>

@@ -150,7 +150,10 @@ def _attach_expected_range(rows: List[Dict[str, Any]]) -> None:
     for r in rows:
         tok, ref, lot = r.get("instrument_token"), r.get("ref_price"), r.get("lot_size")
         adr = _adr_pct(tok) if tok else None
+        dma = _dma50(tok) if tok else None
         r["adr_pct"] = adr
+        r["dma50_state"] = dma["state"] if dma else None
+        r["dma50_dist_pct"] = dma["dist_pct"] if dma else None
         if adr is None or not ref or not lot:
             r["exp_range_pct"] = None
             r["exp_range_per_lot"] = None

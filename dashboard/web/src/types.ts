@@ -498,6 +498,8 @@ export interface GapRow {
   adr_pct: number | null;
   exp_range_pct: number | null;
   exp_range_per_lot: number | null;
+  dma50_state: "ABOVE" | "BELOW" | null;
+  dma50_dist_pct: number | null;
 }
 export interface PremarketGapScan {
   timestamp: string;
