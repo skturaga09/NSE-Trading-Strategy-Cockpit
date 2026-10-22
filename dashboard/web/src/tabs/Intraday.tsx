@@ -539,7 +539,10 @@ function PremarketGap({ gap, loading, onScan, onPick }: {
           <span className="flex items-center gap-2 tnum">
             <span style={{ color }}>{g.gap_pct >= 0 ? "+" : ""}{g.gap_pct}%</span>
             <span className="w-[80px] text-right font-bold text-ink/80"
-              title={g.exp_range_pct === null ? "ADR unavailable" : `ADR ${g.adr_pct}%/day × 1.29 (validated big-gap lift) → ~${g.exp_range_pct}% expected range today. Magnitude, NOT direction.`}>
+              title={g.exp_range_pct === null ? "ADR unavailable"
+                : g.lift_applied
+                  ? `ADR ${g.adr_pct}%/day × 1.29 (validated big-gap lift) → ~${g.exp_range_pct}% expected range today. Magnitude, NOT direction.`
+                  : `ADR ${g.adr_pct}%/day — plain (gap < 1%, too small for the validated 1.29 lift) → ~${g.exp_range_pct}% expected range. Magnitude, NOT direction.`}>
               {g.exp_range_per_lot === null ? "—" : `₹${g.exp_range_per_lot.toLocaleString("en-IN")}`}
             </span>
           </span>

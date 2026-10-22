@@ -116,10 +116,12 @@ def _attach_headroom(rows: List[Dict[str, Any]]) -> None:
         r["headroom_per_lot"] = round(remaining / 100.0 * ltp * lot)
 
 
-# Validated magnitude lift: a big pre-open gap (|gap|≥1%) day runs ~1.29× the average
-# day's range out-of-sample (see premarket_gap_backtest.py). Used only to size the
-# "expected range" context on the pre-open screen — NOT a directional claim.
+# Validated magnitude lift: a big pre-open gap (|gap|≥GAP_MIN_FOR_LIFT%) day runs ~1.29× the
+# average day's range out-of-sample (see premarket_gap_backtest.py). The lift is validated
+# ONLY for real gaps, so a near-flat name gets plain ADR (lift 1.0), not an inflated range.
+# Used only to size the "expected range" context — NOT a directional claim.
 GAP_RANGE_LIFT = 1.29
+GAP_MIN_FOR_LIFT = 1.0
 
 
 def _universe_quotes() -> tuple:
@@ -158,7 +160,10 @@ def _attach_expected_range(rows: List[Dict[str, Any]]) -> None:
             r["exp_range_pct"] = None
             r["exp_range_per_lot"] = None
             continue
-        exp = adr * GAP_RANGE_LIFT
+        # The 1.29 lift is only validated for REAL gaps; a near-flat name gets plain ADR.
+        lift = GAP_RANGE_LIFT if abs(r.get("gap_pct", 0)) >= GAP_MIN_FOR_LIFT else 1.0
+        exp = adr * lift
+        r["lift_applied"] = lift > 1.0
         r["exp_range_pct"] = round(exp, 2)
         r["exp_range_per_lot"] = round(exp / 100.0 * ref * lot)
 
