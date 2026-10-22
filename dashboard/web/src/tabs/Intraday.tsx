@@ -43,8 +43,12 @@ const REGIMES: [string, string][] = [
   ["unclear", "6 · Unclear / mixed regime"],
 ];
 
-// Gates the engine derives (0-indexed): regime, sizing, daily-rules. Others = user judgment.
-const AUTO = { REGIME: 0, SIZING: 10, DAILY: 11 };
+// Gates the engine auto-derives from live data (0-indexed). The rest stay manual because
+// they're genuine judgment (setup match, structure read, breadth, trade plan) or need data
+// we don't cleanly have (true intraday relative-volume pace) — auto-passing those would just
+// let the discipline be gamed, so they default to UNKNOWN (which blocks) until you affirm them.
+const AUTO = { REGIME: 0, VWAP: 3, RR: 5, EVENT: 7, SPREAD: 8, VERIFIED: 9, SIZING: 10, DAILY: 11 };
+const AUTO_SET = new Set<number>([0, 3, 5, 7, 8, 9, 10, 11]);  // computed → manual buttons hidden
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 const nowIST = () => new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", hour12: false });
@@ -274,9 +278,22 @@ export function Intraday() {
   if (!cutoff.trim()) missing.push("square-off/cut-off time");
   const dataComplete = missing.length === 0;
 
-  // ---- effective gates (auto-derived where computable) ----
+  // ---- effective gates (auto-derived where computable; judgment gates stay manual) ----
+  const scanRow = scan ? [...scan.longs, ...scan.shorts].find((r) => r.symbol === underlying) : undefined;
+  const planSide = direction === "LONG" ? plan?.long : plan?.short;
+  const atmLeg = direction === "LONG"
+    ? chain?.rows.find((r) => r.atm)?.call
+    : chain?.rows.find((r) => r.atm)?.put;
+  const verified = [underlying, expiry, lotSize, entry, stop, perUnitCost].every((x) => x.trim() !== "");
   const gates: Gate[] = mGates.map((g, i) => {
     if (i === AUTO.REGIME) return regime === "" ? "UNKNOWN" : regime === "unclear" ? "FAIL" : "PASS";
+    if (i === AUTO.VWAP) return scanRow?.vs_vwap_pct == null ? "UNKNOWN"
+      : (direction === "LONG" ? scanRow.vs_vwap_pct > 0 : scanRow.vs_vwap_pct < 0) ? "PASS" : "FAIL";
+    if (i === AUTO.RR) return planSide?.rr == null ? "UNKNOWN" : planSide.rr >= 2 ? "PASS" : "FAIL";
+    if (i === AUTO.EVENT) return eventRisk === "clear" ? "PASS" : eventRisk === "restricted" ? "FAIL" : "UNKNOWN";
+    if (i === AUTO.SPREAD) return (atmLeg?.spread == null || !atmLeg?.ltp) ? "UNKNOWN"
+      : (atmLeg.spread / atmLeg.ltp) * 100 <= 3 ? "PASS" : "FAIL";
+    if (i === AUTO.VERIFIED) return verified ? "PASS" : "UNKNOWN";
     if (i === AUTO.SIZING) return sizing.ready ? (sizing.ok ? "PASS" : "FAIL") : "UNKNOWN";
     if (i === AUTO.DAILY) return dailyPermitted ? "PASS" : "FAIL";
     if (i === 12) return hasSample ? g : "UNKNOWN"; // evidence gate needs the sample flag
@@ -434,10 +451,10 @@ export function Intraday() {
       </Panel>
 
       {/* C · GATE TABLE */}
-      <Panel title="C · Pre-Trade Gates" tag="all 14 must PASS — any FAIL/UNKNOWN ⇒ no trade">
+      <Panel title="C · Pre-Trade Gates" tag="all 14 must PASS — any FAIL/UNKNOWN ⇒ no trade · 8 auto from live data, 6 your judgment">
         <div className="space-y-1.5">
           {GATE_LABELS.map((label, i) => {
-            const isAuto = i === AUTO.REGIME || i === AUTO.SIZING || i === AUTO.DAILY;
+            const isAuto = AUTO_SET.has(i);
             return (
               <div key={i} className="flex items-center gap-3 rounded-md border border-line bg-raised/30 px-3 py-2">
                 <span className="w-5 shrink-0 font-mono text-[10px] text-muted">{i + 1}</span>
