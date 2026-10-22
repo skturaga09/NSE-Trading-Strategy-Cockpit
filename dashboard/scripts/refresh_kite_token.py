@@ -145,7 +145,10 @@ def refresh() -> int:
         "is_connected": True,
         "token_refreshed_at": time.strftime("%Y-%m-%d %H:%M:%S"),
     })
-    CONFIG_FILE.write_text(json.dumps(config, indent=2), encoding="utf-8")
+    # Atomic (temp file + replace): a crash mid-write must never truncate the token file.
+    tmp = CONFIG_FILE.with_name(CONFIG_FILE.name + ".tmp")
+    tmp.write_text(json.dumps(config, indent=2), encoding="utf-8")
+    tmp.replace(CONFIG_FILE)
     log(f"SUCCESS: access_token refreshed and written to {CONFIG_FILE.name}")
     return 0
 

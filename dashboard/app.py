@@ -154,10 +154,12 @@ def load_kite_config() -> Dict[str, Any]:
     return config
 
 def save_kite_config(config: Dict[str, Any]):
-    """Persist Zerodha Kite connection configuration."""
+    """Persist Zerodha Kite connection configuration. Atomic (temp file + replace) so a
+    crash mid-write can never leave the token file truncated/empty."""
     try:
-        with open(KITE_CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2)
+        tmp = KITE_CONFIG_FILE.with_name(KITE_CONFIG_FILE.name + ".tmp")
+        tmp.write_text(json.dumps(config, indent=2), encoding="utf-8")
+        tmp.replace(KITE_CONFIG_FILE)
     except Exception as e:
         print(f"Error saving kite_config.json: {e}")
 
