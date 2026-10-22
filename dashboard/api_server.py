@@ -311,6 +311,14 @@ def intraday_fno_scan() -> Dict[str, Any]:
     return fno_scanner.scan()
 
 
+@app.get("/api/intraday/premarket-gap")
+def intraday_premarket_gap() -> Dict[str, Any]:
+    """Pre-open gap screen — F&O names ranked by opening gap, with a validated
+    'expected range today' (magnitude, not direction). A watchlist, not advice."""
+    from dashboard import fno_scanner
+    return fno_scanner.premarket_scan()
+
+
 @app.get("/api/intraday/plan")
 def intraday_plan(underlying: str = "NIFTY") -> Dict[str, Any]:
     """Structure-based intraday stop/target (underlying) from 15-min swing pivots."""

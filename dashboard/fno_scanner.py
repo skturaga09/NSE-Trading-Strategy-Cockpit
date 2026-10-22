@@ -92,6 +92,89 @@ def _attach_headroom(rows: List[Dict[str, Any]]) -> None:
         r["headroom_per_lot"] = round(remaining / 100.0 * ltp * lot)
 
 
+# Validated magnitude lift: a big pre-open gap (|gap|≥1%) day runs ~1.29× the average
+# day's range out-of-sample (see premarket_gap_backtest.py). Used only to size the
+# "expected range" context on the pre-open screen — NOT a directional claim.
+GAP_RANGE_LIFT = 1.29
+
+
+def _universe_quotes() -> tuple:
+    """(names, lot_map, quotes) for the F&O universe — one batched /quote sweep.
+    Shared by the momentum scan and the pre-open gap scan so they can't drift apart."""
+    names = fno_universe()
+    lot_map: Dict[str, int] = {}
+    for r in _instruments():
+        if r.get("instrument_type") == "FUT" and r.get("segment") == "NFO-FUT" and r.get("name"):
+            try:
+                lot_map[r["name"]] = int(float(r["lot_size"]))
+            except Exception:
+                pass
+    quotes: Dict[str, Any] = {}
+    for group in _chunk([f"NSE:{n}" for n in names], 200):
+        r = requests.get("https://api.kite.trade/quote",
+                         params=[("i", s) for s in group], headers=_headers(), timeout=10)
+        j = r.json()
+        if j.get("status") == "success":
+            quotes.update(j["data"])
+    return names, lot_map, quotes
+
+
+def _attach_expected_range(rows: List[Dict[str, Any]]) -> None:
+    """Attach the validated 'expected range today' for a gapped name: its ADR scaled by
+    the big-gap lift, as % and ₹/lot. This is a MAGNITUDE estimate (how wide a day),
+    not a direction — a gapped name tends to run ~1.29× its normal range."""
+    for r in rows:
+        tok, ref, lot = r.get("instrument_token"), r.get("ref_price"), r.get("lot_size")
+        adr = _adr_pct(tok) if tok else None
+        r["adr_pct"] = adr
+        if adr is None or not ref or not lot:
+            r["exp_range_pct"] = None
+            r["exp_range_per_lot"] = None
+            continue
+        exp = adr * GAP_RANGE_LIFT
+        r["exp_range_pct"] = round(exp, 2)
+        r["exp_range_per_lot"] = round(exp / 100.0 * ref * lot)
+
+
+def premarket_scan(top: int = 12) -> Dict[str, Any]:
+    """Pre-open gap screen: rank F&O names by the opening gap (pre-open indicative price,
+    or today's open, vs prev close). A big gap flags a likely WIDE-range day (validated
+    magnitude edge) — it does NOT predict direction. A watchlist, never a buy list."""
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    out: Dict[str, Any] = {"timestamp": ts, "is_live": False, "source": "unavailable",
+                           "universe": 0, "gap_up": [], "gap_down": []}
+    if not _connected():
+        out["source"] = "Kite not connected — connect on System Check"
+        return out
+    try:
+        names, lot_map, quotes = _universe_quotes()
+        out["universe"] = len(names)
+        rows: List[Dict[str, Any]] = []
+        for n in names:
+            d = quotes.get(f"NSE:{n}")
+            if not d:
+                continue
+            ohlc = d.get("ohlc", {}) or {}
+            prev_close = ohlc.get("close")
+            ref = ohlc.get("open") or d.get("last_price")   # pre-open indicative, else today's open
+            if not ref or not prev_close:
+                continue
+            rows.append({
+                "symbol": n, "ref_price": ref, "prev_close": prev_close,
+                "instrument_token": d.get("instrument_token"), "lot_size": lot_map.get(n),
+                "gap_pct": round((ref - prev_close) / prev_close * 100.0, 2),
+            })
+        ups = sorted([r for r in rows if r["gap_pct"] > 0], key=lambda r: r["gap_pct"], reverse=True)[:top]
+        downs = sorted([r for r in rows if r["gap_pct"] < 0], key=lambda r: r["gap_pct"])[:top]
+        _attach_expected_range(ups)       # ADR history only for the names shown
+        _attach_expected_range(downs)
+        out.update({"is_live": True, "source": "Zerodha Kite live (pre-open / open gap)",
+                    "scanned": len(rows), "gap_up": ups, "gap_down": downs})
+    except Exception as e:
+        out["source"] = f"Kite request failed: {e}"
+    return out
+
+
 def scan(top: int = 12) -> Dict[str, Any]:
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     out: Dict[str, Any] = {"timestamp": ts, "is_live": False, "source": "unavailable",
@@ -100,24 +183,8 @@ def scan(top: int = 12) -> Dict[str, Any]:
         out["source"] = "Kite not connected — connect on System Check"
         return out
     try:
-        names = fno_universe()
+        names, lot_map, quotes = _universe_quotes()
         out["universe"] = len(names)
-        # name -> futures lot size, for per-lot P&L on the day's move.
-        lot_map: Dict[str, int] = {}
-        for r in _instruments():
-            if r.get("instrument_type") == "FUT" and r.get("segment") == "NFO-FUT" and r.get("name"):
-                try:
-                    lot_map[r["name"]] = int(float(r["lot_size"]))
-                except Exception:
-                    pass
-        quotes: Dict[str, Any] = {}
-        for group in _chunk([f"NSE:{n}" for n in names], 200):
-            r = requests.get("https://api.kite.trade/quote",
-                             params=[("i", s) for s in group], headers=_headers(), timeout=10)
-            j = r.json()
-            if j.get("status") == "success":
-                quotes.update(j["data"])
-
         rows: List[Dict[str, Any]] = []
         for n in names:
             d = quotes.get(f"NSE:{n}")

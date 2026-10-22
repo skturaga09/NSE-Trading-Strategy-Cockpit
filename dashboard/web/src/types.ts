@@ -478,6 +478,25 @@ export interface FnoScan {
   longs: FnoCandidate[];
   shorts: FnoCandidate[];
 }
+export interface GapRow {
+  symbol: string;
+  ref_price: number;
+  prev_close: number;
+  lot_size: number | null;
+  gap_pct: number;
+  adr_pct: number | null;
+  exp_range_pct: number | null;
+  exp_range_per_lot: number | null;
+}
+export interface PremarketGapScan {
+  timestamp: string;
+  is_live: boolean;
+  source: string;
+  universe: number;
+  scanned?: number;
+  gap_up: GapRow[];
+  gap_down: GapRow[];
+}
 
 // --- MCX commodities (isolated) ---
 export interface McxDataQuality {

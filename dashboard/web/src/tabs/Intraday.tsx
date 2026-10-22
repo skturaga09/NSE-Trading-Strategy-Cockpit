@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { GATE_LABELS } from "../gates";
-import type { IntradayContext, OptionChain, OptionLeg, FnoScan, FnoCandidate, IntradayPlan } from "../types";
+import type { IntradayContext, OptionChain, OptionLeg, FnoScan, FnoCandidate, IntradayPlan, PremarketGapScan, GapRow } from "../types";
 
 /* =============================================================================
    Intraday Index-Options DISCIPLINE CONSOLE  (NIFTY / BANKNIFTY, intraday only)
@@ -192,6 +192,19 @@ export function Intraday() {
       setScanning(false);
     }
   };
+  // Pre-open gap screen — on demand (its ADR lookups cost a few history calls; not polled).
+  const [gap, setGap] = useState<PremarketGapScan | null>(null);
+  const [gapLoading, setGapLoading] = useState(false);
+  const runGap = async () => {
+    setGapLoading(true);
+    try {
+      setGap(await api.getPremarketGap());
+    } catch {
+      setGap(null);
+    } finally {
+      setGapLoading(false);
+    }
+  };
   // Pick a scanned candidate → load its underlying, direction bias, context & chain.
   const loadCandidate = (symbol: string, bias: "LONG" | "SHORT") => {
     setUnderlying(symbol);
@@ -327,6 +340,9 @@ export function Intraday() {
           {chain && <OptionChainPanel chain={chain} onPick={pickLeg} />}
         </div>
       )}
+
+      {/* Pre-open gap radar — which names are set up for a WIDE day (magnitude, not direction) */}
+      <PremarketGap gap={gap} loading={gapLoading} onScan={runGap} onPick={loadCandidate} />
 
       {/* Live F&O candidate scanner (auto-runs on open; click a name → detail loads above) */}
       <FnoCandidates scan={scan} scanning={scanning} onScan={runScan} onPick={loadCandidate} selected={underlying} />
@@ -496,6 +512,72 @@ type Sizing =
   | { ready: true; riskPerUnit: number; maxUnits: number; permittedLots: number; maxLoss: number; lot: number; rr: number | null; ok: boolean };
 
 const GATE_COLOR: Record<Gate, string> = { PASS: "var(--green)", FAIL: "var(--red)", UNKNOWN: "var(--gold)" };
+
+function PremarketGap({ gap, loading, onScan, onPick }: {
+  gap: PremarketGapScan | null; loading: boolean; onScan: () => void;
+  onPick: (symbol: string, bias: "LONG" | "SHORT") => void;
+}) {
+  const col = (list: GapRow[], title: string, color: string, bias: "LONG" | "SHORT") => (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between">
+        <span className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color }}>{title}</span>
+        <span className="font-mono text-[8px] uppercase tracking-wider text-muted">name ×lot · gap% · exp range ₹/lot</span>
+      </div>
+      {list.length === 0 ? <div className="font-mono text-[10px] text-muted">—</div> : list.map((g) => (
+        <button key={g.symbol} onClick={() => onPick(g.symbol, bias)}
+          className="flex w-full items-center justify-between gap-2 rounded-md border border-line bg-raised/30 px-2.5 py-1.5 text-left font-mono text-[11px] transition-colors hover:bg-raised/60">
+          <span className="flex min-w-0 items-baseline gap-1.5">
+            <span className="text-ink/90">{g.symbol}</span>
+            <span className="text-[9px] text-muted">×{g.lot_size ?? "?"}</span>
+          </span>
+          <span className="flex items-center gap-2 tnum">
+            <span style={{ color }}>{g.gap_pct >= 0 ? "+" : ""}{g.gap_pct}%</span>
+            <span className="w-[80px] text-right font-bold text-ink/80"
+              title={g.exp_range_pct === null ? "ADR unavailable" : `ADR ${g.adr_pct}%/day × 1.29 (validated big-gap lift) → ~${g.exp_range_pct}% expected range today. Magnitude, NOT direction.`}>
+              {g.exp_range_per_lot === null ? "—" : `₹${g.exp_range_per_lot.toLocaleString("en-IN")}`}
+            </span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+  return (
+    <div className="panel space-y-3 rounded-lg p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
+          🌅 Pre-open Gap Radar <span className="font-mono text-[11px] font-normal text-muted">— which names are set up for a WIDE day (magnitude, not direction)</span>
+        </h2>
+        <button onClick={onScan} disabled={loading}
+          className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25 disabled:opacity-50">
+          {loading ? "⏳ Reading gaps…" : "⟳ Scan pre-open gaps"}
+        </button>
+      </div>
+      {!gap ? (
+        <p className="font-mono text-[11px] text-muted">
+          Best run in the <span className="text-ink/80">pre-open window (09:00–09:08)</span>. Ranks F&amp;O names by the opening gap
+          and shows each one's <span className="text-ink/80">expected range today</span> (its typical daily range × 1.29, the
+          out-of-sample lift a big gap gives). Click a name to load it above.
+        </p>
+      ) : !gap.is_live ? (
+        <p className="font-mono text-[11px] text-gold">⚠ Unavailable — {gap.source}. Connect Kite (System Check), then retry.</p>
+      ) : (
+        <>
+          <div className="font-mono text-[10px] text-muted">● {gap.source} · {gap.scanned}/{gap.universe} scanned · {gap.timestamp}</div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {col(gap.gap_up, "▲ Gap up", "var(--green)", "LONG")}
+            {col(gap.gap_down, "▼ Gap down", "var(--red)", "SHORT")}
+          </div>
+          <p className="font-mono text-[9px] leading-relaxed text-muted">
+            <span className="text-ink/80">exp range ₹/lot</span> = the name's typical daily range (ADR, 14-day) × <span className="text-ink/80">1.29</span> —
+            the validated amount a big-gap day runs wider than normal — sized to one lot. It says the name will likely <span className="text-gold">MOVE a lot</span>,
+            <span className="text-gold"> not which way</span>: gap-and-go showed no edge net of cost. A watchlist of where the action will be, not a buy list.
+            Direction + your gates still decide the trade.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
 
 function FnoCandidates({ scan, scanning, onScan, onPick, selected }: {
   scan: FnoScan | null; scanning: boolean; onScan: () => void;

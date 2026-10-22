@@ -23,6 +23,7 @@ import type {
   OptionChain,
   IntradayPlan,
   FnoScan,
+  PremarketGapScan,
   SwingScan,
   IgniteScan,
   IgniteCompare,
@@ -139,6 +140,9 @@ export const api = {
 
   getFnoScan: () =>
     getJSON<FnoScan>(`/api/intraday/fno-scan?_t=${Date.now()}`),
+
+  getPremarketGap: () =>
+    getJSON<PremarketGapScan>(`/api/intraday/premarket-gap?_t=${Date.now()}`),
 
   getIgnite: () =>
     getJSON<IgniteScan>(`/api/intraday/ignite?_t=${Date.now()}`),
