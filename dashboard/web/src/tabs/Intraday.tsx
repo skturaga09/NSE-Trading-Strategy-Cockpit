@@ -505,7 +505,7 @@ function FnoCandidates({ scan, scanning, onScan, onPick, selected }: {
     <div className="space-y-1">
       <div className="flex items-baseline justify-between">
         <span className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color }}>{title}</span>
-        <span className="font-mono text-[8px] uppercase tracking-wider text-muted">name ×lot · %chg · ₹/lot</span>
+        <span className="font-mono text-[8px] uppercase tracking-wider text-muted">name ×lot · %chg · room left ₹/lot</span>
       </div>
       {list.length === 0 ? <div className="font-mono text-[10px] text-muted">—</div> : list.map((c) => (
         <button key={c.symbol} onClick={() => onPick(c.symbol, c.bias)}
@@ -518,9 +518,9 @@ function FnoCandidates({ scan, scanning, onScan, onPick, selected }: {
           </span>
           <span className="flex items-center gap-2 tnum">
             <span style={{ color: c.pct_change >= 0 ? "var(--green)" : "var(--red)" }}>{c.pct_change >= 0 ? "+" : ""}{c.pct_change}%</span>
-            <span className="w-[72px] text-right font-bold" style={{ color: (c.pnl_per_lot ?? 0) >= 0 ? "var(--green)" : "var(--red)" }}
-              title="P&L of 1 lot in the bias direction, on the move since yesterday's close (hindsight)">
-              {c.pnl_per_lot === null ? "—" : `${c.pnl_per_lot >= 0 ? "+" : ""}₹${Math.abs(c.pnl_per_lot).toLocaleString("en-IN")}`}
+            <span className="w-[80px] text-right font-bold" style={{ color: c.headroom_pct === null ? "var(--muted)" : c.headroom_pct <= 0.3 ? "var(--red)" : c.headroom_pct >= 1 ? "var(--green)" : "var(--gold)" }}
+              title={c.headroom_pct === null ? "ADR unavailable" : `ADR ${c.adr_pct}%/day, ${c.range_used_pct}% used today → ~${c.headroom_pct}% of typical range left. Forward room (not a forecast); near 0 = already ran its usual range = chasing.`}>
+              {c.headroom_per_lot === null ? "—" : `₹${c.headroom_per_lot.toLocaleString("en-IN")}`}
             </span>
           </span>
         </button>
@@ -556,11 +556,12 @@ function FnoCandidates({ scan, scanning, onScan, onPick, selected }: {
             {col(scan.shorts, "▼ Weakest (short bias)", "var(--red)")}
           </div>
           <p className="font-mono text-[9px] leading-relaxed text-muted">
-            <span className="text-ink/80">₹/lot</span> = P&amp;L of one lot of the stock future held in the bias direction on the
-            move from <span className="text-ink/80">yesterday's close → now</span> (1 lot = the ×lot shares shown). This is the
-            move that <span className="text-gold">already happened</span> — a hindsight sizing of the day's move, NOT a forecast;
-            a large ₹/lot often means the easy move is done. Ranked by momentum only (vs day VWAP + range position + % change) —
-            it shows where the movement is, not that a trade has edge. Confirm the setup and pass every gate before acting.
+            <span className="text-ink/80">room left ₹/lot</span> = how much of this name's <span className="text-ink/80">typical daily
+            range (ADR, 14-day)</span> is still unused today, sized to one lot — a <span className="text-ink/80">forward</span> gauge of room
+            ahead, not the move that already happened. <span className="text-red">Red (≤0.3% left)</span> = it has already run its usual
+            range → you'd be <span className="text-gold">chasing</span>; <span className="text-green">green (≥1% left)</span> = room remains.
+            NOT a forecast — a strong day can over-run ADR and a dull one under-run it. Ranked by momentum only (vs day VWAP + range
+            position + % change); it shows where movement is, not that a trade has edge. Confirm the setup and pass every gate before acting.
           </p>
         </>
       )}

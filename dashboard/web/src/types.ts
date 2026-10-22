@@ -464,8 +464,10 @@ export interface FnoCandidate {
   score: number;
   bias: "LONG" | "SHORT";
   lot_size: number | null;
-  move: number;
-  pnl_per_lot: number | null;
+  range_used_pct: number | null;
+  adr_pct: number | null;
+  headroom_pct: number | null;
+  headroom_per_lot: number | null;
 }
 export interface FnoScan {
   timestamp: string;

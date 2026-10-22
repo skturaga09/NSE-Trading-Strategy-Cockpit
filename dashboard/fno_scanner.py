@@ -12,7 +12,7 @@ edge or profit is claimed. Every figure is live and timestamped.
 """
 
 import threading
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -44,6 +44,52 @@ def fno_universe() -> List[str]:
 def _chunk(xs: List[str], n: int):
     for i in range(0, len(xs), n):
         yield xs[i:i + n]
+
+
+_ADR: Dict[Any, Any] = {}  # instrument_token -> (date_iso, adr_pct)
+
+
+def _adr_pct(token: Any, days: int = 14) -> Optional[float]:
+    """Average Daily Range % = mean of (high-low)/prev_close over the last `days` sessions.
+    This is the typical room a name has in a day — the baseline for 'how much is left'.
+    Cached per day (ADR barely moves intraday), and only called for the handful of RANKED
+    names actually shown, so the live scan stays cheap (no 200-name history sweep)."""
+    today = date.today().isoformat()
+    hit = _ADR.get(token)
+    if hit and hit[0] == today:
+        return hit[1]
+    frm = (date.today() - timedelta(days=days * 2 + 12)).isoformat()  # calendar buffer for weekends/holidays
+    cs: List[Any] = []
+    try:
+        j = requests.get(f"https://api.kite.trade/instruments/historical/{token}/day",
+                         params={"from": frm, "to": today}, headers=_headers(), timeout=8).json()
+        if j.get("status") == "success":
+            cs = j.get("data", {}).get("candles", []) or []
+    except Exception:
+        cs = []
+    cs = cs[-(days + 1):]
+    ranges = [(cs[i][2] - cs[i][3]) / cs[i - 1][4] * 100 for i in range(1, len(cs)) if cs[i - 1][4]]
+    adr = round(sum(ranges) / len(ranges), 2) if ranges else None
+    _ADR[token] = (today, adr)
+    return adr
+
+
+def _attach_headroom(rows: List[Dict[str, Any]]) -> None:
+    """For each ranked row, attach ADR-remaining headroom: how much of its TYPICAL daily
+    range is still unused, sized to a lot. This is forward (room left), not hindsight —
+    a floor near 0 means 'already ran its usual range today → chasing'. Not a forecast:
+    the day can over- or under-run its average; it's a context gauge for the entry."""
+    for r in rows:
+        tok, used, ltp, lot = r.get("instrument_token"), r.get("range_used_pct"), r.get("ltp"), r.get("lot_size")
+        adr = _adr_pct(tok) if tok else None
+        r["adr_pct"] = adr
+        if adr is None or used is None or not ltp or not lot:
+            r["headroom_pct"] = None
+            r["headroom_per_lot"] = None
+            continue
+        remaining = max(0.0, adr - used)
+        r["headroom_pct"] = round(remaining, 2)
+        r["headroom_per_lot"] = round(remaining / 100.0 * ltp * lot)
 
 
 def scan(top: int = 12) -> Dict[str, Any]:
@@ -97,24 +143,25 @@ def scan(top: int = 12) -> Dict[str, Any]:
                 score += (rng_pos - 0.5) * 4.0
             bias = "LONG" if score > 0 else "SHORT"
             lot = lot_map.get(n)
-            move = ltp - prev_close  # per share, since yesterday's close
-            # P&L of 1 lot of stock futures held in the bias direction (the move that
-            # already happened, sized to a lot — hindsight, not a forecast).
-            pnl_per_lot = round((move if bias == "LONG" else -move) * lot) if lot else None
+            # % of the day's range already travelled — the baseline for ADR headroom below.
+            range_used = ((hi - lo) / prev_close * 100.0) if (hi and lo) else None
             rows.append({
                 "symbol": n, "ltp": ltp, "prev_close": prev_close,
+                "instrument_token": d.get("instrument_token"),
                 "pct_change": round(pct, 2),
                 "vs_vwap_pct": round(vs_vwap, 2) if vs_vwap is not None else None,
                 "range_pos": round(rng_pos, 2) if rng_pos is not None else None,
                 "gap_pct": round(gap, 2) if gap is not None else None,
-                "volume": vol, "score": round(score, 2), "bias": bias,
-                "lot_size": lot, "move": round(move, 2), "pnl_per_lot": pnl_per_lot,
+                "range_used_pct": round(range_used, 2) if range_used is not None else None,
+                "volume": vol, "score": round(score, 2), "bias": bias, "lot_size": lot,
             })
 
         longs = sorted([r for r in rows if r["vs_vwap_pct"] is None or r["vs_vwap_pct"] > 0],
                        key=lambda r: r["score"], reverse=True)[:top]
         shorts = sorted([r for r in rows if r["vs_vwap_pct"] is None or r["vs_vwap_pct"] < 0],
                         key=lambda r: r["score"])[:top]
+        _attach_headroom(longs)       # ADR history only for the names actually shown
+        _attach_headroom(shorts)
         out.update({"is_live": True, "source": "Zerodha Kite live (/quote day VWAP)",
                     "scanned": len(rows), "longs": longs, "shorts": shorts})
     except Exception as e:
