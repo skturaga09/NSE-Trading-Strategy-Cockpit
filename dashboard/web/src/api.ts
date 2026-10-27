@@ -199,7 +199,7 @@ export const api = {
   getGttPlan: () =>
     getJSON<GttPlan>(`/api/exits/gtt-plan?_t=${Date.now()}`),
 
-  setExitLevel: (body: { symbol: string; stop: number | null; target: number | null; basis: "premium" | "underlying" }) =>
+  setExitLevel: (body: { symbol: string; stop: number | null; target: number | null; basis: "premium" | "underlying" | "pnl" }) =>
     postJSON<typeof body, { success: boolean; message?: string }>("/api/exits/levels", body),
 
   clearExitLevel: async (symbol: string) => {
