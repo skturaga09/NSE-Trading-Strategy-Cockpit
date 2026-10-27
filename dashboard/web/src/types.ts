@@ -516,6 +516,24 @@ export interface GapRow {
   dma50_state: "ABOVE" | "BELOW" | null;
   dma50_dist_pct: number | null;
 }
+export interface ShortlistName {
+  symbol: string;
+  bias: "LONG" | "SHORT";
+  lot_size: number | null;
+  pct_change: number | null;
+  dma50_state: "ABOVE" | "BELOW" | null;
+  headroom_per_lot: number | null;
+  tier: "GO" | "WATCH" | "STAND DOWN";
+  why: string;
+  checks: Record<string, boolean>;
+}
+export interface Shortlist {
+  timestamp: string;
+  is_live: boolean;
+  source: string;
+  regime: string | null;
+  names: ShortlistName[];
+}
 export interface PremarketGapScan {
   timestamp: string;
   is_live: boolean;

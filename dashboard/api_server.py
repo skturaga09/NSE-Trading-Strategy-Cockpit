@@ -354,6 +354,14 @@ def intraday_premarket_gap() -> Dict[str, Any]:
     return fno_scanner.premarket_scan()
 
 
+@app.get("/api/intraday/shortlist")
+def intraday_shortlist() -> Dict[str, Any]:
+    """Permission shortlist — GO / WATCH / STAND DOWN per candidate from regime + trend +
+    participation + room + VWAP. Discipline (clears the hygiene bars), NOT a profit forecast."""
+    from dashboard import fno_scanner
+    return fno_scanner.shortlist()
+
+
 @app.get("/api/intraday/plan")
 def intraday_plan(underlying: str = "NIFTY") -> Dict[str, Any]:
     """Structure-based intraday stop/target (underlying) from 15-min swing pivots."""

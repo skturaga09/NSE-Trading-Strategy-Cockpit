@@ -24,6 +24,7 @@ import type {
   IntradayPlan,
   FnoScan,
   PremarketGapScan,
+  Shortlist,
   ExitLevelsResponse,
   GttPlan,
   SwingScan,
@@ -145,6 +146,9 @@ export const api = {
 
   getPremarketGap: () =>
     getJSON<PremarketGapScan>(`/api/intraday/premarket-gap?_t=${Date.now()}`),
+
+  getShortlist: () =>
+    getJSON<Shortlist>(`/api/intraday/shortlist?_t=${Date.now()}`),
 
   getIgnite: () =>
     getJSON<IgniteScan>(`/api/intraday/ignite?_t=${Date.now()}`),

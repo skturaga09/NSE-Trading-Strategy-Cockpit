@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { GATE_LABELS } from "../gates";
-import type { IntradayContext, OptionChain, OptionLeg, FnoScan, FnoCandidate, IntradayPlan, PremarketGapScan, GapRow } from "../types";
+import type { IntradayContext, OptionChain, OptionLeg, FnoScan, FnoCandidate, IntradayPlan, PremarketGapScan, GapRow, Shortlist as ShortlistT } from "../types";
 
 /* =============================================================================
    Intraday Index-Options DISCIPLINE CONSOLE  (NIFTY / BANKNIFTY, intraday only)
@@ -217,6 +217,16 @@ export function Intraday() {
     void fetchChain(symbol);
     void fetchPlan(symbol);
   };
+  // Permission shortlist — GO/WATCH/STAND-DOWN, polled a bit slower (discipline tiers don't
+  // change second-to-second; reuses the scan server-side).
+  const [shortlist, setShortlist] = useState<ShortlistT | null>(null);
+  useEffect(() => {
+    const pull = () => { api.getShortlist().then(setShortlist).catch(() => {}); };
+    pull();
+    const id = setInterval(pull, 8000);
+    return () => clearInterval(id);
+  }, []);
+
   // Auto-run the F&O scan on open, then keep it live with a silent 3s refresh
   // (one /quote batch — cheap). The visible "Scanning…" flag only shows on manual runs.
   useEffect(() => {
@@ -340,6 +350,9 @@ export function Intraday() {
   return (
     <div className="space-y-6">
       <Disclaimer />
+
+      {/* Permission shortlist — the single decisive readout */}
+      <ShortlistPanel data={shortlist} onPick={loadCandidate} />
 
       {/* Selected-stock details — rendered ABOVE the scan table when a stock loads */}
       {(loadingCtx || loadingChain || ctx || chain) && (
@@ -529,6 +542,59 @@ type Sizing =
   | { ready: true; riskPerUnit: number; maxUnits: number; permittedLots: number; maxLoss: number; lot: number; rr: number | null; ok: boolean };
 
 const GATE_COLOR: Record<Gate, string> = { PASS: "var(--green)", FAIL: "var(--red)", UNKNOWN: "var(--gold)" };
+
+const TIER_COLOR: Record<string, string> = { GO: "var(--green)", WATCH: "var(--gold)", "STAND DOWN": "var(--red)" };
+
+function ShortlistPanel({ data, onPick }: {
+  data: ShortlistT | null; onPick: (symbol: string, bias: "LONG" | "SHORT") => void;
+}) {
+  const names = data?.names ?? [];
+  const go = names.filter((n) => n.tier === "GO");
+  const watch = names.filter((n) => n.tier === "WATCH");
+  const regime = data?.regime ?? "unknown";
+  const hostile = regime === "RISK_OFF" || regime === "RISK_ON";
+  return (
+    <div className="panel space-y-3 rounded-lg p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
+          ✅ Today's Shortlist <span className="font-mono text-[11px] font-normal text-muted">— permission, not prediction · clears the hygiene bars → load it &amp; run the 14 gates</span>
+        </h2>
+        <span className="font-mono text-[10px] text-muted">regime <span style={{ color: regime === "RISK_OFF" ? "var(--red)" : regime === "RISK_ON" ? "var(--green)" : "var(--gold)" }}>{regime}</span> · {data?.timestamp ?? "…"}</span>
+      </div>
+      {!data?.is_live ? (
+        <p className="font-mono text-[11px] text-gold">⚠ {data?.source ?? "loading…"}</p>
+      ) : names.length === 0 ? (
+        <p className="font-mono text-[11px] text-muted">No candidates ranked yet.</p>
+      ) : (
+        <>
+          {go.length === 0 && (
+            <div className="rounded-md border border-gold/40 bg-gold/10 px-3 py-2 font-mono text-[11px] text-gold">
+              Nothing clears every bar right now{hostile ? ` — ${regime} tape, stand down` : ""}. That IS the signal: no trade is a position.
+            </div>
+          )}
+          <div className="space-y-1.5">
+            {[...go, ...watch].map((n) => (
+              <button key={n.symbol + n.bias} onClick={() => onPick(n.symbol, n.bias)}
+                className="flex w-full items-center justify-between gap-3 rounded-md border border-line bg-raised/30 px-3 py-2 text-left font-mono text-[11px] hover:bg-raised/60">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="rounded px-2 py-0.5 text-[9px] font-bold uppercase text-bg" style={{ background: TIER_COLOR[n.tier] }}>{n.tier}</span>
+                  <span className="text-ink/90">{n.symbol}</span>
+                  <span className="text-[9px]" style={{ color: n.bias === "LONG" ? "var(--green)" : "var(--red)" }}>{n.bias}</span>
+                </span>
+                <span className="truncate text-[10px] text-muted">{n.why}</span>
+              </button>
+            ))}
+          </div>
+          <p className="font-mono text-[9px] leading-relaxed text-muted">
+            GO = passes regime + trend (50-DMA) + participation + room-left + VWAP — i.e. nothing is <span className="text-ink/80">wrong</span> with it,
+            <span className="text-gold"> not that it will win</span> (confluence showed no edge out-of-sample). It only means: worth loading and running the 14 gates.
+            STAND-DOWN names are hidden; a quiet board is a real answer.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
 
 function PremarketGap({ gap, loading, onScan, onPick }: {
   gap: PremarketGapScan | null; loading: boolean; onScan: () => void;

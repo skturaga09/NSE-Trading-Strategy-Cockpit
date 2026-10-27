@@ -212,6 +212,55 @@ def premarket_scan(top: int = 12) -> Dict[str, Any]:
     return out
 
 
+def _tier(bias: str, regime: Optional[str], dma50_state: Optional[str], pct_change: float,
+          gap_pct: Optional[float], headroom_pct: Optional[float], vs_vwap_pct: Optional[float]) -> Dict[str, Any]:
+    """Permission tier from the hygiene factors we already compute. DISCIPLINE, not a profit
+    forecast (confluence showed no edge OOS — see regime_filter_backtest.py). GO = 'clears
+    every hygiene bar → worth loading and running the 14 gates', never 'this will win'."""
+    hostile = (regime == "RISK_OFF" and bias == "LONG") or (regime == "RISK_ON" and bias == "SHORT")
+    checks = {
+        "trend": (dma50_state == "ABOVE") if bias == "LONG" else (dma50_state == "BELOW"),   # don't fight the 50-DMA
+        "participation": abs(pct_change) >= 1.5 or abs(gap_pct or 0) >= 1.0,                  # a real mover
+        "room": (headroom_pct or 0) > 0.3,                                                    # not chased
+        "vwap": vs_vwap_pct is not None and (vs_vwap_pct > 0 if bias == "LONG" else vs_vwap_pct < 0),
+    }
+    fails = [k for k, v in checks.items() if not v]
+    if hostile:
+        return {"tier": "STAND DOWN", "why": f"{regime} tape vs {bias} — don't fight it", "checks": checks}
+    if not fails:
+        return {"tier": "GO", "why": "clears every hygiene bar — load it and run the 14 gates", "checks": checks}
+    if len(fails) == 1:
+        return {"tier": "WATCH", "why": "missing: " + fails[0], "checks": checks}
+    return {"tier": "STAND DOWN", "why": "missing: " + ", ".join(fails), "checks": checks}
+
+
+def shortlist(top: int = 12) -> Dict[str, Any]:
+    """One permission verdict per ranked candidate — fuses regime + trend + participation +
+    room + VWAP into GO / WATCH / STAND DOWN. Assembly of existing factors, no new signal."""
+    from dashboard.exit_monitor import _current_regime
+    s = scan(top=top)
+    regime = None
+    try:
+        regime = _current_regime()
+    except Exception:
+        pass
+    out = {"timestamp": s["timestamp"], "is_live": s["is_live"], "source": s.get("source"),
+           "regime": regime, "universe": s.get("universe"), "scanned": s.get("scanned"), "names": []}
+    if not s.get("is_live"):
+        return out
+    rows = []
+    for r in s["longs"] + s["shorts"]:
+        t = _tier(r["bias"], regime, r.get("dma50_state"), r.get("pct_change", 0),
+                  r.get("gap_pct"), r.get("headroom_pct"), r.get("vs_vwap_pct"))
+        rows.append({"symbol": r["symbol"], "bias": r["bias"], "lot_size": r.get("lot_size"),
+                     "pct_change": r.get("pct_change"), "dma50_state": r.get("dma50_state"),
+                     "headroom_per_lot": r.get("headroom_per_lot"), **t})
+    rank = {"GO": 0, "WATCH": 1, "STAND DOWN": 2}
+    rows.sort(key=lambda x: rank[x["tier"]])
+    out["names"] = rows
+    return out
+
+
 def scan(top: int = 12) -> Dict[str, Any]:
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     out: Dict[str, Any] = {"timestamp": ts, "is_live": False, "source": "unavailable",
