@@ -137,7 +137,7 @@ function MyExitLevels({ positions }: { positions: string[] }) {
   const [sym, setSym] = useState("");
   const [stop, setStop] = useState("");
   const [target, setTarget] = useState("");
-  const [basis, setBasis] = useState<"premium" | "underlying">("premium");
+  const [basis, setBasis] = useState<"premium" | "underlying" | "pnl">("premium");
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
@@ -166,10 +166,11 @@ function MyExitLevels({ positions }: { positions: string[] }) {
       <div className="flex flex-wrap items-end gap-2">
         <input list="pos-syms" className={`${inp} w-40`} placeholder="SYMBOL" value={sym} onChange={(e) => setSym(e.target.value)} />
         <datalist id="pos-syms">{positions.map((s) => <option key={s} value={s} />)}</datalist>
-        <input className={`${inp} w-24`} placeholder="stop" inputMode="decimal" value={stop} onChange={(e) => setStop(e.target.value)} />
-        <input className={`${inp} w-24`} placeholder="target" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
-        <select className={inp} value={basis} onChange={(e) => setBasis(e.target.value as "premium" | "underlying")}
-          title="underlying = the plan's spot levels (e.g. 1880/1966); premium = the option's own LTP">
+        <input className={`${inp} w-28`} placeholder={basis === "pnl" ? "stop ₹ loss" : "stop"} inputMode="decimal" value={stop} onChange={(e) => setStop(e.target.value)} />
+        <input className={`${inp} w-28`} placeholder={basis === "pnl" ? "target ₹ profit" : "target"} inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
+        <select className={inp} value={basis} onChange={(e) => setBasis(e.target.value as "premium" | "underlying" | "pnl")}
+          title="pnl = rupees of profit/loss on the position; premium = the option's own ₹ price; underlying = the plan's spot levels">
+          <option value="pnl">₹ P&amp;L (profit/loss)</option>
           <option value="premium">premium (option ₹)</option>
           <option value="underlying">underlying (spot)</option>
         </select>
@@ -201,9 +202,9 @@ function MyExitLevels({ positions }: { positions: string[] }) {
         </div>
       )}
       <p className="font-mono text-[9px] leading-relaxed text-muted">
-        <span className="text-ink/80">underlying</span> basis watches the stock/index spot (the plan's levels, e.g. COFORGE 1880/1966) and knows CE vs PE direction;
-        <span className="text-ink/80"> premium</span> basis watches the option's own ₹ LTP. Your stop overrides the generic floors; the hard −{""}
-        {"premium"} stop still fires as a backstop. The monitor only tells you — <span className="text-gold">you place the exit in Kite</span>.
+        <span className="text-ink/80">₹ P&amp;L</span> basis is the easy one — type the rupees you want to make / can lose (e.g. target ₹2500, stop ₹1500) and it converts to the
+        option price using your entry &amp; qty. <span className="text-ink/80">premium</span> = the option's own ₹ price; <span className="text-ink/80">underlying</span> = the plan's spot levels.
+        Your level overrides the generic floors (the hard premium stop still fires as a backstop); the GTT card below turns it into a ready order. The monitor only tells you — <span className="text-gold">you place it in Kite</span>.
       </p>
     </div>
   );

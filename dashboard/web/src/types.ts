@@ -483,7 +483,7 @@ export interface FnoScan {
 export interface ExitLevel {
   stop: number | null;
   target: number | null;
-  basis: "premium" | "underlying";
+  basis: "premium" | "underlying" | "pnl";
   auto?: boolean;
 }
 export interface ExitLevelsResponse {

@@ -164,9 +164,20 @@ def set_level(sym: str, stop: Any, target: Any, basis: str = "premium", auto: bo
     lv = get_levels()
     lv[sym] = {"stop": float(stop) if stop not in (None, "") else None,
                "target": float(target) if target not in (None, "") else None,
-               "basis": basis if basis in ("premium", "underlying") else "premium", "auto": auto}
+               "basis": basis if basis in ("premium", "underlying", "pnl") else "premium", "auto": auto}
     _save(_LEVELS, lv)
     return lv[sym]
+
+
+def _pnl_to_premium(rupees: Any, entry: Optional[float], qty: int, is_profit: bool) -> Optional[float]:
+    """The option premium at which a ₹ P&L level is reached, given entry & qty. Profit = a
+    favorable move (up for a long, down for a short); loss = the adverse side."""
+    if rupees in (None, "") or not entry or not qty:
+        return None
+    per = abs(float(rupees)) / abs(qty)
+    favorable_up = (qty > 0)                       # a long option profits as premium rises
+    up = favorable_up if is_profit else (not favorable_up)
+    return round(max(0.05, entry + per if up else entry - per), 2)
 
 
 def clear_level(sym: str) -> None:
@@ -291,7 +302,12 @@ def gtt_plan() -> Dict[str, Any]:
         def _lim(trig: Optional[float]) -> Optional[float]:
             return round(max(0.05, round(trig * (0.97 if side == "SELL" else 1.03) / 0.05) * 0.05), 2) if trig else None
 
-        stop_p, tgt_p = _prem(lvl.get("stop")), _prem(lvl.get("target"))
+        if lvl["basis"] == "pnl":
+            entry = p.get("buy_price") if qty > 0 else p.get("sell_price")
+            stop_p = _pnl_to_premium(lvl.get("stop"), entry, qty, is_profit=False)
+            tgt_p = _pnl_to_premium(lvl.get("target"), entry, qty, is_profit=True)
+        else:
+            stop_p, tgt_p = _prem(lvl.get("stop")), _prem(lvl.get("target"))
         out["orders"].append({"symbol": sym, "exchange": exch, "side": side, "qty": abs(qty),
                               "basis": lvl["basis"],
                               "trigger": stop_p, "limit": _lim(stop_p),
@@ -497,9 +513,16 @@ def evaluate() -> Dict[str, Any]:
             if lvl.get("basis") == "underlying" and m:
                 from dashboard.option_chain import _spot_ltp
                 px, bullish, label = _spot_ltp(m.group("u")), (m.group("t") == "CE"), "underlying"
+                cstop, ctgt = lvl.get("stop"), lvl.get("target")
+            elif lvl.get("basis") == "pnl":
+                # ₹ P&L → the premium at which it's reached, from this position's entry & qty.
+                px, bullish, label = ltp, (qty > 0), "P&L ₹"
+                cstop = _pnl_to_premium(lvl.get("stop"), entry, qty, is_profit=False)
+                ctgt = _pnl_to_premium(lvl.get("target"), entry, qty, is_profit=True)
             else:
                 px, bullish, label = ltp, True, "premium ₹"   # a bought option profits as premium rises
-            csig, creason = _custom_signal(bullish, px, lvl.get("stop"), lvl.get("target"), label)
+                cstop, ctgt = lvl.get("stop"), lvl.get("target")
+            csig, creason = _custom_signal(bullish, px, cstop, ctgt, label)
             if csig != "HOLD":
                 signal, reason = csig, creason + " (your level)"
 
