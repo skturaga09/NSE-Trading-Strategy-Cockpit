@@ -548,18 +548,26 @@ const TIER_COLOR: Record<string, string> = { GO: "var(--green)", WATCH: "var(--g
 function ShortlistPanel({ data, onPick }: {
   data: ShortlistT | null; onPick: (symbol: string, bias: "LONG" | "SHORT") => void;
 }) {
+  const [showAll, setShowAll] = useState(false);
   const names = data?.names ?? [];
   const go = names.filter((n) => n.tier === "GO");
   const watch = names.filter((n) => n.tier === "WATCH");
+  const stand = names.filter((n) => n.tier === "STAND DOWN");
+  const shown = showAll ? names : [...go, ...watch];
   const regime = data?.regime ?? "unknown";
   const hostile = regime === "RISK_OFF" || regime === "RISK_ON";
   return (
     <div className="panel space-y-3 rounded-lg p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
-          ✅ Today's Shortlist <span className="font-mono text-[11px] font-normal text-muted">— permission, not prediction · clears the hygiene bars → load it &amp; run the 14 gates</span>
+          ✅ Today's {showAll ? "Long list" : "Shortlist"} <span className="font-mono text-[11px] font-normal text-muted">— permission, not prediction · clears the hygiene bars → load it &amp; run the 14 gates</span>
         </h2>
-        <span className="font-mono text-[10px] text-muted">regime <span style={{ color: regime === "RISK_OFF" ? "var(--red)" : regime === "RISK_ON" ? "var(--green)" : "var(--gold)" }}>{regime}</span> · {data?.timestamp ?? "…"}</span>
+        <span className="flex items-center gap-3">
+          <button onClick={() => setShowAll((v) => !v)} className="rounded border border-line bg-raised/40 px-2 py-0.5 font-mono text-[9px] text-muted hover:text-ink">
+            {showAll ? `shortlist only (${go.length + watch.length})` : `show all ${names.length} (+${stand.length} stand-down)`}
+          </button>
+          <span className="font-mono text-[10px] text-muted">regime <span style={{ color: regime === "RISK_OFF" ? "var(--red)" : regime === "RISK_ON" ? "var(--green)" : "var(--gold)" }}>{regime}</span> · {data?.timestamp ?? "…"}</span>
+        </span>
       </div>
       {!data?.is_live ? (
         <p className="font-mono text-[11px] text-gold">⚠ {data?.source ?? "loading…"}</p>
@@ -573,7 +581,7 @@ function ShortlistPanel({ data, onPick }: {
             </div>
           )}
           <div className="space-y-1.5">
-            {[...go, ...watch].map((n) => (
+            {shown.map((n) => (
               <button key={n.symbol + n.bias} onClick={() => onPick(n.symbol, n.bias)}
                 className="flex w-full items-center justify-between gap-3 rounded-md border border-line bg-raised/30 px-3 py-2 text-left font-mono text-[11px] hover:bg-raised/60">
                 <span className="flex min-w-0 items-center gap-2">
@@ -588,7 +596,7 @@ function ShortlistPanel({ data, onPick }: {
           <p className="font-mono text-[9px] leading-relaxed text-muted">
             GO = passes regime + trend (50-DMA) + participation + room-left + VWAP — i.e. nothing is <span className="text-ink/80">wrong</span> with it,
             <span className="text-gold"> not that it will win</span> (confluence showed no edge out-of-sample). It only means: worth loading and running the 14 gates.
-            STAND-DOWN names are hidden; a quiet board is a real answer.
+            The <span className="text-ink/80">shortlist</span> hides STAND-DOWN; <span className="text-ink/80">show all</span> is the long list — the full board with why each one fails. A quiet board is a real answer.
           </p>
         </>
       )}
