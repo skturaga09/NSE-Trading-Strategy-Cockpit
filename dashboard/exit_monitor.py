@@ -263,25 +263,40 @@ def gtt_plan() -> Dict[str, Any]:
             continue
         p0 = fresh.get(f"{p.get('exchange', 'NSE')}:{sym}") or p.get("last_price")
         rec = instr.get(sym)          # strike/expiry/type from the master — handles weeklies too
-        trigger: Optional[float] = None
-        if lvl["basis"] == "premium":
-            trigger = float(lvl["stop"])
-        elif rec and rec.get("instrument_type") in ("CE", "PE"):
+        # Reprice a level to an option premium: premium-basis = your real ₹ value, used as-is;
+        # underlying-basis = delta-adjusted via Black-Scholes. Reused for both stop and target.
+        bs_ctx = None
+        if lvl["basis"] != "premium" and rec and rec.get("instrument_type") in ("CE", "PE") and p0:
             is_call, K = (rec["instrument_type"] == "CE"), float(rec["strike"])
             try:
                 days = max(1, (_date.fromisoformat(rec["expiry"]) - _date.today()).days)
             except Exception:
                 days = 5
             T, S0 = days / 365.0, oc._spot_ltp(rec.get("name") or "")
-            iv = oc._iv(p0, S0, K, T, is_call) if (S0 and p0) else None
+            iv = oc._iv(p0, S0, K, T, is_call) if S0 else None
             if iv:
-                vf = iv / 100.0
-                prem = p0 + (oc._bs(float(lvl["stop"]), K, T, vf, is_call) - oc._bs(S0, K, T, vf, is_call))
-                trigger = round(max(0.05, round(prem / 0.05) * 0.05), 2)
-        limit = round(max(0.05, round(trigger * (0.97 if side == "SELL" else 1.03) / 0.05) * 0.05), 2) if trigger else None
+                bs_ctx = (is_call, K, T, S0, iv / 100.0)
+
+        def _prem(level_price: Any) -> Optional[float]:
+            if level_price in (None, ""):
+                return None
+            if lvl["basis"] == "premium":
+                return round(float(level_price), 2)
+            if not bs_ctx:
+                return None
+            is_call, K, T, S0, vf = bs_ctx
+            prem = p0 + (oc._bs(float(level_price), K, T, vf, is_call) - oc._bs(S0, K, T, vf, is_call))
+            return round(max(0.05, round(prem / 0.05) * 0.05), 2)
+
+        def _lim(trig: Optional[float]) -> Optional[float]:
+            return round(max(0.05, round(trig * (0.97 if side == "SELL" else 1.03) / 0.05) * 0.05), 2) if trig else None
+
+        stop_p, tgt_p = _prem(lvl.get("stop")), _prem(lvl.get("target"))
         out["orders"].append({"symbol": sym, "exchange": exch, "side": side, "qty": abs(qty),
-                              "trigger": trigger, "limit": limit, "basis": lvl["basis"],
-                              "note": "" if trigger else "couldn't reprice — set a premium-basis stop on the Exits tab"})
+                              "basis": lvl["basis"],
+                              "trigger": stop_p, "limit": _lim(stop_p),
+                              "target": tgt_p, "target_limit": _lim(tgt_p),
+                              "note": "" if stop_p else "couldn't reprice — set a premium-basis stop on the Exits tab"})
     return out
 
 

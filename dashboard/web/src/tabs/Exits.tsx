@@ -89,17 +89,18 @@ function GttToPlace() {
   const orders = (data?.orders ?? []) as GttOrder[];
   if (orders.length === 0) return null;
   const copy = (o: GttOrder) => {
-    void navigator.clipboard?.writeText(`${o.side} ${o.qty} ${o.symbol} · GTT trigger ${o.trigger} · limit ${o.limit}`);
+    const t = o.target ? ` · TARGET trigger ${o.target} limit ${o.target_limit}` : "";
+    void navigator.clipboard?.writeText(`${o.side} ${o.qty} ${o.symbol} · STOP trigger ${o.trigger} limit ${o.limit}${t}`);
   };
   return (
     <div className="panel space-y-3 rounded-lg p-5">
       <h2 className="font-display text-base font-bold text-ink">
-        🛡 GTT to place <span className="font-mono text-[11px] font-normal text-muted">— the exact stop for each position · computed here, you place it in Kite</span>
+        🛡 GTT to place <span className="font-mono text-[11px] font-normal text-muted">— exact stop &amp; target (option price) for each position · computed here, you place it in Kite</span>
       </h2>
       <div className="overflow-x-auto rounded-md border border-line">
         <table className="w-full text-left text-xs">
           <thead className="bg-raised/50 font-mono text-[10px] uppercase tracking-wider text-muted">
-            <tr>{["Position", "Side", "Qty", "Trigger", "Limit", ""].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
+            <tr>{["Position", "Side", "Qty", "Stop", "Stop limit", "Target", "Tgt limit", ""].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-line font-mono text-[11px]">
             {orders.map((o) => (
@@ -107,8 +108,10 @@ function GttToPlace() {
                 <td className="px-3 py-1.5 text-ink/90">{o.symbol}</td>
                 <td className="px-3 py-1.5" style={{ color: o.side === "SELL" ? "var(--red)" : "var(--green)" }}>{o.side}</td>
                 <td className="px-3 py-1.5 tnum">{o.qty}</td>
-                <td className="px-3 py-1.5 tnum font-bold">{o.trigger ?? "—"}</td>
+                <td className="px-3 py-1.5 tnum font-bold" style={{ color: "var(--red)" }}>{o.trigger ?? "—"}</td>
                 <td className="px-3 py-1.5 tnum text-muted">{o.limit ?? "—"}</td>
+                <td className="px-3 py-1.5 tnum font-bold" style={{ color: "var(--green)" }}>{o.target ?? "—"}</td>
+                <td className="px-3 py-1.5 tnum text-muted">{o.target_limit ?? "—"}</td>
                 <td className="px-3 py-1.5">
                   {o.trigger
                     ? <button onClick={() => copy(o)} className="text-cyan hover:underline">copy</button>
@@ -120,10 +123,9 @@ function GttToPlace() {
         </table>
       </div>
       <p className="font-mono text-[9px] leading-relaxed text-muted">
-        Trigger = your stop as an <span className="text-ink/80">option premium</span> (underlying-basis stops are repriced via Black-Scholes;
-        limit is set a touch beyond the trigger so the exit fills). <span className="text-gold">The platform never places or modifies orders</span> —
-        copy this into a <span className="text-ink/80">GTT in Kite</span> yourself so a resting broker stop does the cutting. A GTT barely moves day-to-day;
-        re-place only if your stop changes.
+        <span className="text-ink/80">Stop &amp; Target are the option's own ₹ price</span> — set a <span className="text-ink/80">premium-basis</span> level and these are
+        exactly your numbers; underlying-basis levels are repriced to premium via Black-Scholes. Place them as a single <span className="text-ink/80">OCO GTT in Kite</span>
+        (lower trigger = stop, upper = target), both SELL. <span className="text-gold">The platform never places or modifies orders</span> — you do. Re-place only if your levels change.
       </p>
     </div>
   );
@@ -135,7 +137,7 @@ function MyExitLevels({ positions }: { positions: string[] }) {
   const [sym, setSym] = useState("");
   const [stop, setStop] = useState("");
   const [target, setTarget] = useState("");
-  const [basis, setBasis] = useState<"premium" | "underlying">("underlying");
+  const [basis, setBasis] = useState<"premium" | "underlying">("premium");
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
@@ -168,8 +170,8 @@ function MyExitLevels({ positions }: { positions: string[] }) {
         <input className={`${inp} w-24`} placeholder="target" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
         <select className={inp} value={basis} onChange={(e) => setBasis(e.target.value as "premium" | "underlying")}
           title="underlying = the plan's spot levels (e.g. 1880/1966); premium = the option's own LTP">
+          <option value="premium">premium (option ₹)</option>
           <option value="underlying">underlying (spot)</option>
-          <option value="premium">premium (₹ LTP)</option>
         </select>
         <button onClick={save} disabled={busy || !sym.trim()}
           className="rounded-md border border-cyan/50 bg-cyan/15 px-3 py-1.5 font-mono text-[11px] font-bold text-cyan hover:bg-cyan/25 disabled:opacity-50">

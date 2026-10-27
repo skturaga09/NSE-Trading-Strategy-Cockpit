@@ -496,6 +496,8 @@ export interface GttOrder {
   qty: number;
   trigger: number | null;
   limit: number | null;
+  target: number | null;
+  target_limit: number | null;
   basis?: string;
   note: string;
 }
