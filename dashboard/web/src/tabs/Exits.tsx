@@ -12,10 +12,10 @@ import type { ExitConfig, ExitPosition, ThesisPosition, TargetCalcRow, ExitLevel
 
 const inr = (n: number) => `${n >= 0 ? "+" : "−"}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`;
 const SIG_COLOR: Record<string, string> = {
-  STOP: "var(--red)", CSTOP: "var(--red)", TIME: "var(--red)", STRUCT: "var(--red)", TARGET: "var(--green)",
-  CTGT: "var(--green)", TRAIL: "var(--gold)", PULLBACK: "var(--gold)", WEAKEN: "var(--gold)", HOLD: "var(--muted)",
+  STOP: "var(--red)", CSTOP: "var(--red)", TIME: "var(--red)", STRUCT: "var(--red)", UNPROTECTED: "var(--red)",
+  TARGET: "var(--green)", CTGT: "var(--green)", TRAIL: "var(--gold)", PULLBACK: "var(--gold)", WEAKEN: "var(--gold)", HOLD: "var(--muted)",
 };
-const SIG_EMOJI: Record<string, string> = { STOP: "🛑", CSTOP: "🛑", TARGET: "🎯", CTGT: "🎯", STRUCT: "🧱", TRAIL: "📉", TIME: "⏰", PULLBACK: "👀", WEAKEN: "⚠️", HOLD: "·" };
+const SIG_EMOJI: Record<string, string> = { STOP: "🛑", CSTOP: "🛑", TARGET: "🎯", CTGT: "🎯", STRUCT: "🧱", UNPROTECTED: "🚨", TRAIL: "📉", TIME: "⏰", PULLBACK: "👀", WEAKEN: "⚠️", HOLD: "·" };
 
 export function Exits() {
   const { data } = useQuery({ queryKey: ["exits"], queryFn: api.getExitsStatus, refetchInterval: 3000 });

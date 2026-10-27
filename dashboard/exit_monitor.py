@@ -102,6 +102,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "breakout_alerts": True,    # push VCP breakouts (pivot cross) as they happen
     "auto_levels": True,        # auto-snapshot the plan's stop/target when a NEW position appears
     "auto_levels_min_rr": 1.2,  # skip auto-set if the plan's reward:risk is below this (weak setup)
+    "unprotected_guard": True,  # nag when an open position has NO stop at the broker (the #1 loss cause)
     # Tapping an alert opens this. Universal link → opens the Kite iOS/Android app
     # when installed (else the browser). Change if you find a scheme that opens the app.
     "kite_link": "https://kite.zerodha.com/positions",
@@ -207,6 +208,35 @@ def _auto_set_levels(sym: str, cfg: Dict[str, Any], levels: Dict[str, Any]) -> N
     notify("🎚 Auto exit levels set · " + sym,
            f"From the plan: stop {side['stop']} · target {side['target']} (underlying, R:R {side.get('rr')}). "
            f"The monitor will alert when either is hit. Edit/clear on the Exits tab.", cfg)
+
+
+def _protective_stops() -> set:
+    """Tradingsymbols that already have a resting protective stop at the broker — an open
+    SL/SL-M order or an active GTT. A held position NOT in this set has no safety net, which
+    the journal shows is the #1 cause of outsized losses (avg loss 1.6× avg win).
+    shortcut: treats any SL/GTT on the symbol as protective (no direction/qty match); upgrade
+    to verify exit-side + quantity if false-positives show up."""
+    out: set = set()
+    h = _headers()
+    try:
+        orders = requests.get("https://api.kite.trade/orders", headers=h, timeout=10).json().get("data", []) or []
+        for o in orders:
+            if (o.get("status") in ("TRIGGER PENDING", "OPEN") and o.get("order_type") in ("SL", "SL-M")
+                    and o.get("tradingsymbol")):
+                out.add(o["tradingsymbol"])
+    except Exception:
+        pass
+    try:
+        gtts = requests.get("https://api.kite.trade/gtt/triggers", headers=h, timeout=10).json().get("data", []) or []
+        for g in gtts:
+            if g.get("status") != "active":
+                continue
+            for leg in (g.get("orders") or []):
+                if leg.get("tradingsymbol"):
+                    out.add(leg["tradingsymbol"])
+    except Exception:
+        pass
+    return out
 
 
 def _custom_signal(bullish: bool, price: Optional[float], stop: Optional[float],
@@ -339,6 +369,7 @@ def evaluate() -> Dict[str, Any]:
     positions = _positions()
     fresh = _fresh_ltp(positions)
     levels = get_levels()               # your per-position stop/target overrides
+    protected = _protective_stops() if cfg.get("unprotected_guard", True) else None
     # Regime is market-wide, so resolve the breakeven arm once per cycle (not per position).
     regime = _current_regime()
     be_arm = _effective_be_arm(cfg, regime)
@@ -411,12 +442,19 @@ def evaluate() -> Dict[str, Any]:
             if csig != "HOLD":
                 signal, reason = csig, creason + " (your level)"
 
+        # Unprotected-position guard: a held position with NO broker stop is the #1 loss cause.
+        # Only when nothing else already fired (an actual exit signal is more urgent than a nag).
+        if protected is not None and signal == "HOLD" and sym not in protected:
+            lv = levels.get(sym)
+            hint = f" — your stop: {lv['stop']} ({lv['basis']})" if lv and lv.get("stop") else ""
+            signal, reason = "UNPROTECTED", "NO stop at the broker — place a GTT stop-loss now" + hint
+
         rows.append({"symbol": sym, "qty": qty, "is_option": _is_option(sym), "exchange": exch,
                      "entry": round(entry, 2), "ltp": round(ltp, 2), "pnl": round(pnl, 2),
                      "pnl_pct": pnl_pct, "peak_pct": round(peak, 2), "product": p.get("product"),
                      "signal": signal, "reason": reason})
     _save(_PEAKS, peaks)
-    rows.sort(key=lambda r: ({"STOP": 0, "CSTOP": 1, "STRUCT": 2, "CTGT": 3, "TIME": 4, "TARGET": 5, "TRAIL": 6, "PULLBACK": 7, "WEAKEN": 8, "HOLD": 9}[r["signal"]], -abs(r["pnl"])))
+    rows.sort(key=lambda r: ({"STOP": 0, "CSTOP": 1, "STRUCT": 2, "CTGT": 3, "TARGET": 4, "TRAIL": 5, "TIME": 6, "UNPROTECTED": 7, "PULLBACK": 8, "WEAKEN": 9, "HOLD": 10}[r["signal"]], -abs(r["pnl"])))
     return {"timestamp": ts, "config": cfg, "positions": rows,
             "regime": regime, "breakeven_arm": be_arm,
             "actionable": [r for r in rows if r["signal"] != "HOLD"]}
@@ -687,6 +725,7 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
         "STRUCT": ("🧱", ["bricks"], 5, "EXIT"),            # underlying broke trend structure
         "TRAIL": ("📉", ["chart_with_downwards_trend"], 4, "EXIT"),
         "TIME": ("⏰", ["alarm_clock"], 4, "EXIT"),
+        "UNPROTECTED": ("🚨", ["rotating_light"], 5, "SET A STOP"),  # no broker stop = no safety net
         "PULLBACK": ("👀", ["eyes"], 3, "HEADS-UP"),  # a nudge, not a hard exit
         "WEAKEN": ("⚠️", ["warning"], 3, "HEADS-UP"),  # confirmations stacking, structure still holds
     }
@@ -695,6 +734,7 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
         "CTGT": "🎯 Your planned target hit — BOOK IT NOW (place the exit in Kite yourself).",
         "TARGET": "🎯 Target hit — BOOK IT NOW (place the exit in Kite yourself).",
         "PULLBACK": "It's coming off its peak — watch for the trail exit.",
+        "UNPROTECTED": "This position has NO stop at the broker — place a GTT stop-loss now so a loser can't run (your avg loss is 1.6× your avg win; this is the fix). You place the order in Kite.",
         "STOP": "Stop breached — your rule says cut it. You place the order.",
         "STRUCT": "The stock broke its trend structure (last swing level) — your structure rule says exit. You place the order.",
         "WEAKEN": "Momentum/volume are weakening but structure hasn't broken yet — tighten your attention, not an exit.",
