@@ -489,6 +489,20 @@ export interface ExitLevel {
 export interface ExitLevelsResponse {
   levels: Record<string, ExitLevel>;
 }
+export interface GttOrder {
+  symbol: string;
+  exchange: string;
+  side: "SELL" | "BUY";
+  qty: number;
+  trigger: number | null;
+  limit: number | null;
+  basis?: string;
+  note: string;
+}
+export interface GttPlan {
+  timestamp: string;
+  orders: GttOrder[];
+}
 export interface GapRow {
   symbol: string;
   ref_price: number;

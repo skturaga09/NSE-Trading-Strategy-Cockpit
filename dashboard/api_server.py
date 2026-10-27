@@ -266,6 +266,13 @@ def exits_levels_get() -> Dict[str, Any]:
     return {"levels": exit_monitor.get_levels()}
 
 
+@app.get("/api/exits/gtt-plan")
+def exits_gtt_plan() -> Dict[str, Any]:
+    """The exact GTT stop to place for each open position — computed, never placed."""
+    from dashboard import exit_monitor
+    return exit_monitor.gtt_plan()
+
+
 @app.post("/api/exits/levels")
 async def exits_levels_set(request: Request) -> JSONResponse:
     """Register YOUR stop/target for a position so the monitor alerts on them.

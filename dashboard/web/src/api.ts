@@ -25,6 +25,7 @@ import type {
   FnoScan,
   PremarketGapScan,
   ExitLevelsResponse,
+  GttPlan,
   SwingScan,
   IgniteScan,
   IgniteCompare,
@@ -190,6 +191,9 @@ export const api = {
 
   getExitLevels: () =>
     getJSON<ExitLevelsResponse>(`/api/exits/levels?_t=${Date.now()}`),
+
+  getGttPlan: () =>
+    getJSON<GttPlan>(`/api/exits/gtt-plan?_t=${Date.now()}`),
 
   setExitLevel: (body: { symbol: string; stop: number | null; target: number | null; basis: "premium" | "underlying" }) =>
     postJSON<typeof body, { success: boolean; message?: string }>("/api/exits/levels", body),

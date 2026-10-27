@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
-import type { ExitConfig, ExitPosition, ThesisPosition, TargetCalcRow, ExitLevel } from "../types";
+import type { ExitConfig, ExitPosition, ThesisPosition, TargetCalcRow, ExitLevel, GttOrder } from "../types";
 
 /* =============================================================================
    EXIT MONITOR — rule-based exit signals on your LIVE Kite positions + phone
@@ -73,11 +73,58 @@ export function Exits() {
 
       <MyExitLevels positions={positions.map((p) => p.symbol)} />
 
+      <GttToPlace />
+
       <TargetCalculator />
 
       <ThesisMonitor />
 
       <RulesConfig />
+    </div>
+  );
+}
+
+function GttToPlace() {
+  const { data } = useQuery({ queryKey: ["gtt-plan"], queryFn: api.getGttPlan, refetchInterval: 5000 });
+  const orders = (data?.orders ?? []) as GttOrder[];
+  if (orders.length === 0) return null;
+  const copy = (o: GttOrder) => {
+    void navigator.clipboard?.writeText(`${o.side} ${o.qty} ${o.symbol} · GTT trigger ${o.trigger} · limit ${o.limit}`);
+  };
+  return (
+    <div className="panel space-y-3 rounded-lg p-5">
+      <h2 className="font-display text-base font-bold text-ink">
+        🛡 GTT to place <span className="font-mono text-[11px] font-normal text-muted">— the exact stop for each position · computed here, you place it in Kite</span>
+      </h2>
+      <div className="overflow-x-auto rounded-md border border-line">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-raised/50 font-mono text-[10px] uppercase tracking-wider text-muted">
+            <tr>{["Position", "Side", "Qty", "Trigger", "Limit", ""].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-line font-mono text-[11px]">
+            {orders.map((o) => (
+              <tr key={o.symbol}>
+                <td className="px-3 py-1.5 text-ink/90">{o.symbol}</td>
+                <td className="px-3 py-1.5" style={{ color: o.side === "SELL" ? "var(--red)" : "var(--green)" }}>{o.side}</td>
+                <td className="px-3 py-1.5 tnum">{o.qty}</td>
+                <td className="px-3 py-1.5 tnum font-bold">{o.trigger ?? "—"}</td>
+                <td className="px-3 py-1.5 tnum text-muted">{o.limit ?? "—"}</td>
+                <td className="px-3 py-1.5">
+                  {o.trigger
+                    ? <button onClick={() => copy(o)} className="text-cyan hover:underline">copy</button>
+                    : <span className="text-gold">{o.note}</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        Trigger = your stop as an <span className="text-ink/80">option premium</span> (underlying-basis stops are repriced via Black-Scholes;
+        limit is set a touch beyond the trigger so the exit fills). <span className="text-gold">The platform never places or modifies orders</span> —
+        copy this into a <span className="text-ink/80">GTT in Kite</span> yourself so a resting broker stop does the cutting. A GTT barely moves day-to-day;
+        re-place only if your stop changes.
+      </p>
     </div>
   );
 }

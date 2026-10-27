@@ -239,6 +239,52 @@ def _protective_stops() -> set:
     return out
 
 
+def gtt_plan() -> Dict[str, Any]:
+    """For each open position with a known stop, the EXACT GTT to place in Kite — side, qty,
+    trigger, limit — ready to copy. Underlying-basis stops are repriced to an option-premium
+    trigger via Black-Scholes (delta-adjusted from the live premium); premium-basis stops are
+    used directly. We compute it; YOU place it in Kite (the platform never writes orders)."""
+    from datetime import date as _date
+    from dashboard import option_chain as oc
+    out: Dict[str, Any] = {"timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "orders": []}
+    positions = _positions()
+    fresh = _fresh_ltp(positions)
+    levels = get_levels()
+    instr = {r["tradingsymbol"]: r for r in oc._instruments()}
+    for p in positions:
+        sym, qty = p["tradingsymbol"], p.get("quantity", 0)
+        if not qty:
+            continue
+        side, exch = ("SELL" if qty > 0 else "BUY"), (p.get("exchange") or "NFO")
+        lvl = levels.get(sym)
+        if not lvl or not lvl.get("stop"):
+            out["orders"].append({"symbol": sym, "exchange": exch, "side": side, "qty": abs(qty),
+                                  "trigger": None, "limit": None, "note": "no stop set — set one on the Exits tab first"})
+            continue
+        p0 = fresh.get(f"{p.get('exchange', 'NSE')}:{sym}") or p.get("last_price")
+        rec = instr.get(sym)          # strike/expiry/type from the master — handles weeklies too
+        trigger: Optional[float] = None
+        if lvl["basis"] == "premium":
+            trigger = float(lvl["stop"])
+        elif rec and rec.get("instrument_type") in ("CE", "PE"):
+            is_call, K = (rec["instrument_type"] == "CE"), float(rec["strike"])
+            try:
+                days = max(1, (_date.fromisoformat(rec["expiry"]) - _date.today()).days)
+            except Exception:
+                days = 5
+            T, S0 = days / 365.0, oc._spot_ltp(rec.get("name") or "")
+            iv = oc._iv(p0, S0, K, T, is_call) if (S0 and p0) else None
+            if iv:
+                vf = iv / 100.0
+                prem = p0 + (oc._bs(float(lvl["stop"]), K, T, vf, is_call) - oc._bs(S0, K, T, vf, is_call))
+                trigger = round(max(0.05, round(prem / 0.05) * 0.05), 2)
+        limit = round(max(0.05, round(trigger * (0.97 if side == "SELL" else 1.03) / 0.05) * 0.05), 2) if trigger else None
+        out["orders"].append({"symbol": sym, "exchange": exch, "side": side, "qty": abs(qty),
+                              "trigger": trigger, "limit": limit, "basis": lvl["basis"],
+                              "note": "" if trigger else "couldn't reprice — set a premium-basis stop on the Exits tab"})
+    return out
+
+
 def _custom_signal(bullish: bool, price: Optional[float], stop: Optional[float],
                    target: Optional[float], label: str) -> tuple:
     """Pure check of a price against YOUR stop/target. bullish: the position profits when
