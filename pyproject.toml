@@ -21,6 +21,8 @@ dependencies = [
     "uvicorn[standard]>=0.29",
     "requests>=2.31",
     "pyotp>=2.9",
+    # News sweep: RSS headlines via the india-news-tracker skill
+    "feedparser>=6.0",
 ]
 
 [project.optional-dependencies]
