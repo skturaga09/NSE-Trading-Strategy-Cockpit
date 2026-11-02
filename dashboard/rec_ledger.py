@@ -192,8 +192,13 @@ def today_calls() -> Dict[str, Any]:
     with _conn() as c:
         rows = [dict(r) for r in c.execute("SELECT * FROM rec_ledger WHERE date=? ORDER BY ts", (day,))]
     from dashboard.fno_scanner import _adr_pct
+    from dashboard.news_sweep import for_symbols
     quotes: Dict[str, Any] = {}
     syms = sorted({r["symbol"] for r in rows})
+    try:
+        news = for_symbols(syms)                  # high-impact filings since the last close, per name
+    except Exception:
+        news = {}
     for i in range(0, len(syms), 200):
         try:
             j = requests.get("https://api.kite.trade/quote", params=[("i", f"NSE:{s}") for s in syms[i:i + 200]],
@@ -217,6 +222,7 @@ def today_calls() -> Dict[str, Any]:
         r["since_pct"] = (round((now / r["ref_price"] - 1) * 100 * (1 if r["bias"] == "LONG" else -1), 2)
                           if now and r["ref_price"] else None)
         r["room_left_pct"] = room.get(r["symbol"])
+        r["news"] = news.get(r["symbol"], [])
     return {"date": day, "calls": rows}
 
 
@@ -264,7 +270,11 @@ def tick() -> Dict[str, Any]:
     res: Dict[str, Any] = {"gap": 0, "shortlist": 0}
     if not weekday:
         return res
-    from dashboard import fno_scanner
+    from dashboard import fno_scanner, news_sweep
+    try:                                          # morning + intraday filings sweep (throttled 30 min)
+        res["news"] = news_sweep.maybe_sweep()
+    except Exception as e:
+        res["news_error"] = str(e)
     if "09:15" <= hm <= "15:30":
         with _conn() as c:
             have_gaps = c.execute("SELECT COUNT(*) FROM rec_ledger WHERE date=? AND source='gap'", (day,)).fetchone()[0]

@@ -533,7 +533,17 @@ export interface LedgerCall {
   mae: number | null;
   range_pct: number | null;
   room_left_pct: number | null;
+  news?: { ts: string; category: string; text: string }[];
   details: Record<string, unknown>;
+}
+export interface NewsItem {
+  id: number;
+  an_ts: string;
+  symbol: string;
+  category: string;
+  text: string;
+  url: string | null;
+  impact: string;
 }
 export interface LedgerToday {
   date: string;

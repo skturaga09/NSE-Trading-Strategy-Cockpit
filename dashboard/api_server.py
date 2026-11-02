@@ -342,6 +342,13 @@ def ledger_scoreboard() -> Dict[str, Any]:
     return rec_ledger.scoreboard()
 
 
+@app.get("/api/news/today")
+def news_today() -> Dict[str, Any]:
+    """High-impact NSE filings on F&O names since the previous close (overnight + morning)."""
+    from dashboard import news_sweep
+    return {"items": news_sweep.since_last_close("HIGH")}
+
+
 @app.get("/api/intraday/ignite-compare")
 def intraday_ignite_compare_ep() -> Dict[str, Any]:
     """Early (radar) vs EOD (swing board) entry comparison — did catching it early pay?"""

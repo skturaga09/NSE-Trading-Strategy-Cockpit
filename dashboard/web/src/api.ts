@@ -27,6 +27,7 @@ import type {
   Shortlist,
   LedgerToday,
   LedgerScoreboard,
+  NewsItem,
   ExitLevelsResponse,
   GttPlan,
   SwingScan,
@@ -157,6 +158,9 @@ export const api = {
 
   getLedgerScoreboard: () =>
     getJSON<LedgerScoreboard>(`/api/ledger/scoreboard?_t=${Date.now()}`),
+
+  getNewsToday: () =>
+    getJSON<{ items: NewsItem[] }>(`/api/news/today?_t=${Date.now()}`),
 
   getIgnite: () =>
     getJSON<IgniteScan>(`/api/intraday/ignite?_t=${Date.now()}`),

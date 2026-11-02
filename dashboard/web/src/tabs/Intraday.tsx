@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { GATE_LABELS } from "../gates";
-import type { IntradayContext, OptionChain, OptionLeg, FnoScan, FnoCandidate, IntradayPlan, PremarketGapScan, GapRow, Shortlist as ShortlistT, LedgerToday, LedgerScoreboard } from "../types";
+import type { IntradayContext, OptionChain, OptionLeg, FnoScan, FnoCandidate, IntradayPlan, PremarketGapScan, GapRow, Shortlist as ShortlistT, LedgerToday, LedgerScoreboard, NewsItem } from "../types";
 
 /* =============================================================================
    Intraday Index-Options DISCIPLINE CONSOLE  (NIFTY / BANKNIFTY, intraday only)
@@ -354,6 +354,9 @@ export function Intraday() {
       {/* Permission shortlist — the single decisive readout */}
       <ShortlistPanel data={shortlist} onPick={loadCandidate} />
 
+      {/* Morning news sweep — high-impact NSE filings on F&O names since the last close */}
+      <NewsPanel onPick={loadCandidate} />
+
       {/* Recommendation ledger — every call frozen when made, scored after the close */}
       <LedgerPanel onPick={loadCandidate} />
 
@@ -556,6 +559,55 @@ const pctCell = (v: number | null | undefined) =>
   v == null ? <span className="text-muted">—</span>
     : <span style={{ color: v > 0 ? "var(--green)" : v < 0 ? "var(--red)" : "var(--muted)" }}>{v > 0 ? "+" : ""}{v}%</span>;
 
+function NewsPanel({ onPick }: { onPick: (symbol: string, bias: "LONG" | "SHORT") => void }) {
+  const [items, setItems] = useState<NewsItem[] | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const pull = () => { api.getNewsToday().then((d) => setItems(d.items)).catch(() => {}); };
+    pull();
+    const id = setInterval(pull, 300000);
+    return () => clearInterval(id);
+  }, []);
+  const list = items ?? [];
+  const shown = open ? list : list.slice(0, 8);
+  return (
+    <div className="panel space-y-3 rounded-lg p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
+          📰 Filings since the last close <span className="font-mono text-[11px] font-normal text-muted">— high-impact NSE announcements on F&amp;O names · context, not a signal</span>
+        </h2>
+        {list.length > 8 && (
+          <button onClick={() => setOpen((v) => !v)} className="rounded border border-line bg-raised/40 px-2 py-0.5 font-mono text-[9px] text-muted hover:text-ink">
+            {open ? "show fewer" : `show all ${list.length}`}
+          </button>
+        )}
+      </div>
+      {items === null ? (
+        <p className="font-mono text-[11px] text-muted">Loading…</p>
+      ) : list.length === 0 ? (
+        <p className="font-mono text-[11px] text-muted">No high-impact filings on F&amp;O names since the last close (the sweep runs 08:00–15:30, every 30 min).</p>
+      ) : (
+        <div className="space-y-1">
+          {shown.map((n) => (
+            <button key={n.id} onClick={() => onPick(n.symbol, "LONG")}
+              className="flex w-full items-baseline gap-3 rounded-md border border-line bg-raised/30 px-3 py-1.5 text-left font-mono text-[11px] hover:bg-raised/60">
+              <span className="w-[72px] shrink-0 tnum text-muted">{n.an_ts.slice(5, 16)}</span>
+              <span className="w-[90px] shrink-0 text-ink/90">{n.symbol}</span>
+              <span className="w-[180px] shrink-0 truncate text-gold">{n.category}</span>
+              <span className="truncate text-muted" title={n.text}>{n.text}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        Official exchange filings (results, orders, monthly sales, M&amp;A, corporate actions, regulatory actions) — boilerplate filtered out.
+        A filing tells you <span className="text-ink/80">why</span> a name may move today, never <span className="text-gold">which way</span>: results can beat or miss.
+        Names with a filing get a 📰 in the ledger below so you can see which calls were news-driven.
+      </p>
+    </div>
+  );
+}
+
 function LedgerPanel({ onPick }: { onPick: (symbol: string, bias: "LONG" | "SHORT") => void }) {
   const [today, setToday] = useState<LedgerToday | null>(null);
   const [board, setBoard] = useState<LedgerScoreboard | null>(null);
@@ -610,7 +662,12 @@ function LedgerPanel({ onPick }: { onPick: (symbol: string, bias: "LONG" | "SHOR
                 <tr key={c.id} className="cursor-pointer hover:bg-raised/50" onClick={() => onPick(c.symbol, c.bias)}>
                   <td className="px-3 py-1.5 tnum text-muted">{c.ts.slice(11, 16)}</td>
                   <td className="px-3 py-1.5 text-muted">{SRC_LABEL[c.source]}</td>
-                  <td className="px-3 py-1.5 text-ink/90">{c.symbol}</td>
+                  <td className="px-3 py-1.5 text-ink/90">
+                    {c.symbol}
+                    {c.news && c.news.length > 0 && (
+                      <span className="ml-1 cursor-help" title={c.news.map((n) => `${n.ts.slice(5, 16)} · ${n.category} — ${n.text.slice(0, 120)}`).join("\n")}>📰</span>
+                    )}
+                  </td>
                   <td className="px-3 py-1.5" style={{ color: c.bias === "LONG" ? "var(--green)" : "var(--red)" }}>{c.bias}</td>
                   <td className="px-3 py-1.5 tnum">{c.ref_price}</td>
                   <td className="px-3 py-1.5 tnum">{c.ltp ?? "—"}</td>
