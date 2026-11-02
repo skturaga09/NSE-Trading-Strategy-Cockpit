@@ -319,8 +319,27 @@ def intraday_ignite_ep() -> Dict[str, Any]:
 def intraday_ignite_alert_ep() -> JSONResponse:
     """Push phone alerts for names newly igniting (run in-server so it reuses the warm
     daily-candle cache). The com.clade.ignite-radar job curls this every few minutes."""
-    from dashboard import intraday_ignite
-    return JSONResponse(intraday_ignite.check_and_alert(), status_code=200)
+    from dashboard import intraday_ignite, rec_ledger
+    out = intraday_ignite.check_and_alert()
+    try:                                         # ledger heartbeat rides this job: gaps, GOs, EOD scoring
+        out["ledger"] = rec_ledger.tick()
+    except Exception as e:
+        out["ledger_error"] = str(e)
+    return JSONResponse(out, status_code=200)
+
+
+@app.get("/api/ledger/today")
+def ledger_today() -> Dict[str, Any]:
+    """Today's recommendations, frozen at the time made, with live performance since each call."""
+    from dashboard import rec_ledger
+    return rec_ledger.today_calls()
+
+
+@app.get("/api/ledger/scoreboard")
+def ledger_scoreboard() -> Dict[str, Any]:
+    """Track record per recommendation source over every resolved call."""
+    from dashboard import rec_ledger
+    return rec_ledger.scoreboard()
 
 
 @app.get("/api/intraday/ignite-compare")

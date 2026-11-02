@@ -518,6 +518,38 @@ export interface GapRow {
   dma50_state: "ABOVE" | "BELOW" | null;
   dma50_dist_pct: number | null;
 }
+export interface LedgerCall {
+  id: number;
+  ts: string;
+  source: "gap" | "shortlist" | "radar";
+  symbol: string;
+  bias: "LONG" | "SHORT";
+  ref_price: number;
+  ltp: number | null;
+  since_pct: number | null;
+  resolved: number;
+  ret_close: number | null;
+  mfe: number | null;
+  mae: number | null;
+  range_pct: number | null;
+  details: Record<string, unknown>;
+}
+export interface LedgerToday {
+  date: string;
+  calls: LedgerCall[];
+}
+export interface LedgerSource {
+  n: number;
+  hit_pct?: number | null;
+  avg_ret_close?: number | null;
+  avg_mfe?: number;
+  avg_mae?: number;
+  avg_ret_next?: number | null;
+  range_vs_adr?: number | null;
+  metric?: string;
+  verdict?: string;
+}
+export type LedgerScoreboard = Record<"radar" | "shortlist" | "gap", LedgerSource>;
 export interface ShortlistName {
   symbol: string;
   bias: "LONG" | "SHORT";

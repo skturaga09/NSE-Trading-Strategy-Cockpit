@@ -25,6 +25,8 @@ import type {
   FnoScan,
   PremarketGapScan,
   Shortlist,
+  LedgerToday,
+  LedgerScoreboard,
   ExitLevelsResponse,
   GttPlan,
   SwingScan,
@@ -149,6 +151,12 @@ export const api = {
 
   getShortlist: () =>
     getJSON<Shortlist>(`/api/intraday/shortlist?_t=${Date.now()}`),
+
+  getLedgerToday: () =>
+    getJSON<LedgerToday>(`/api/ledger/today?_t=${Date.now()}`),
+
+  getLedgerScoreboard: () =>
+    getJSON<LedgerScoreboard>(`/api/ledger/scoreboard?_t=${Date.now()}`),
 
   getIgnite: () =>
     getJSON<IgniteScan>(`/api/intraday/ignite?_t=${Date.now()}`),

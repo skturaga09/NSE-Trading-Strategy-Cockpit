@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { GATE_LABELS } from "../gates";
-import type { IntradayContext, OptionChain, OptionLeg, FnoScan, FnoCandidate, IntradayPlan, PremarketGapScan, GapRow, Shortlist as ShortlistT } from "../types";
+import type { IntradayContext, OptionChain, OptionLeg, FnoScan, FnoCandidate, IntradayPlan, PremarketGapScan, GapRow, Shortlist as ShortlistT, LedgerToday, LedgerScoreboard } from "../types";
 
 /* =============================================================================
    Intraday Index-Options DISCIPLINE CONSOLE  (NIFTY / BANKNIFTY, intraday only)
@@ -354,6 +354,9 @@ export function Intraday() {
       {/* Permission shortlist — the single decisive readout */}
       <ShortlistPanel data={shortlist} onPick={loadCandidate} />
 
+      {/* Recommendation ledger — every call frozen when made, scored after the close */}
+      <LedgerPanel onPick={loadCandidate} />
+
       {/* Selected-stock details — rendered ABOVE the scan table when a stock loads */}
       {(loadingCtx || loadingChain || ctx || chain) && (
         <div className="space-y-4 rounded-lg border border-cyan/25 p-1">
@@ -544,6 +547,90 @@ type Sizing =
 const GATE_COLOR: Record<Gate, string> = { PASS: "var(--green)", FAIL: "var(--red)", UNKNOWN: "var(--gold)" };
 
 const TIER_COLOR: Record<string, string> = { GO: "var(--green)", WATCH: "var(--gold)", "STAND DOWN": "var(--red)" };
+
+const VERDICT_COLOR: Record<string, string> = {
+  working: "var(--green)", "coin-flip": "var(--gold)", "not working — demote": "var(--red)", accumulating: "var(--muted)",
+};
+const SRC_LABEL: Record<string, string> = { gap: "Gap radar", shortlist: "Shortlist GO", radar: "Ignition radar" };
+const pctCell = (v: number | null | undefined) =>
+  v == null ? <span className="text-muted">—</span>
+    : <span style={{ color: v > 0 ? "var(--green)" : v < 0 ? "var(--red)" : "var(--muted)" }}>{v > 0 ? "+" : ""}{v}%</span>;
+
+function LedgerPanel({ onPick }: { onPick: (symbol: string, bias: "LONG" | "SHORT") => void }) {
+  const [today, setToday] = useState<LedgerToday | null>(null);
+  const [board, setBoard] = useState<LedgerScoreboard | null>(null);
+  useEffect(() => {
+    const pull = () => {
+      api.getLedgerToday().then(setToday).catch(() => {});
+      api.getLedgerScoreboard().then(setBoard).catch(() => {});
+    };
+    pull();
+    const id = setInterval(pull, 30000);
+    return () => clearInterval(id);
+  }, []);
+  const calls = today?.calls ?? [];
+  return (
+    <div className="panel space-y-3 rounded-lg p-5">
+      <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
+        📒 Recommendation ledger <span className="font-mono text-[11px] font-normal text-muted">— every call frozen at the time &amp; price it was made, scored after the close</span>
+      </h2>
+      {board && (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {(["radar", "shortlist", "gap"] as const).map((src) => {
+            const s = board[src];
+            return (
+              <div key={src} className="rounded-md border border-line bg-raised/30 px-3 py-2 font-mono text-[10px]">
+                <div className="flex items-baseline justify-between">
+                  <span className="font-bold text-ink/90">{SRC_LABEL[src]}</span>
+                  <span style={{ color: VERDICT_COLOR[s.verdict ?? "accumulating"] }}>{s.n ? s.verdict : "no calls yet"}</span>
+                </div>
+                {s.n > 0 && (
+                  <div className="mt-1 text-muted">
+                    {s.n} calls · hit <span className="text-ink/80">{s.hit_pct}%</span>
+                    {src === "gap"
+                      ? <> · range {s.range_vs_adr}× ADR</>
+                      : <> · to close {pctCell(s.avg_ret_close)} · MFE {pctCell(s.avg_mfe)} / MAE {pctCell(s.avg_mae)} · next day {pctCell(s.avg_ret_next)}</>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {calls.length === 0 ? (
+        <p className="font-mono text-[11px] text-muted">No calls recorded yet today — gaps freeze at the open, shortlist GOs and radar fires as they happen.</p>
+      ) : (
+        <div className="max-h-80 overflow-auto rounded-md border border-line">
+          <table className="w-full text-left text-xs">
+            <thead className="sticky top-0 bg-raised font-mono text-[10px] uppercase tracking-wider text-muted">
+              <tr>{["Time", "Source", "Name", "Side", "Called @", "Now", "Since call", "Close", "MFE / MAE"].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-line font-mono text-[11px]">
+              {calls.map((c) => (
+                <tr key={c.id} className="cursor-pointer hover:bg-raised/50" onClick={() => onPick(c.symbol, c.bias)}>
+                  <td className="px-3 py-1.5 tnum text-muted">{c.ts.slice(11, 16)}</td>
+                  <td className="px-3 py-1.5 text-muted">{SRC_LABEL[c.source]}</td>
+                  <td className="px-3 py-1.5 text-ink/90">{c.symbol}</td>
+                  <td className="px-3 py-1.5" style={{ color: c.bias === "LONG" ? "var(--green)" : "var(--red)" }}>{c.bias}</td>
+                  <td className="px-3 py-1.5 tnum">{c.ref_price}</td>
+                  <td className="px-3 py-1.5 tnum">{c.ltp ?? "—"}</td>
+                  <td className="px-3 py-1.5 tnum">{pctCell(c.since_pct)}</td>
+                  <td className="px-3 py-1.5 tnum">{c.resolved ? pctCell(c.ret_close) : <span className="text-muted">open</span>}</td>
+                  <td className="px-3 py-1.5 tnum">{c.resolved ? <>{pctCell(c.mfe)} / {pctCell(c.mae)}</> : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="font-mono text-[9px] leading-relaxed text-muted">
+        Each call is frozen the first time it's made — the time and price never change, so after 09:08 you still see what was said and when.
+        After the close every call is scored in its direction (gaps on range vs ADR, since the gap radar claims magnitude). The scoreboard is the
+        course-correction: a source that stays a coin-flip or worse over 30+ calls should be trusted less — measured, not argued.
+      </p>
+    </div>
+  );
+}
 
 function ShortlistPanel({ data, onPick }: {
   data: ShortlistT | null; onPick: (symbol: string, bias: "LONG" | "SHORT") => void;

@@ -252,7 +252,7 @@ def shortlist(top: int = 12) -> Dict[str, Any]:
     for r in s["longs"] + s["shorts"]:
         t = _tier(r["bias"], regime, r.get("dma50_state"), r.get("pct_change", 0),
                   r.get("gap_pct"), r.get("headroom_pct"), r.get("vs_vwap_pct"))
-        rows.append({"symbol": r["symbol"], "bias": r["bias"], "lot_size": r.get("lot_size"),
+        rows.append({"symbol": r["symbol"], "bias": r["bias"], "lot_size": r.get("lot_size"), "ltp": r.get("ltp"),
                      "pct_change": r.get("pct_change"), "dma50_state": r.get("dma50_state"),
                      "headroom_per_lot": r.get("headroom_per_lot"), **t})
     rank = {"GO": 0, "WATCH": 1, "STAND DOWN": 2}

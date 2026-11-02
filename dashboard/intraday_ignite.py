@@ -196,6 +196,12 @@ def check_and_alert() -> Dict[str, Any]:
             tags=["zap"], priority=4)
         fired.add(r_["symbol"])
         _log_fire(r_, today)
+        try:                                     # freeze the call in the ledger; never block the alert
+            from dashboard import rec_ledger
+            rec_ledger.record("radar", r_["symbol"], r_["bias"], r_["ltp"], r_["score"],
+                              {"vol_pace": r_["vol_pace"], "day_pct": r_["day_pct"]})
+        except Exception:
+            pass
         sent += 1
     seen["fired"] = sorted(fired)
     try:
