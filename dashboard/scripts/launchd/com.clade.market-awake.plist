@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.clade.market-awake</string>
+    <!-- Weekdays: keep the Mac awake from 08:50 until 15:35 IST so every market-hours job
+         (ignition radar, exit monitor, stop alerts, unprotected guard) actually runs. The Mac
+         sleeps after 1 min idle, which on 2026-11-02 left the radar running only 11:03–12:42.
+         caffeinate -s holds a no-sleep assertion on AC power only (on battery the Mac may still
+         sleep), and exits at 15:35 whatever time it started. If the Mac is asleep at 08:50,
+         launchd runs this missed job on the next wake (including a DarkWake). A closed lid
+         still sleeps the Mac unless an external display is attached. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>end=$(date -j -f "%H:%M:%S" "15:35:00" +%s); d=$((end - $(date +%s))); [ "$d" -gt 0 ] &amp;&amp; exec /usr/bin/caffeinate -s -t "$d"; exit 0</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>50</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>50</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>50</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>50</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>50</integer></dict>
+    </array>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/market_awake.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/market_awake.err.log</string>
+</dict>
+</plist>
