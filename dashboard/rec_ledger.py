@@ -191,22 +191,32 @@ def today_calls() -> Dict[str, Any]:
     day = _now().strftime("%Y-%m-%d")
     with _conn() as c:
         rows = [dict(r) for r in c.execute("SELECT * FROM rec_ledger WHERE date=? ORDER BY ts", (day,))]
-    ltp: Dict[str, float] = {}
+    from dashboard.fno_scanner import _adr_pct
+    quotes: Dict[str, Any] = {}
     syms = sorted({r["symbol"] for r in rows})
     for i in range(0, len(syms), 200):
         try:
             j = requests.get("https://api.kite.trade/quote", params=[("i", f"NSE:{s}") for s in syms[i:i + 200]],
                              headers=_headers(), timeout=10).json()
             for k, v in (j.get("data") or {}).items():
-                ltp[k.split(":", 1)[1]] = v.get("last_price")
+                quotes[k.split(":", 1)[1]] = v
         except Exception:
             pass
+    room: Dict[str, Optional[float]] = {}
+    for s, q in quotes.items():
+        o = q.get("ohlc") or {}
+        pc, hi, lo = o.get("close"), o.get("high"), o.get("low")
+        adr = _adr_pct(q.get("instrument_token")) if q.get("instrument_token") else None
+        # Room left = the name's typical daily range (ADR) still unused today — the same
+        # forward gauge as the scanner's "room left": near 0 means it has already run its day.
+        room[s] = round(max(0.0, adr - (hi - lo) / pc * 100), 2) if (adr and pc and hi and lo) else None
     for r in rows:
         r["details"] = json.loads(r["details"] or "{}")
-        now = ltp.get(r["symbol"])
+        now = (quotes.get(r["symbol"]) or {}).get("last_price")
         r["ltp"] = now
         r["since_pct"] = (round((now / r["ref_price"] - 1) * 100 * (1 if r["bias"] == "LONG" else -1), 2)
                           if now and r["ref_price"] else None)
+        r["room_left_pct"] = room.get(r["symbol"])
     return {"date": day, "calls": rows}
 
 

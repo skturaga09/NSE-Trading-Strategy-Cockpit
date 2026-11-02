@@ -532,6 +532,7 @@ export interface LedgerCall {
   mfe: number | null;
   mae: number | null;
   range_pct: number | null;
+  room_left_pct: number | null;
   details: Record<string, unknown>;
 }
 export interface LedgerToday {

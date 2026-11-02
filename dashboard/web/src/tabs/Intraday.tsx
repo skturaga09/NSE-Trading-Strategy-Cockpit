@@ -603,7 +603,7 @@ function LedgerPanel({ onPick }: { onPick: (symbol: string, bias: "LONG" | "SHOR
         <div className="max-h-80 overflow-auto rounded-md border border-line">
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 bg-raised font-mono text-[10px] uppercase tracking-wider text-muted">
-              <tr>{["Time", "Source", "Name", "Side", "Called @", "Now", "Since call", "Close", "MFE / MAE"].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
+              <tr>{["Time", "Source", "Name", "Side", "Called @", "Now", "Since call", "Room left", "Close", "MFE / MAE"].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-line font-mono text-[11px]">
               {calls.map((c) => (
@@ -615,6 +615,10 @@ function LedgerPanel({ onPick }: { onPick: (symbol: string, bias: "LONG" | "SHOR
                   <td className="px-3 py-1.5 tnum">{c.ref_price}</td>
                   <td className="px-3 py-1.5 tnum">{c.ltp ?? "—"}</td>
                   <td className="px-3 py-1.5 tnum">{pctCell(c.since_pct)}</td>
+                  <td className="px-3 py-1.5 tnum" title="Typical daily range (ADR) still unused today — near 0 = it has already run its day"
+                    style={{ color: c.room_left_pct == null ? "var(--muted)" : c.room_left_pct <= 0.3 ? "var(--red)" : c.room_left_pct >= 1 ? "var(--green)" : "var(--gold)" }}>
+                    {c.room_left_pct == null ? "—" : `${c.room_left_pct}%`}
+                  </td>
                   <td className="px-3 py-1.5 tnum">{c.resolved ? pctCell(c.ret_close) : <span className="text-muted">open</span>}</td>
                   <td className="px-3 py-1.5 tnum">{c.resolved ? <>{pctCell(c.mfe)} / {pctCell(c.mae)}</> : "—"}</td>
                 </tr>
@@ -624,6 +628,10 @@ function LedgerPanel({ onPick }: { onPick: (symbol: string, bias: "LONG" | "SHOR
         </div>
       )}
       <p className="font-mono text-[9px] leading-relaxed text-muted">
+        <span className="text-ink/80">Early movers:</span> radar calls are listed by the time they were first flagged.
+        {board?.radar?.avg_mfe != null && <> After a radar flag, price has historically run a further <span className="text-ink/80">+{board.radar.avg_mfe}%</span> in the
+        called direction at best (and {board.radar.avg_mae}% against) — so <span className="text-ink/80">room left</span> tells you whether that typical extra move is still
+        available today (green) or the name has already run its day (red). </>}
         Each call is frozen the first time it's made — the time and price never change, so after 09:08 you still see what was said and when.
         After the close every call is scored in its direction (gaps on range vs ADR, since the gap radar claims magnitude). The scoreboard is the
         course-correction: a source that stays a coin-flip or worse over 30+ calls should be trusted less — measured, not argued.

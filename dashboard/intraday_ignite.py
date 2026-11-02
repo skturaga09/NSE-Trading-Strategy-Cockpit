@@ -176,7 +176,9 @@ def check_and_alert() -> Dict[str, Any]:
         return {"skipped": "market closed", "alerts": 0}   # bail before any /quote calls
     r = scan()
     if not r.get("is_live"):
-        return {"skipped": "market closed", "alerts": 0}
+        # Market is open (checked above), so a dead scan is a real failure — say what broke
+        # instead of "market closed", which hid outages in the job log.
+        return {"skipped": "scan failed", "reason": r.get("source"), "alerts": 0}
     from dashboard import exit_monitor
     seen = _load(_SEEN, {})
     today = _ist_now().strftime("%Y-%m-%d")
