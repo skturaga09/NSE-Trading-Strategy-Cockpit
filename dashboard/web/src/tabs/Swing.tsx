@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { IvRankBadge } from "../components/IvRankBadge";
-import type { SwingScan, SwingCandidate, OptionChain, OvernightBrief } from "../types";
+import type { SwingScan, SwingCandidate, OptionChain, OvernightBrief, SwingSignalStats } from "../types";
 
 // Black-Scholes (fair-value the option at the swing target)
 function erf(x: number): number {
@@ -79,6 +79,7 @@ export function Swing() {
         before you can act, and the real loss can exceed the planned loss. This is a positioning screen (close strength + OI buildup),
         <span className="text-gold"> NOT a prediction</span> of tomorrow's direction. Educational only — not SEBI-registered advice.
       </div>
+      <TrackRecord />
 
       <div className="panel space-y-3 rounded-lg p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -375,6 +376,27 @@ function SwingRow({ c, riskBudget, opt, onOption }: { c: SwingCandidate; riskBud
       </div>
       {opt === "loading" && <div className="mt-2 font-mono text-[10px] text-muted">Loading {c.symbol} option chain…</div>}
       {opt && opt !== "loading" && <OptionBuyPlan chain={opt} c={c} riskBudget={riskBudget} />}
+    </div>
+  );
+}
+
+// The board's own scored history (swing_journal) + the 2-year OOS backtest, shown where the
+// board is read — so a listed name is never mistaken for a validated call.
+function TrackRecord() {
+  const [s, setS] = useState<SwingSignalStats | null>(null);
+  useEffect(() => { api.getSwingSignals().then((r) => setS(r.stats)).catch(() => {}); }, []);
+  if (!s) return null;
+  const pct = (x: number | null | undefined) => (x == null ? "—" : `${x > 0 ? "+" : ""}${x}%`);
+  const side = (k: "LONG" | "SHORT") => {
+    const a = s.by_bias[k];
+    return <span>{k}: gap went your way <b className="tnum" style={{ color: (a.hit_rate ?? 50) >= 55 ? "var(--green)" : (a.hit_rate ?? 50) < 45 ? "var(--red)" : "var(--gold)" }}>{a.hit_rate ?? "—"}%</b> · next day {pct(a.avg_fwd)} · vs NIFTY {pct(a.avg_excess)} <span className="text-muted">[n {a.n}]</span></span>;
+  };
+  return (
+    <div className="space-y-1 rounded-md border border-gold/30 bg-gold/[0.06] px-4 py-2.5 font-mono text-[10px] leading-relaxed text-muted">
+      <div><span className="font-bold text-gold">TRACK RECORD of this board</span> — every name it listed, scored on the next session ({s.overall.n} signals):
+        <span className="font-bold text-ink"> {s.overall.verdict}</span></div>
+      <div className="flex flex-wrap gap-x-6">{side("LONG")}{side("SHORT")}</div>
+      <div>2-year backtest (2025–26 continuous futures, held-out half, roll weeks excluded): <span className="text-signalred">no tier, side or horizon beats the market out of sample</span> — short-buildup names tended to bounce over 3 days. Treat this board as a list of where positioning is heavy, not as trades. <span className="text-muted">(dashboard/swing_backtest.py, run 2026-11-03)</span></div>
     </div>
   );
 }
