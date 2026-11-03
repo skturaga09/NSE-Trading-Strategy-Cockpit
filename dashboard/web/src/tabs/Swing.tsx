@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { IvRankBadge } from "../components/IvRankBadge";
 import type { SwingScan, SwingCandidate, OptionChain, OvernightBrief } from "../types";
 
 // Black-Scholes (fair-value the option at the swing target)
@@ -405,6 +406,7 @@ function OptionBuyPlan({ chain, c, riskBudget }: { chain: OptionChain; c: SwingC
   return (
     <div className="mt-2 space-y-1.5 rounded-md border border-cyan/25 bg-cyan/[0.05] p-2.5 font-mono text-[10px]">
       <div className="font-bold text-cyan">Buy ATM {strike} {isCall ? "CALL" : "PUT"} @ ₹{premium} <span className="font-normal text-muted">(defined risk — can't lose more than the premium)</span></div>
+      <IvRankBadge r={chain.iv_rank} />
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
         <div><span className="text-muted">Cost / lot</span> <span className="tnum text-ink">{inr(costPerLot)}</span> <span className="text-muted">(×{lot})</span></div>
         <div><span className="text-muted">Lots in {inr(riskBudget)}</span> <span className="tnum font-bold" style={{ color: fits ? "var(--green)" : "var(--red)" }}>{fits ? `${maxLots}` : "0 — 1 lot too dear"}</span></div>

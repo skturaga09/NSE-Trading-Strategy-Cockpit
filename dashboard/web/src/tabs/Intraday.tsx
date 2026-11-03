@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { GATE_LABELS } from "../gates";
+import { IvRankBadge } from "../components/IvRankBadge";
 import type { IntradayContext, OptionChain, OptionLeg, FnoScan, FnoCandidate, IntradayPlan, PremarketGapScan, GapRow, Shortlist as ShortlistT, LedgerToday, LedgerScoreboard, NewsItem } from "../types";
 
 /* =============================================================================
@@ -1184,6 +1185,7 @@ function OptionChainPanel({ chain, onPick }: { chain: OptionChain; onPick: (leg:
           {chain.is_live ? "● LIVE CHAIN" : `◐ LAST SNAPSHOT (market ${(chain.session ?? "closed").toLowerCase()})`} · {chain.underlying} · exp {chain.expiry} · lot {chain.lot_size} · ATM {chain.atm} · spot {chain.spot} · {chain.timestamp}</span>
         <span className="text-muted">click a premium ▸ sets entry & direction. IV computed; change-in-OI not in Kite quote.</span>
       </div>
+      <IvRankBadge r={chain.iv_rank} />
       <div className="overflow-x-auto rounded-md border border-line">
         <table className="w-full text-center text-[11px]">
           <thead className="bg-raised/50 font-mono text-[9px] uppercase tracking-wider text-muted">

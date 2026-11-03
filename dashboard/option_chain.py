@@ -230,6 +230,11 @@ def chain(underlying: str = "NIFTY") -> Dict[str, Any]:
                        else f"Zerodha Kite last snapshot — {sess.get('message', 'market closed')} "
                             "Values are the last traded prices, not live."),
             "spot": spot, "atm": int(atm), "expiry": nearest, "lot_size": lot, "rows": rows})
+        try:                                     # IV vs this name's own history (context, not a signal)
+            from dashboard import iv_rank
+            out["iv_rank"] = iv_rank.rank(underlying)
+        except Exception:
+            out["iv_rank"] = None
     except Exception as e:
         out["source"] = f"Kite request failed: {e}"
     return out

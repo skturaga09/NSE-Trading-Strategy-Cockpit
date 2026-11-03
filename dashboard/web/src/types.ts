@@ -449,6 +449,21 @@ export interface OptionChain {
   expiry: string | null;
   lot_size: number | null;
   rows: OptionChainRow[];
+  iv_rank?: IvRank | null;
+}
+// ATM IV vs this name's own stored history (dashboard/iv_rank.py)
+export interface IvRank {
+  symbol: string;
+  days: number;            // readings in the lookback
+  since: string | null;
+  iv: number | null;       // latest ATM IV %
+  iv_rank: number | null;  // 0 = cheapest in lookback, 100 = richest
+  iv_pct: number | null;   // % of days with lower IV
+  iv_lo?: number;
+  iv_hi?: number;
+  hv20: number | null;     // realised 20-day vol %
+  iv_hv: number | null;    // >1 = options price more movement than the stock delivers
+  label: string;           // HIGH | MID | LOW | BUILDING (n/20 days) | NO DATA
 }
 
 // --- Intraday F&O scanner (recommendations) ---

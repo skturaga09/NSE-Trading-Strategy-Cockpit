@@ -275,6 +275,11 @@ def tick() -> Dict[str, Any]:
         res["news"] = news_sweep.maybe_sweep()
     except Exception as e:
         res["news_error"] = str(e)
+    try:                                          # daily ATM-IV reading for IV rank (once, after 15:20)
+        from dashboard import iv_rank
+        res["iv"] = iv_rank.maybe_snapshot()
+    except Exception as e:
+        res["iv_error"] = str(e)
     if "09:15" <= hm <= "15:30":
         with _conn() as c:
             have_gaps = c.execute("SELECT COUNT(*) FROM rec_ledger WHERE date=? AND source='gap'", (day,)).fetchone()[0]
