@@ -103,11 +103,6 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "auto_levels": True,        # auto-snapshot the plan's stop/target when a NEW position appears
     "auto_levels_min_rr": 1.2,  # skip auto-set if the plan's reward:risk is below this (weak setup)
     "unprotected_guard": True,  # nag when an open position has NO stop at the broker (the #1 loss cause)
-    # Desk guard — the session's own discipline rules, pushed once per day each (0 = off).
-    "daily_loss_cap": 5000,       # ₹ — today's MTM at/below −cap → "done for the day"
-    "max_losers_per_day": 2,      # closed losing positions today → "done for the day"
-    "max_open_positions": 2,      # philosophy is one at a time; alert when more are open
-    "no_averaging_down": True,    # alert when qty grows on a position that's in loss
     # Tapping an alert opens this. Universal link → opens the Kite iOS/Android app
     # when installed (else the browser). Change if you find a scheme that opens the app.
     "kite_link": "https://kite.zerodha.com/positions",
@@ -774,67 +769,6 @@ def send_overnight(cfg: Optional[Dict[str, Any]] = None, top: int = 6, warm: boo
                   tags=["crescent_moon"], priority=4)
 
 
-_GUARD_SEEN = _DIR / "exit_guard_seen.json"
-
-
-def guard_breaches(net: List[Dict[str, Any]], day: List[Dict[str, Any]], cfg: Dict[str, Any],
-                   prev_qty: Dict[str, int]) -> List[tuple]:
-    """Pure: which desk rules today's Kite positions break → [(key, title, body)].
-    net/day = Kite's positions lists; prev_qty = last sweep's open qty per symbol."""
-    out = []
-    mtm = sum(p.get("m2m") or 0 for p in net)
-    cap = float(cfg.get("daily_loss_cap") or 0)
-    if cap and mtm <= -cap:
-        out.append(("loss_cap", f"🛑 DAILY LOSS CAP · ₹{mtm:,.0f}",
-                    f"Today's MTM ₹{mtm:,.0f} is past your −₹{cap:,.0f} cap. Your rule: no new trades today. "
-                    "Flatten or protect what's open — you place the orders in Kite."))
-    losers = [p["tradingsymbol"] for p in day if not p.get("quantity") and (p.get("pnl") or 0) < 0]
-    max_l = int(cfg.get("max_losers_per_day") or 0)
-    if max_l and len(losers) >= max_l:
-        out.append(("losers", f"🛑 {len(losers)} LOSERS TODAY · stop trading",
-                    f"Closed in loss: {', '.join(losers)}. Your rule is {max_l} and done — no new entries today."))
-    open_ = [p for p in net if p.get("quantity")]
-    max_o = int(cfg.get("max_open_positions") or 0)
-    if max_o and len(open_) > max_o:
-        out.append((f"open{len(open_)}", f"⚠️ {len(open_)} POSITIONS OPEN (max {max_o})",
-                    "Open: " + ", ".join(p["tradingsymbol"] for p in open_) +
-                    "\nYour philosophy is one position at a time — more names = more losers to cut."))
-    if cfg.get("no_averaging_down", True):
-        for p in open_:
-            sym, q = p["tradingsymbol"], int(p["quantity"])
-            before = prev_qty.get(sym)
-            if before and abs(q) > abs(before) and (q > 0) == (before > 0) and (p.get("pnl") or 0) < 0:
-                out.append((f"avg:{sym}:{q}", f"🚨 ADDED TO A LOSER · {sym}",
-                            f"Qty {abs(before)} → {abs(q)} while P&L is ₹{p['pnl']:,.0f}. Averaging down doubles "
-                            "the loss if it keeps going — set a stop for the WHOLE size now (in Kite)."))
-    return out
-
-
-def _desk_guard(cfg: Dict[str, Any]) -> int:
-    """Fetch positions, push each newly-broken desk rule once per day."""
-    try:
-        j = requests.get("https://api.kite.trade/portfolio/positions", headers=_headers(), timeout=10).json()
-        if j.get("status") != "success":
-            return 0
-        net, day = j["data"].get("net", []), j["data"].get("day", [])
-    except Exception:
-        return 0
-    today = datetime.now().strftime("%Y-%m-%d")
-    st = _load(_GUARD_SEEN, {})
-    if st.get("date") != today:
-        st = {"date": today, "sent": [], "qty": {}}
-    sent = 0
-    for key, title, body in guard_breaches(net, day, cfg, st["qty"]):
-        if key in st["sent"]:
-            continue
-        notify(title, body, cfg, tags=["rotating_light"], priority=5)
-        st["sent"].append(key)
-        sent += 1
-    st["qty"] = {p["tradingsymbol"]: int(p["quantity"]) for p in net if p.get("quantity")}
-    _save(_GUARD_SEEN, st)
-    return sent
-
-
 def _any_market_open() -> bool:
     """True if NSE OR MCX is open — the monitor serves positions on both exchanges, and
     MCX runs a long evening session (to ~23:55 IST) well after NSE's 15:30 close. Without
@@ -1029,7 +963,6 @@ def check_and_notify(force: bool = False) -> Dict[str, Any]:
     if res["config"].get("breakout_alerts", True):
         breakout_sent = _breakout_alerts(res["config"])
 
-    res["guard_sent"] = _desk_guard(res["config"])
     res["alerts_sent"] = sent
     res["summary_sent"] = summary_sent
     res["candidates_sent"] = cand_sent
