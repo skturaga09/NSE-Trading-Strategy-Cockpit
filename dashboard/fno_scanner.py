@@ -140,8 +140,9 @@ def _universe_quotes() -> tuple:
         r = requests.get("https://api.kite.trade/quote",
                          params=[("i", s) for s in group], headers=_headers(), timeout=10)
         j = r.json()
-        if j.get("status") == "success":
-            quotes.update(j["data"])
+        if j.get("status") != "success":   # e.g. expired token — surface it, don't show an empty "live" scan
+            raise RuntimeError(f"{j.get('error_type', 'Kite')}: {j.get('message', 'quote failed')}")
+        quotes.update(j["data"])
     return names, lot_map, quotes
 
 

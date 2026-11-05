@@ -113,8 +113,9 @@ def scan() -> Dict[str, Any]:
         for grp in _chunk(cash_syms + fut_syms, 200):
             j = requests.get("https://api.kite.trade/quote", params=[("i", s) for s in grp],
                              headers=_headers(), timeout=10).json()
-            if j.get("status") == "success":
-                quotes.update(j["data"])
+            if j.get("status") != "success":   # e.g. expired token — surface it, don't show an empty "live" scan
+                raise RuntimeError(f"{j.get('error_type', 'Kite')}: {j.get('message', 'quote failed')}")
+            quotes.update(j["data"])
 
         rows: List[Dict[str, Any]] = []
         for n in names:
