@@ -30,6 +30,25 @@ NIFTY_TOKEN = 256265   # for the market-relative (excess-return) benchmark
 DB_PATH = Path(__file__).parent / "journal.db"
 _LOCK = threading.Lock()
 MIN_SAMPLE = 30   # below this many resolved signals, report "accumulating", not a verdict
+MIN_DAYS = 20     # ...and below this many distinct signal DAYS — one sell-off day isn't 12 wins
+
+
+def day_test(rows: List[Any], day_key: str, val, null: float) -> Dict[str, Any]:
+    """Day-clustered test: average val(row) within each day, then test the mean of those
+    day-means vs `null` (~95%, 1.96σ). Signals on the same day share one market move, so
+    the day — not the signal — is the independent observation. Rows with val None skipped."""
+    by_day: Dict[str, List[float]] = {}
+    for r in rows:
+        v = val(r)
+        if v is not None:
+            by_day.setdefault(r[day_key], []).append(v)
+    means = [sum(v) / len(v) for v in by_day.values()]
+    k = len(means)
+    if k < 2:
+        return {"days": k, "mean": means[0] if means else None, "significant": False}
+    m = sum(means) / k
+    se = math.sqrt(sum((x - m) ** 2 for x in means) / (k - 1) / k)
+    return {"days": k, "mean": m, "significant": k >= MIN_DAYS and se > 0 and abs(m - null) > 1.96 * se}
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS swing_signals (
@@ -244,19 +263,18 @@ def _agg(rows: List[sqlite3.Row]) -> Dict[str, Any]:
     ex = [r["excess_fwd_pct"] for r in rows if _has(rows, "excess_fwd_pct") and r["excess_fwd_pct"] is not None]
     n_ex = len(ex)
     mean_ex = (sum(ex) / n_ex) if n_ex else None
-    # significance: hit-rate vs a 50% coin-flip; excess vs 0. ~95% (1.96σ), gated by sample.
-    se_p = math.sqrt(0.25 / n)
-    hit_sig = n >= MIN_SAMPLE and abs(p - 0.5) > 1.96 * se_p
-    edge_sig = False
-    if n_ex >= MIN_SAMPLE and mean_ex is not None:
-        var = sum((x - mean_ex) ** 2 for x in ex) / n_ex
-        se_ex = math.sqrt(var / n_ex) if var > 0 else 0.0
-        edge_sig = se_ex > 0 and abs(mean_ex) > 1.96 * se_ex
-    if n < MIN_SAMPLE or (n_ex and n_ex < MIN_SAMPLE):
+    # significance: hit-rate vs a 50% coin-flip; excess vs 0 — clustered by signal day.
+    hit_t = day_test(rows, "signal_date", lambda r: 1.0 if r["worked"] else 0.0, 0.5)
+    ex_t = day_test(rows, "signal_date", lambda r: r["excess_fwd_pct"] if _has(rows, "excess_fwd_pct") else None, 0.0)
+    days = hit_t["days"]
+    hit_sig = n >= MIN_SAMPLE and hit_t["significant"]
+    edge_sig = n_ex >= MIN_SAMPLE and ex_t["significant"]
+    day_ex = ex_t["mean"]
+    if n < MIN_SAMPLE or (n_ex and n_ex < MIN_SAMPLE) or days < MIN_DAYS:
         verdict = "accumulating"
-    elif edge_sig and (mean_ex or 0) > 0:
+    elif edge_sig and (day_ex or 0) > 0:
         verdict = "edge vs market"
-    elif edge_sig and (mean_ex or 0) < 0:
+    elif edge_sig and (day_ex or 0) < 0:
         verdict = "worse than market"
     else:
         verdict = "no edge (≈ market)"
@@ -267,8 +285,9 @@ def _agg(rows: List[sqlite3.Row]) -> Dict[str, Any]:
         "avg_fwd": round(sum(r["fwd_return_pct"] or 0 for r in rows) / n, 2),
         "avg_excess": round(mean_ex, 2) if mean_ex is not None else None,   # market-relative edge
         "n_excess": n_ex,
+        "days": days,                                     # distinct signal days (the real sample)
         "avg_mfe": round(sum(r["mfe_pct"] or 0 for r in rows) / n, 2),
-        "sufficient": n >= MIN_SAMPLE,
+        "sufficient": n >= MIN_SAMPLE and days >= MIN_DAYS,
         "hit_significant": hit_sig,
         "edge_significant": edge_sig,
         "verdict": verdict,
@@ -283,6 +302,7 @@ def stats() -> Dict[str, Any]:
         open_n = c.execute("SELECT COUNT(*) AS n FROM swing_signals WHERE status='OPEN'").fetchone()["n"]
     return {
         "min_sample": MIN_SAMPLE,
+        "min_days": MIN_DAYS,
         "coinflip": 50.0,
         "overall": _agg(res),
         "by_tier": {t: _agg([r for r in res if r["tier"] == t]) for t in ("strong", "notable", "building")},

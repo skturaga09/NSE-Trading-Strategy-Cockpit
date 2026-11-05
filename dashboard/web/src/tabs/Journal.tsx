@@ -260,7 +260,7 @@ function SwingSignalLearning({ data }: { data: SwingSignalsResponse | undefined 
         </div>
         <div className="font-mono text-[9px]" style={{ color }}>{agg.n > 0 ? v : "—"}</div>
         <div className="font-mono text-[9px] text-muted">
-          n={agg.n}{agg.n > 0 ? ` · hit ${pct(agg.hit_rate)} · run ${rr(agg.avg_mfe)}` : ""}{agg.n > 0 && !agg.sufficient ? " · thin" : ""}
+          n={agg.n}{agg.days != null ? ` · ${agg.days}d` : ""}{agg.n > 0 ? ` · hit ${pct(agg.hit_rate)} · run ${rr(agg.avg_mfe)}` : ""}{agg.n > 0 && !agg.sufficient ? " · thin" : ""}
         </div>
       </div>
     );
@@ -275,12 +275,13 @@ function SwingSignalLearning({ data }: { data: SwingSignalsResponse | undefined 
 
       {!o.sufficient ? (
         <div className="rounded-md border border-cyan/25 bg-cyan/[0.06] px-3 py-2 font-mono text-[10px] leading-relaxed text-cyan">
-          📊 Accumulating evidence — <span className="font-bold">{o.n}/{s.min_sample}</span> resolved signals. No verdict until ≥{s.min_sample},
-          so a few lucky or unlucky days can't fake an edge.{s.open_pending > 0 ? ` ${s.open_pending} signal(s) awaiting next-day resolution.` : ""}
+          📊 Accumulating evidence — <span className="font-bold">{o.n}/{s.min_sample}</span> resolved signals over{" "}
+          <span className="font-bold">{o.days ?? 0}/{s.min_days ?? 20}</span> days. No verdict until both are met — and significance is
+          judged per DAY, so one market-wide move can't fake a dozen wins.{s.open_pending > 0 ? ` ${s.open_pending} signal(s) awaiting next-day resolution.` : ""}
         </div>
       ) : (
         <div className="font-mono text-[10px] text-muted">
-          {o.n} resolved · market-relative edge <span className="font-bold" style={{ color: VERDICT_COLOR[o.verdict ?? ""] ?? "var(--ink)" }}>{rr(o.avg_excess)}/trade</span>
+          {o.n} resolved over {o.days} days · market-relative edge <span className="font-bold" style={{ color: VERDICT_COLOR[o.verdict ?? ""] ?? "var(--ink)" }}>{rr(o.avg_excess)}/trade</span>
           {" "}({o.verdict}{o.edge_significant ? ", significant" : ""}) · hit {pct(o.hit_rate)} vs {s.coinflip}% coin-flip · {s.open_pending} pending
         </div>
       )}

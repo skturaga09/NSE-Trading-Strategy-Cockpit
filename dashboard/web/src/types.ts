@@ -573,6 +573,7 @@ export interface LedgerSource {
   avg_ret_next?: number | null;
   range_vs_adr?: number | null;
   metric?: string;
+  days?: number;
   verdict?: string;
 }
 export type LedgerScoreboard = Record<"radar" | "shortlist" | "gap", LedgerSource>;
@@ -838,6 +839,7 @@ export interface SwingSigAgg {
   avg_fwd: number | null;
   avg_excess: number | null;
   n_excess?: number;
+  days?: number;
   avg_mfe: number | null;
   sufficient: boolean;
   hit_significant?: boolean;
@@ -846,6 +848,7 @@ export interface SwingSigAgg {
 }
 export interface SwingSignalStats {
   min_sample: number;
+  min_days?: number;
   coinflip: number;
   overall: SwingSigAgg;
   by_tier: { strong: SwingSigAgg; notable: SwingSigAgg; building: SwingSigAgg };

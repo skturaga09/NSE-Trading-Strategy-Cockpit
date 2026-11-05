@@ -31,6 +31,8 @@ from zoneinfo import ZoneInfo
 
 import requests
 
+from dashboard.swing_journal import MIN_DAYS, day_test
+
 DB_PATH = Path(__file__).parent / "journal.db"
 _FIRES = Path(__file__).parent / "logs" / "ignite_fires.jsonl"
 IST = ZoneInfo("Asia/Kolkata")
@@ -255,8 +257,20 @@ def scoreboard() -> Dict[str, Any]:
                  "n_next": len(nxt),
                  "avg_ret_next": round(sum(nxt) / len(nxt), 2) if nxt else None,
                  "metric": "closed in the called direction"}
-        s["verdict"] = "accumulating" if n < MIN_SAMPLE else (
-            "working" if (s.get("hit_pct") or 0) >= 55 else "not working — demote" if (s.get("hit_pct") or 0) < 45 else "coin-flip")
+        # Day-clustered: calls on one day share one market move, so days are the sample.
+        if src == "gap":
+            hit = lambda r: (None if r["range_pct"] is None or not json.loads(r["details"] or "{}").get("adr_pct")
+                             else float(r["range_pct"] >= json.loads(r["details"])["adr_pct"]))
+        else:
+            hit = lambda r: None if r["ret_close"] is None else float(r["ret_close"] > 0)
+        t = day_test(rs, "date", hit, 0.5)
+        s["days"] = t["days"]
+        if n < MIN_SAMPLE or t["days"] < MIN_DAYS:
+            s["verdict"] = "accumulating"
+        elif not t["significant"]:
+            s["verdict"] = "coin-flip"
+        else:
+            s["verdict"] = "working" if t["mean"] > 0.5 else "not working — demote"
         out[src] = s
     return out
 

@@ -197,7 +197,8 @@ export function Intraday() {
       setScanning(false);
     }
   };
-  // Pre-open gap screen — on demand (its ADR lookups cost a few history calls; not polled).
+  // Pre-open gap screen — runs once on open, then on demand (its ADR lookups cost a few
+  // history calls; not polled).
   const [gap, setGap] = useState<PremarketGapScan | null>(null);
   const [gapLoading, setGapLoading] = useState(false);
   const runGap = async () => {
@@ -210,6 +211,7 @@ export function Intraday() {
       setGapLoading(false);
     }
   };
+  useEffect(() => { void runGap(); }, []);
   // Pick a scanned candidate → load its underlying, direction bias, context & chain.
   const loadCandidate = (symbol: string, bias: "LONG" | "SHORT") => {
     setUnderlying(symbol);
@@ -352,14 +354,17 @@ export function Intraday() {
     <div className="space-y-6">
       <Disclaimer />
 
-      {/* Permission shortlist — the single decisive readout */}
-      <ShortlistPanel data={shortlist} onPick={loadCandidate} />
+      {/* Gap radar leads — the one screen that held up out of sample (magnitude, not direction) */}
+      <PremarketGap gap={gap} loading={gapLoading} onScan={runGap} onPick={loadCandidate} />
 
       {/* Morning news sweep — high-impact NSE filings on F&O names since the last close */}
       <NewsPanel onPick={loadCandidate} />
 
       {/* Recommendation ledger — every call frozen when made, scored after the close */}
       <LedgerPanel onPick={loadCandidate} />
+
+      {/* Hygiene watchlist (was "shortlist GO") — demoted: its filters lost out of sample */}
+      <ShortlistPanel data={shortlist} onPick={loadCandidate} />
 
       {/* Selected-stock details — rendered ABOVE the scan table when a stock loads */}
       {(loadingCtx || loadingChain || ctx || chain) && (
@@ -377,9 +382,6 @@ export function Intraday() {
           {chain && <OptionChainPanel chain={chain} onPick={pickLeg} />}
         </div>
       )}
-
-      {/* Pre-open gap radar — which names are set up for a WIDE day (magnitude, not direction) */}
-      <PremarketGap gap={gap} loading={gapLoading} onScan={runGap} onPick={loadCandidate} />
 
       {/* Live F&O candidate scanner (auto-runs on open; click a name → detail loads above) */}
       <FnoCandidates scan={scan} scanning={scanning} onScan={runScan} onPick={loadCandidate} selected={underlying} />
@@ -550,12 +552,14 @@ type Sizing =
 
 const GATE_COLOR: Record<Gate, string> = { PASS: "var(--green)", FAIL: "var(--red)", UNKNOWN: "var(--gold)" };
 
-const TIER_COLOR: Record<string, string> = { GO: "var(--green)", WATCH: "var(--gold)", "STAND DOWN": "var(--red)" };
+const TIER_COLOR: Record<string, string> = { GO: "var(--cyan)", WATCH: "var(--gold)", "STAND DOWN": "var(--red)" };
+// "GO" is shown as CLEAN: it passed hygiene filters that showed no edge out of sample — never a green light.
+const TIER_LABEL: Record<string, string> = { GO: "CLEAN", WATCH: "WATCH", "STAND DOWN": "STAND DOWN" };
 
 const VERDICT_COLOR: Record<string, string> = {
   working: "var(--green)", "coin-flip": "var(--gold)", "not working — demote": "var(--red)", accumulating: "var(--muted)",
 };
-const SRC_LABEL: Record<string, string> = { gap: "Gap radar", shortlist: "Shortlist GO", radar: "Ignition radar" };
+const SRC_LABEL: Record<string, string> = { gap: "Gap radar", shortlist: "Watchlist CLEAN", radar: "Ignition radar" };
 const pctCell = (v: number | null | undefined) =>
   v == null ? <span className="text-muted">—</span>
     : <span style={{ color: v > 0 ? "var(--green)" : v < 0 ? "var(--red)" : "var(--muted)" }}>{v > 0 ? "+" : ""}{v}%</span>;
@@ -639,7 +643,7 @@ function LedgerPanel({ onPick }: { onPick: (symbol: string, bias: "LONG" | "SHOR
                 </div>
                 {s.n > 0 && (
                   <div className="mt-1 text-muted">
-                    {s.n} calls · hit <span className="text-ink/80">{s.hit_pct}%</span>
+                    {s.n} calls · {s.days ?? 0}d · hit <span className="text-ink/80">{s.hit_pct}%</span>
                     {src === "gap"
                       ? <> · range {s.range_vs_adr}× ADR</>
                       : <> · to close {pctCell(s.avg_ret_close)} · MFE {pctCell(s.avg_mfe)} / MAE {pctCell(s.avg_mae)} · next day {pctCell(s.avg_ret_next)}</>}
@@ -651,7 +655,7 @@ function LedgerPanel({ onPick }: { onPick: (symbol: string, bias: "LONG" | "SHOR
         </div>
       )}
       {calls.length === 0 ? (
-        <p className="font-mono text-[11px] text-muted">No calls recorded yet today — gaps freeze at the open, shortlist GOs and radar fires as they happen.</p>
+        <p className="font-mono text-[11px] text-muted">No calls recorded yet today — gaps freeze at the open, watchlist CLEAN names and radar fires as they happen.</p>
       ) : (
         <div className="max-h-80 overflow-auto rounded-md border border-line">
           <table className="w-full text-left text-xs">
@@ -692,7 +696,7 @@ function LedgerPanel({ onPick }: { onPick: (symbol: string, bias: "LONG" | "SHOR
         available today (green) or the name has already run its day (red). </>}
         Each call is frozen the first time it's made — the time and price never change, so after 09:08 you still see what was said and when.
         After the close every call is scored in its direction (gaps on range vs ADR, since the gap radar claims magnitude). The scoreboard is the
-        course-correction: a source that stays a coin-flip or worse over 30+ calls should be trusted less — measured, not argued.
+        course-correction: no verdict until 30+ calls over 20+ separate days (calls on one day share one market move), then a source that stays a coin-flip or worse should be trusted less — measured, not argued.
       </p>
     </div>
   );
@@ -713,11 +717,11 @@ function ShortlistPanel({ data, onPick }: {
     <div className="panel space-y-3 rounded-lg p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
-          ✅ Today's {showAll ? "Long list" : "Shortlist"} <span className="font-mono text-[11px] font-normal text-muted">— permission, not prediction · clears the hygiene bars → load it &amp; run the 14 gates</span>
+          👁 Hygiene {showAll ? "long list" : "watchlist"} <span className="font-mono text-[11px] font-normal text-muted">— NOT a buy list · nothing wrong with these names, no edge proven · load one &amp; run the 14 gates</span>
         </h2>
         <span className="flex items-center gap-3">
           <button onClick={() => setShowAll((v) => !v)} className="rounded border border-line bg-raised/40 px-2 py-0.5 font-mono text-[9px] text-muted hover:text-ink">
-            {showAll ? `shortlist only (${go.length + watch.length})` : `show all ${names.length} (+${stand.length} stand-down)`}
+            {showAll ? `watchlist only (${go.length + watch.length})` : `show all ${names.length} (+${stand.length} stand-down)`}
           </button>
           <span className="font-mono text-[10px] text-muted">regime <span style={{ color: regime === "RISK_OFF" ? "var(--red)" : regime === "RISK_ON" ? "var(--green)" : "var(--gold)" }}>{regime}</span> · {data?.timestamp ?? "…"}</span>
         </span>
@@ -730,7 +734,7 @@ function ShortlistPanel({ data, onPick }: {
         <>
           {go.length === 0 && (
             <div className="rounded-md border border-gold/40 bg-gold/10 px-3 py-2 font-mono text-[11px] text-gold">
-              Nothing clears every bar right now{hostile ? ` — ${regime} tape, stand down` : ""}. That IS the signal: no trade is a position.
+              Nothing clears every hygiene bar right now{hostile ? ` — ${regime} tape` : ""}. No trade is a position.
             </div>
           )}
           <div className="space-y-1.5">
@@ -738,7 +742,7 @@ function ShortlistPanel({ data, onPick }: {
               <button key={n.symbol + n.bias} onClick={() => onPick(n.symbol, n.bias)}
                 className="flex w-full items-center justify-between gap-3 rounded-md border border-line bg-raised/30 px-3 py-2 text-left font-mono text-[11px] hover:bg-raised/60">
                 <span className="flex min-w-0 items-center gap-2">
-                  <span className="rounded px-2 py-0.5 text-[9px] font-bold uppercase text-bg" style={{ background: TIER_COLOR[n.tier] }}>{n.tier}</span>
+                  <span className="rounded px-2 py-0.5 text-[9px] font-bold uppercase text-bg" style={{ background: TIER_COLOR[n.tier] }}>{TIER_LABEL[n.tier]}</span>
                   <span className="text-ink/90">{n.symbol}</span>
                   <span className="text-[9px]" style={{ color: n.bias === "LONG" ? "var(--green)" : "var(--red)" }}>{n.bias}</span>
                 </span>
@@ -747,9 +751,10 @@ function ShortlistPanel({ data, onPick }: {
             ))}
           </div>
           <p className="font-mono text-[9px] leading-relaxed text-muted">
-            GO = passes regime + trend (50-DMA) + participation + room-left + VWAP — i.e. nothing is <span className="text-ink/80">wrong</span> with it,
-            <span className="text-gold"> not that it will win</span> (confluence showed no edge out-of-sample). It only means: worth loading and running the 14 gates.
-            The <span className="text-ink/80">shortlist</span> hides STAND-DOWN; <span className="text-ink/80">show all</span> is the long list — the full board with why each one fails. A quiet board is a real answer.
+            CLEAN = passes regime + trend (50-DMA) + participation + room-left + VWAP — i.e. nothing is <span className="text-ink/80">wrong</span> with it,
+            <span className="text-gold"> not that it will win</span>: these same filters LOST out of sample (−0.78%/trade, 2-yr test), and the live
+            calls have no verdict yet. It only means: worth loading and running the 14 gates — never a green light.
+            The <span className="text-ink/80">watchlist</span> hides STAND-DOWN; <span className="text-ink/80">show all</span> is the long list — the full board with why each one fails. A quiet board is a real answer.
           </p>
         </>
       )}
@@ -798,7 +803,7 @@ function PremarketGap({ gap, loading, onScan, onPick }: {
     <div className="panel space-y-3 rounded-lg p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 font-display text-base font-bold text-ink">
-          🌅 Pre-open Gap Radar <span className="font-mono text-[11px] font-normal text-muted">— which names are set up for a WIDE day (magnitude, not direction)</span>
+          🌅 Expect a wide range today <span className="font-mono text-[11px] font-normal text-muted">— gap radar · the one screen that held up out of sample: big-gap names run ~1.29× their normal range (2-yr test) · magnitude, not direction</span>
         </h2>
         <button onClick={onScan} disabled={loading}
           className="rounded-md border border-gold/50 bg-gold/15 px-4 py-2 font-mono text-xs font-bold text-gold hover:bg-gold/25 disabled:opacity-50">
