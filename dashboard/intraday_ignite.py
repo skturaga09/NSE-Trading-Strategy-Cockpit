@@ -59,8 +59,14 @@ def _expected_volume_fraction(now: Optional[datetime] = None) -> float:
     So vol_pace = today's cumulative volume / (avg_daily_volume * this)."""
     if now is None:
         now = _ist_now()
-    mins = (now.hour * 60 + now.minute) - (9 * 60 + 15)
-    frac = max(0.03, min(mins / DAY_MINUTES, 1.0))   # clamp to [~11min, full day]
+    sp = core.ZerodhaPlumbingInspector.special_session(now.date(), "NSE")
+    # shortcut: a special session (Muhurat) is paced against a full day over its own length; its real volume is far
+    # thinner, so pace reads low (fewer fires, never more). Upgrade if special sessions ever get their own baseline.
+    start, length = ((int(sp["open"][:2]) * 60 + int(sp["open"][3:]),
+                      (int(sp["close"][:2]) - int(sp["open"][:2])) * 60 + int(sp["close"][3:]) - int(sp["open"][3:]))
+                     if sp else (9 * 60 + 15, DAY_MINUTES))
+    mins = (now.hour * 60 + now.minute) - start
+    frac = max(0.03, min(mins / length, 1.0))   # clamp to [~11min, full day]
     return frac ** 0.8
 
 

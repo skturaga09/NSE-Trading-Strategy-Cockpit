@@ -75,11 +75,15 @@ const CHECKS: {
     name: "Order validation plumbing",
     critical: true,
     run: async () => {
+      // one NIFTY lot as the exchange master defines it today (never a hardcoded size)
+      const rules = (await (await fetch("/api/plumbing/status")).json()).reference_rules ?? {};
+      const lot: number | undefined = rules.lot_sizes?.NIFTY;
+      if (!lot) return { status: "warn", detail: `NIFTY lot size unknown (${rules.lot_size_source ?? "no instrument master"})` };
       const d = await (
         await fetch("/api/plumbing/validate-trade", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ symbol: "NIFTY", product: "NRML", order_type: "LIMIT", transaction_type: "BUY", quantity: 75, price: 140, is_option: true, available_margin: 1e7 }),
+          body: JSON.stringify({ symbol: "NIFTY", product: "NRML", order_type: "LIMIT", transaction_type: "BUY", quantity: lot, price: 140, is_option: true, available_margin: 1e7 }),
         })
       ).json();
       return typeof d.is_valid === "boolean"

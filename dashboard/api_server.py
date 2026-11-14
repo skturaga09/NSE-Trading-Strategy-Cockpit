@@ -15,6 +15,7 @@ so the blocking yfinance / Kite calls no longer block other requests.
 Run:  uvicorn dashboard.api_server:app --port 8080
 """
 
+import json
 from pathlib import Path
 from typing import Any, Dict
 
@@ -25,6 +26,8 @@ from fastapi.staticfiles import StaticFiles
 
 from dashboard import app as core
 from dashboard import journal
+from dashboard import zerodha_plumbing as zp
+from dashboard.zerodha_plumbing import refresh_lot_sizes
 
 STATIC_DIR = Path(__file__).parent / "static"
 WEB_DIST = Path(__file__).parent / "web" / "dist"  # built React app (npm run build)
@@ -45,6 +48,22 @@ try:
 except Exception as _e:  # pragma: no cover
     import logging
     logging.getLogger("uvicorn.error").warning("MCX router not mounted: %s", _e)
+
+# MCX commodity options desk (separate workspace at /mcx/, routes under /api/mcx-desk).
+try:
+    from dashboard.api.mcx_desk import router as _mcx_desk_router
+    app.include_router(_mcx_desk_router)
+except Exception as _e:  # pragma: no cover
+    import logging
+    logging.getLogger("uvicorn.error").warning("MCX desk router not mounted: %s", _e)
+
+# F&O engine dashboard router (routes under /api/engine; loopback + same-origin only, engine/api.py).
+try:
+    from engine.api import router as _engine_router
+    app.include_router(_engine_router)
+except Exception as _e:  # pragma: no cover
+    import logging
+    logging.getLogger("uvicorn.error").warning("engine router not mounted: %s", _e)
 
 
 def _bool(v: Any, default: bool = False) -> bool:
@@ -76,7 +95,8 @@ def plumbing_status() -> Dict[str, Any]:
         "status": "online",
         "zerodha_mode": conn.details.get("mode", "Mock"),
         "connection_check": conn.__dict__,
-        "reference_rules": {"lot_sizes": core.LOT_SIZES, "freeze_limits": core.FREEZE_LIMITS},
+        "reference_rules": {"lot_sizes": refresh_lot_sizes(), "lot_size_source": zp.LOT_SIZE_SOURCE,
+                            "freeze_limits": core.FREEZE_LIMITS},
         "system_time": now_ist.isoformat(),
     }
 
@@ -325,6 +345,111 @@ def intraday_ignite_alert_ep() -> JSONResponse:
         out["ledger"] = rec_ledger.tick()
     except Exception as e:
         out["ledger_error"] = str(e)
+    return JSONResponse(out, status_code=200)
+
+
+@app.get("/api/supertrend")
+def supertrend_board_ep() -> Dict[str, Any]:
+    """Supertrend(10,3) on 5-min candles, every F&O stock and index: the last saved board (no Kite calls)."""
+    from dashboard import supertrend
+    return supertrend.board()
+
+
+@app.get("/api/supertrend/journal")
+def supertrend_journal_ep() -> Dict[str, Any]:
+    """Supertrend paper-trade journal (scripts/supertrend_journal.py, written each evening). Paper only: no orders."""
+    p = Path(__file__).resolve().parents[1] / "data" / "engine" / "supertrend_journal.json"
+    if not p.exists():
+        return {"versions": [], "days": {}, "note": "no journal yet: the first one is written after the 16:30 job"}
+    return json.loads(p.read_text())
+
+
+@app.get("/api/supertrend/trades")
+def supertrend_trades_ep() -> Dict[str, Any]:
+    """Buy / Sell tickets for the Supertrend rules, filled into Kite's own order window by the browser (Kite Publisher);
+    the owner confirms every order in Kite. Reads only: funds, positions, today's orders, prices."""
+    from dashboard import supertrend_trades
+    return supertrend_trades.view()
+
+
+@app.get("/api/supertrend/paper")
+def supertrend_paper_ep() -> Dict[str, Any]:
+    """Live paper trading of the Supertrend rules (supertrend_paper.py): paper account, its orders and P&L. No Kite call."""
+    from dashboard import supertrend_paper
+    return supertrend_paper.load()
+
+
+@app.get("/api/supertrend/auto")
+def supertrend_auto_status_ep() -> Dict[str, Any]:
+    """Auto exits (supertrend_auto.py): on/off, the positions it manages, its last actions. No Kite call."""
+    from dashboard import supertrend_auto
+    return supertrend_auto.status()
+
+
+_DASHBOARD_ORIGINS = {"http://127.0.0.1:8080", "http://localhost:8080", "http://127.0.0.1:5173", "http://localhost:5173"}
+
+
+@app.post("/api/supertrend/auto")
+async def supertrend_auto_switch_ep(request: Request) -> JSONResponse:
+    """Switch auto exits on/off: body {"armed": true|false}. CORS here allows any origin, so a browser request from any
+    other site is refused: only the dashboard (or a local tool sending no Origin) may switch real orders on."""
+    from dashboard import supertrend_auto
+    origin = request.headers.get("origin")
+    if origin and origin not in _DASHBOARD_ORIGINS:
+        return JSONResponse({"error": "refused: not the dashboard"}, status_code=403)
+    body = await request.json()
+    if not isinstance(body.get("armed"), bool):
+        return JSONResponse({"error": "send {\"armed\": true} or {\"armed\": false}"}, status_code=400)
+    return JSONResponse(supertrend_auto.set_armed(body["armed"]), status_code=200)
+
+
+@app.post("/api/supertrend/auto/manage")
+async def supertrend_auto_manage_ep(request: Request) -> JSONResponse:
+    """Hand a held option to auto exits or take it back: body {"option": "RBLBANK26NOV390CE", "manage": true|false}.
+    Same origin rule as the switch: it changes which real positions the program may sell."""
+    from dashboard import supertrend_auto, supertrend_trades
+    origin = request.headers.get("origin")
+    if origin and origin not in _DASHBOARD_ORIGINS:
+        return JSONResponse({"error": "refused: not the dashboard"}, status_code=403)
+    body = await request.json()
+    if not isinstance(body.get("option"), str) or not isinstance(body.get("manage"), bool):
+        return JSONResponse({"error": "send {\"option\": \"…\", \"manage\": true|false}"}, status_code=400)
+    held = {p["option"] for p in supertrend_trades.view().get("positions", [])}
+    try:
+        return JSONResponse(supertrend_auto.manage(body["option"], body["manage"], held), status_code=200)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+@app.post("/api/supertrend/check")
+def supertrend_check_ep() -> JSONResponse:
+    """Scan once per new closed 5-min candle; every minute in market hours push one phone alert per signal the rules TAKE, and
+    also check the options held against the owner's exit rules (alert once per reason).
+    The com.clade.supertrend job curls this every minute; it returns at once when there is nothing to do."""
+    from dashboard import supertrend, supertrend_auto, supertrend_trades
+    out = supertrend.check_and_alert()
+    if core.ZerodhaPlumbingInspector.is_open("NSE"):
+        v = None
+        try:
+            v = supertrend_trades.view()          # one read of the real account for the alerts and the auto exits
+            out["exits"] = supertrend_trades.check_positions(v=v)
+        except Exception as e:                    # never let the exit check stop the entry alerts
+            out["exits_error"] = str(e)[:200]
+        if v is not None:
+            try:
+                out["entries"] = supertrend_trades.check_entries(v=v)   # phone alert only for TAKE signals
+            except Exception as e:
+                out["entries_error"] = str(e)[:200]
+        if v is not None:
+            try:
+                out["auto"] = supertrend_auto.step(v=v)   # stage 2: sends orders only when switched on
+            except Exception as e:
+                out["auto_error"] = str(e)[:200]
+        try:
+            from dashboard import supertrend_paper
+            out["paper"] = supertrend_paper.step()
+        except Exception as e:                    # paper trading must not stop the real alerts either
+            out["paper_error"] = str(e)[:200]
     return JSONResponse(out, status_code=200)
 
 
@@ -761,7 +886,8 @@ async def place_trade(request: Request) -> JSONResponse:
     validation = inspector.run_full_trade_validation(
         symbol=p.get("symbol", "NIFTY"), product=p.get("product", "MIS"),
         order_type=p.get("order_type", "LIMIT"), transaction_type=p.get("transaction_type", "BUY"),
-        quantity=int(p.get("quantity", 75)), price=float(p.get("price", 140.0)),
+        quantity=int(p.get("quantity") or core.ZerodhaPlumbingInspector.get_lot_size(p.get("symbol", "NIFTY"))),
+        price=float(p.get("price", 140.0)),
         stop_loss_price=float(p["stop_loss_price"]) if p.get("stop_loss_price") else None,
         target_price=float(p["target_price"]) if p.get("target_price") else None,
         is_option=is_option, available_margin=float(p.get("available_margin", 10_000_000.0)),
@@ -777,7 +903,7 @@ async def place_trade(request: Request) -> JSONResponse:
     rec = {
         "order_id": order_id, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "symbol": inspector.resolve_symbol(p.get("symbol", "NIFTY")), "product": p.get("product", "NRML"),
-        "transaction_type": p.get("transaction_type", "BUY"), "quantity": int(p.get("quantity", 75)),
+        "transaction_type": p.get("transaction_type", "BUY"), "quantity": int(p.get("quantity") or core.ZerodhaPlumbingInspector.get_lot_size(p.get("symbol", "NIFTY"))),
         "entry_price": entry, "current_price": entry, "pnl": 0.0, "pnl_pct": 0.0,
         "stop_loss_price": float(p["stop_loss_price"]) if p.get("stop_loss_price") else None,
         "target_price": float(p["target_price"]) if p.get("target_price") else None,
@@ -799,8 +925,8 @@ async def place_trade(request: Request) -> JSONResponse:
         pass
 
     return JSONResponse({
-        "success": True, "mode": mode, "order_id": order_id,
-        "message": f"Order executed successfully in {mode.upper()} mode.",
+        "success": True, "mode": "mock", "order_id": order_id,   # never echo a client "live": nothing is sent to Kite (Q-0-6)
+        "message": "Recorded in the trade book only. No order was sent to the broker (this app cannot place orders).",
         "sliced_orders_executed": len(validation.sliced_orders),
         "cost_breakdown": validation.cost_breakdown.__dict__ if validation.cost_breakdown else None,
     })

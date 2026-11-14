@@ -12,6 +12,8 @@ This module provides automated plumbing diagnostic checks for Zerodha Kite API/M
 - Indian Regulatory Cost & Tax Slippage Auditor (STT, Stamp Duty, GST, Exchange Fees)
 """
 
+import csv
+import gzip
 import json
 import math
 import os
@@ -20,19 +22,51 @@ import urllib.request
 from datetime import datetime
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 
 # ---------------------------------------------------------------------------
 # Constants & Reference Rules for Indian Markets (NSE / Zerodha)
 # ---------------------------------------------------------------------------
 
-# F&O Lot Sizes (NSE standard lot sizes)
-LOT_SIZES: Dict[str, int] = {
-    "NIFTY": 75,
-    "BANKNIFTY": 15,
-    "FINNIFTY": 25,
-    "MIDCPNIFTY": 50,
-}
+# F&O index lot sizes: read from the newest exchange instrument master the engine stores daily
+# (data/engine/<date>/instruments.csv.gz, written by the 08:30 universe job). Never hardcoded: the old constants
+# (NIFTY 75, BANKNIFTY 15, FINNIFTY 25, MIDCPNIFTY 50) were wrong against the 2026-11-06 master (65, 30, 60, 120).
+INDEX_NAMES = ("NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY")
+MASTER_ROOT = Path(__file__).resolve().parents[1] / "data" / "engine"
+LOT_SIZES: Dict[str, int] = {}          # filled by refresh_lot_sizes(); empty = no master found (lot size UNKNOWN)
+LOT_SIZE_SOURCE = "UNAVAILABLE: no instrument master yet"
+
+
+_LOT_KEY = None   # (master file, its mtime, today): re-read only when one of them changes
+
+
+def refresh_lot_sizes(root: Optional[Path] = None) -> Dict[str, int]:
+    """Near-month futures lot size per index from the newest master file; updates LOT_SIZES in place."""
+    global LOT_SIZE_SOURCE, _LOT_KEY
+    root = Path(root or MASTER_ROOT)
+    files = sorted(root.glob("*/instruments.csv.gz"))
+    if not files:
+        LOT_SIZES.clear()
+        LOT_SIZE_SOURCE, _LOT_KEY = f"UNAVAILABLE: no instruments.csv.gz under {root}", None
+        return LOT_SIZES
+    today = datetime.now().date().isoformat()
+    key = (files[-1], files[-1].stat().st_mtime, today)
+    if key == _LOT_KEY:
+        return LOT_SIZES
+    near = {}
+    with gzip.open(files[-1], "rt", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            if r["segment"] == "NFO-FUT" and r["name"] in INDEX_NAMES and r["expiry"] >= today:
+                if r["name"] not in near or r["expiry"] < near[r["name"]][0]:
+                    near[r["name"]] = (r["expiry"], int(r["lot_size"]))
+    LOT_SIZES.clear()
+    LOT_SIZES.update({n: lot for n, (_, lot) in near.items()})
+    LOT_SIZE_SOURCE, _LOT_KEY = f"exchange instrument master {files[-1].parent.name}", key
+    return LOT_SIZES
+
+
+refresh_lot_sizes()
 
 # NSE Order Freeze Quantity Limits (Max allowed quantity per single order)
 FREEZE_LIMITS: Dict[str, int] = {
@@ -69,6 +103,40 @@ STAMP_DUTY_RATES = {
 
 SEBI_TURNOVER_FEE_RATE = 0.000001  # Rs 10 per crore (0.0001%)
 GST_RATE = 0.18                    # 18% GST on (Brokerage + Exchange Fees + SEBI Fees)
+
+# F&O rates come from the engine's verified charge schedule (docs/verified-facts.md F-COST-2..5, config costs.entries),
+# the entry in force today, overriding the F&O numbers above (old STT 0.0125 % / 0.125 % predates the 2026-04-01 revision;
+# old exchange 0.0019 % / 0.05 % did not match F-COST-3). Equity rates above are NOT verified (no F-COST fact covers them).
+COST_CONFIG = Path(__file__).resolve().parents[1] / "config" / "engine" / "v24.yaml"
+
+
+def _verified_fno_rates(path: Path = COST_CONFIG) -> Dict[str, float]:
+    import yaml
+    today, best = datetime.now().date(), {}
+    for e in yaml.safe_load(Path(path).read_text())["costs"]["entries"]:
+        key = (e["product"], e["component"])
+        if "rate" in e and e.get("verified") and e["effective_from"] <= today and \
+                (key not in best or e["effective_from"] > best[key]["effective_from"]):
+            best[key] = e
+    return {f"{p}:{c}": e["rate"] for (p, c), e in best.items()}
+
+
+_V = _verified_fno_rates()
+
+
+def _nse_holidays(path: Path = COST_CONFIG) -> tuple[Dict[str, Dict[str, Any]], set]:
+    """NSE F&O trading holidays from the engine config (restrictions.holidays, each with its NSE circular, F-NSE-5),
+    and the years that list covers (restrictions.holiday_years)."""
+    import yaml
+    r = yaml.safe_load(Path(path).read_text())["restrictions"]
+    return {str(h["date"]): h for h in r["holidays"]}, set(r["holiday_years"])
+
+
+_HOLIDAYS, _HOLIDAY_YEARS = _nse_holidays()
+STT_RATES["FNO_FUTURES_SELL"], STT_RATES["FNO_OPTIONS_SELL"] = _V["FUT:stt"], _V["OPT:stt"]
+EXCHANGE_CHARGES_RATES["FNO_FUTURES"], EXCHANGE_CHARGES_RATES["FNO_OPTIONS"] = _V["FUT:exchange"], _V["OPT:exchange"]
+STAMP_DUTY_RATES["FNO_FUTURES"], STAMP_DUTY_RATES["FNO_OPTIONS"] = _V["FUT:stamp"], _V["OPT:stamp"]
+SEBI_TURNOVER_FEE_RATE, GST_RATE = _V["FUT:sebi"], _V["FUT:gst"]
 
 
 class ProductType(Enum):
@@ -148,7 +216,7 @@ class ZerodhaPlumbingInspector:
 
     @staticmethod
     def market_session(now=None, exchange: str = "NSE") -> Dict[str, Any]:
-        """Session state for an exchange (IST; no holiday calendar).
+        """Session state for an exchange (IST; NSE holidays from the engine config's verified list, MCX has none).
         NSE = equity/F&O 09:15–15:30. MCX = non-agri commodities (bullion / energy / base
         metals) 09:00–~23:55 IST — the long evening session that lets Indian traders react
         to global cues (EIA, FOMC, COMEX/NYMEX). Agri MCX (~09:00–17:00) is not modelled."""
@@ -162,6 +230,24 @@ class ZerodhaPlumbingInspector:
         stamp = now.strftime("%Y-%m-%d %H:%M IST")
         ex = (exchange or "NSE").upper()
         t = now.time()
+        sp = ZerodhaPlumbingInspector.special_session(now.date(), ex)
+        if sp:                                   # exchange-notified special session (e.g. Muhurat): its times only
+            hm, what = now.strftime("%H:%M"), f"{sp['name']} ({sp['ref']})"
+            if hm < sp["pre_open"]:
+                return {"is_open": False, "session": "PRE_MARKET", "exchange": ex, "now_ist": stamp, "special": sp,
+                        "message": f"{what}: pre-open {sp['pre_open']}, trading {sp['open']}–{sp['close']} IST."}
+            if hm < sp["open"]:
+                return {"is_open": False, "session": "PRE_OPEN", "exchange": ex, "now_ist": stamp, "special": sp,
+                        "message": f"{what}: pre-open; continuous trading starts {sp['open']} IST."}
+            if hm <= sp["close"]:
+                return {"is_open": True, "session": "OPEN", "exchange": ex, "now_ist": stamp, "special": sp,
+                        "message": f"{what}: open until {sp['close']} IST."}
+            return {"is_open": False, "session": "CLOSED", "exchange": ex, "now_ist": stamp, "special": sp,
+                    "message": f"{what}: closed ({sp['open']}–{sp['close']} IST)."}
+        hol = _HOLIDAYS.get(now.date().isoformat()) if ex == "NSE" else None
+        if hol:
+            return {"is_open": False, "session": "HOLIDAY", "exchange": ex, "now_ist": stamp, "holiday": hol,
+                    "message": f"NSE closed: {hol['title']} ({hol['ref']})."}
         if now.weekday() >= 5:
             return {"is_open": False, "session": "WEEKEND", "exchange": ex, "now_ist": stamp,
                     "message": f"{ex} closed (weekend)."}
@@ -182,9 +268,24 @@ class ZerodhaPlumbingInspector:
             return {"is_open": False, "session": "PRE_OPEN", "exchange": ex, "now_ist": stamp,
                     "message": "Pre-open session (09:00–09:15). Continuous trading starts 09:15 IST."}
         if t <= dtime(15, 30):
-            return {"is_open": True, "session": "OPEN", "exchange": ex, "now_ist": stamp, "message": "Market open."}
+            msg = "Market open." if now.year in _HOLIDAY_YEARS else \
+                f"Open by the clock, but the NSE holiday list for {now.year} is not verified yet: check before trading."
+            return {"is_open": True, "session": "OPEN", "exchange": ex, "now_ist": stamp, "message": msg,
+                    "holidays_verified": now.year in _HOLIDAY_YEARS}
         return {"is_open": False, "session": "CLOSED", "exchange": ex, "now_ist": stamp,
                 "message": "Market closed for the day. NSE trades 09:15–15:30 IST (AMO for after-hours)."}
+
+    @staticmethod
+    def special_session(day, exchange: str = "NSE") -> Optional[Dict[str, Any]]:
+        """The exchange-notified special session on `day` (dashboard/special_sessions.json, each entry with its circular),
+        or None. A missing / unreadable file means no special sessions (normal weekday hours apply)."""
+        import json
+        from pathlib import Path
+        try:
+            rows = json.loads((Path(__file__).parent / "special_sessions.json").read_text())
+        except (OSError, ValueError):
+            return None
+        return next((r for r in rows if r["date"] == day.isoformat() and r["exchange"] == exchange.upper()), None)
 
     @staticmethod
     def is_open(exchange: str = "NSE") -> bool:
@@ -314,6 +415,7 @@ class ZerodhaPlumbingInspector:
     def get_lot_size(symbol: str) -> int:
         """Get standard lot size for symbol."""
         clean_symbol = ZerodhaPlumbingInspector.resolve_symbol(symbol)
+        refresh_lot_sizes()   # cheap; picks up the new day's master without a server restart
         # Check exact or longest substring match first (e.g. BANKNIFTY before NIFTY)
         for idx_name in sorted(LOT_SIZES.keys(), key=len, reverse=True):
             if idx_name in clean_symbol:
@@ -325,6 +427,14 @@ class ZerodhaPlumbingInspector:
         """Validate if quantity conforms to F&O lot size rules."""
         lot_size = ZerodhaPlumbingInspector.get_lot_size(symbol)
         clean_symbol = ZerodhaPlumbingInspector.resolve_symbol(symbol)
+        index = next((n for n in sorted(INDEX_NAMES, key=len, reverse=True) if n in clean_symbol), None)
+        if index and index not in LOT_SIZES:   # never fall back to a guessed lot size
+            return PlumbingDiagnosticItem(
+                check_name="Lot Size & Quantity",
+                status="WARNING",
+                message=f"Lot size for {index} UNKNOWN ({LOT_SIZE_SOURCE}); quantity {quantity} not checked.",
+                details={"lot_size": None, "provided_quantity": quantity, "source": LOT_SIZE_SOURCE}
+            )
         
         if lot_size > 1:
             if quantity <= 0 or quantity % lot_size != 0:
@@ -339,7 +449,7 @@ class ZerodhaPlumbingInspector:
                 check_name="Lot Size & Quantity",
                 status="PASSED",
                 message=f"Quantity {quantity} is a valid multiple of lot size {lot_size} ({quantity // lot_size} lot(s)).",
-                details={"lot_size": lot_size, "lots": quantity // lot_size}
+                details={"lot_size": lot_size, "lots": quantity // lot_size, "source": LOT_SIZE_SOURCE}
             )
         else:
             if quantity <= 0:

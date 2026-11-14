@@ -4,18 +4,18 @@
 <dict>
     <key>Label</key>
     <string>com.clade.market-awake</string>
-    <!-- Weekdays: keep the Mac awake from 08:50 until 15:35 IST so every market-hours job
+    <!-- Weekdays: keep the Mac awake from 08:50 until 23:55 IST (NSE 09:15-15:30 + MCX to 23:55) so every market-hours job
          (ignition radar, exit monitor, stop alerts, unprotected guard) actually runs. The Mac
          sleeps after 1 min idle, which on 2026-11-02 left the radar running only 11:03–12:42.
-         caffeinate -s holds a no-sleep assertion on AC power only (on battery the Mac may still
-         sleep), and exits at 15:35 whatever time it started. If the Mac is asleep at 08:50,
+         caffeinate -i stops idle sleep on battery too (owner 2026-11-13: "this charging thing worries me");
+         -s adds full system-sleep prevention while on AC. Exits at 23:55 whatever time it started. If the Mac is asleep at 08:50,
          launchd runs this missed job on the next wake (including a DarkWake). A closed lid
          still sleeps the Mac unless an external display is attached. -->
     <key>ProgramArguments</key>
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>end=$(date -j -f "%H:%M:%S" "15:35:00" +%s); d=$((end - $(date +%s))); [ "$d" -gt 0 ] &amp;&amp; exec /usr/bin/caffeinate -s -t "$d"; exit 0</string>
+        <string>end=$(date -j -f "%H:%M:%S" "23:55:00" +%s); d=$((end - $(date +%s))); [ "$d" -gt 0 ] &amp;&amp; exec /usr/bin/caffeinate -i -s -t "$d"; exit 0</string>
     </array>
     <key>StartCalendarInterval</key>
     <array>

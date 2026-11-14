@@ -7,6 +7,9 @@ import { useToast } from "../components/Toast";
 
 export function FnoPlanner() {
   const { data, refetch, isFetching } = useQuery({ queryKey: ["fno"], queryFn: api.getFnoPlan });
+  // NIFTY lot size from the exchange instrument master (via /api/plumbing/status), not a hardcoded 75
+  const lots = useQuery({ queryKey: ["plumbing-status"],
+    queryFn: async () => (await (await fetch("/api/plumbing/status")).json()).reference_rules?.lot_sizes ?? {} });
   const { mode, afterHours } = useMode();
   const toast = useToast();
   const qc = useQueryClient();
@@ -14,8 +17,10 @@ export function FnoPlanner() {
   const place = useMutation({
     mutationFn: () => {
       const tc = data!.trade_card;
+      const lot: number | undefined = lots.data?.NIFTY;
+      if (!lot) throw new Error("NIFTY lot size unknown: no instrument master yet");
       return api.placeTrade({
-        mode, symbol: "NIFTY24000CE", quantity: 75 * tc.recommended_lots, price: 285,
+        mode, symbol: "NIFTY24000CE", quantity: lot * tc.recommended_lots, price: 285,
         stop_loss_price: tc.stop_loss_price, target_price: tc.target_1, is_option: true,
         product: "NRML", order_type: "LIMIT", transaction_type: "BUY",
         strategy_origin: "Weekly F&O Plan", available_margin: 1e7, allow_after_hours: afterHours,
@@ -28,9 +33,10 @@ export function FnoPlanner() {
       });
     },
     onSuccess: (r) => {
-      if (r.success) { toast.push(`▲ ${mode.toUpperCase()} · Weekly F&O plan placed\n${r.order_id ?? ""}`, "success"); qc.invalidateQueries({ queryKey: ["positions"] }); }
+      if (r.success) { toast.push(`▲ Weekly F&O plan recorded in the trade book (no order sent)\n${r.order_id ?? ""}`, "success"); qc.invalidateQueries({ queryKey: ["positions"] }); }
       else toast.push(`✕ ${r.message ?? "rejected"}`, "error");
     },
+    onError: (e) => toast.push(`✕ ${(e as Error).message}`, "error"),
   });
 
   if (!data) return <div className="panel rounded-lg p-8 text-center font-mono text-sm text-muted">Loading plan…</div>;

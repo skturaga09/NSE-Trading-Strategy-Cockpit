@@ -248,15 +248,8 @@ def _oi_buildup(token: str) -> Optional[Dict[str, Any]]:
 
 
 def _market_open_now() -> bool:
-    """NSE weekday hours in IST (no holiday calendar)."""
-    try:
-        from zoneinfo import ZoneInfo
-        now = datetime.now(ZoneInfo("Asia/Kolkata"))
-    except Exception:
-        now = datetime.now()
-    if now.weekday() >= 5:
-        return False
-    return "09:15" <= now.strftime("%H:%M") <= "15:30"
+    """NSE session in IST: weekday 09:15-15:30, or a notified special session (no holiday calendar)."""
+    return core.ZerodhaPlumbingInspector.is_open("NSE")
 
 
 def _oi_tier(oi_chg_pct: Optional[float]) -> Optional[str]:

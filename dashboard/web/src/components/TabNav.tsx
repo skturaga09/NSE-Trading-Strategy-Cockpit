@@ -1,4 +1,4 @@
-export type TabId = "ideas" | "plumbing" | "journal" | "intraday" | "swing" | "exits" | "vcp" | "options" | "fno" | "backtest" | "radar" | "commodities";
+export type TabId = "ideas" | "plumbing" | "journal" | "intraday" | "swing" | "exits" | "vcp" | "options" | "fno" | "backtest" | "radar" | "commodities" | "foengine" | "supertrend";
 
 // Ordered by the daily workflow: take trades → manage → review → find.
 // Greeks/F&O Plan/Backtest/Plumbing are HIDDEN (low-value for the live workflow) but
@@ -10,13 +10,16 @@ export type TabId = "ideas" | "plumbing" | "journal" | "intraday" | "swing" | "e
 const TABS: { id: TabId; label: string; no: string; hint: string }[] = [
   { id: "intraday", label: "Today", no: "01", hint: "trade now" },
   { id: "radar", label: "Radar", no: "02", hint: "early movers" },
-  { id: "swing", label: "Swing", no: "03", hint: "hold overnight" },
-  { id: "exits", label: "Exits", no: "04", hint: "manage / exit" },
-  { id: "journal", label: "Journal", no: "05", hint: "review + costs" },
-  { id: "ideas", label: "Ideas", no: "06", hint: "trade ideas" },
-  { id: "vcp", label: "Screener", no: "07", hint: "VCP setups" },
-  { id: "commodities", label: "Commodities", no: "08", hint: "MCX options" },
+  { id: "supertrend", label: "Supertrend", no: "03", hint: "5m trend flips" },
+  { id: "swing", label: "Swing", no: "04", hint: "hold overnight" },
+  { id: "exits", label: "Exits", no: "05", hint: "manage / exit" },
+  { id: "journal", label: "Journal", no: "06", hint: "review + costs" },
+  { id: "ideas", label: "Ideas", no: "07", hint: "trade ideas" },
+  { id: "vcp", label: "Screener", no: "08", hint: "VCP setups" },
+  { id: "commodities", label: "Commodities", no: "09", hint: "MCX options" },
+  { id: "foengine", label: "F&O Engine", no: "10", hint: "positioning" },
 ];
+export const TAB_IDS: TabId[] = TABS.map((t) => t.id);   // tabs a URL hash may open (#foengine)
 
 export function TabNav({ active, onChange }: { active: TabId; onChange: (t: TabId) => void }) {
   return (

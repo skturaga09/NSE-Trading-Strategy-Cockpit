@@ -625,7 +625,7 @@ def _build_index_option_order(direction: str, cockpit: Dict[str, Any]) -> Option
         "entry_price": premium,
         "stop_loss": round(premium * 0.6, 1),
         "target": round(premium * 1.7, 1),
-        "qty": 75,  # 1 NIFTY lot
+        "qty": ZerodhaPlumbingInspector.get_lot_size("NIFTY"),  # 1 NIFTY lot, from the instrument master
         "product": "NRML",
         "transaction_type": "BUY",
         "is_option": True,
@@ -1302,7 +1302,7 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
             product=payload.get("product", "MIS"),
             order_type=payload.get("order_type", "LIMIT"),
             transaction_type=payload.get("transaction_type", "BUY"),
-            quantity=int(payload.get("quantity", 75)),
+            quantity=int(payload.get("quantity") or ZerodhaPlumbingInspector.get_lot_size(payload.get("symbol", "NIFTY"))),
             price=float(payload.get("price", 140.0)),
             stop_loss_price=float(payload.get("stop_loss_price", 90.0)) if payload.get("stop_loss_price") else None,
             target_price=float(payload.get("target_price", 195.0)) if payload.get("target_price") else None,
@@ -1322,7 +1322,7 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
         order_id = "MOCK_ORD_" + os.urandom(3).hex().upper()
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         entry_price = float(payload.get("price", 140.0))
-        qty = int(payload.get("quantity", 75))
+        qty = int(payload.get("quantity") or ZerodhaPlumbingInspector.get_lot_size(payload.get("symbol", "NIFTY")))
 
         trade_record = {
             "order_id": order_id,
@@ -1346,9 +1346,9 @@ class DashboardRequestHandler(SimpleHTTPRequestHandler):
 
         self._send_json_response({
             "success": True,
-            "mode": mode,
+            "mode": "mock",   # never echo a client "live": nothing is sent to Kite (Q-0-7)
             "order_id": order_id,
-            "message": f"Order executed successfully in {mode.upper()} mode.",
+            "message": "Recorded in the trade book only. No order was sent to the broker (this app cannot place orders).",
             "sliced_orders_executed": len(validation.sliced_orders),
             "cost_breakdown": validation.cost_breakdown.__dict__ if validation.cost_breakdown else None
         })

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- One-off: Diwali Muhurat trading, Sun 2026-11-08 (NSE/FAOP/76940: F&O 14:20-15:40). Keeps the Mac awake 13:55-15:55 so the
+     cockpit radar / exit monitor / stop alerts run, and records the session with the engine (research only; the engine marks
+     the day RESTRICTION_UNVERIFIED). Date-guarded: does nothing on any other day. Remove after the session:
+     launchctl bootout gui/$(id -u)/com.clade.muhurat-2026; rm ~/Library/LaunchAgents/com.clade.muhurat-2026.plist -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.clade.muhurat-2026</string>
+  <key>WorkingDirectory</key><string>/Users/turagasanthoshkumar/Clade-NSE-Skills</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>[ "$(date +%Y-%m-%d)" = "2026-11-08" ] || exit 0; end=$(date -j -f "%Y-%m-%d %H:%M:%S" "2026-11-08 15:55:00" +%s); d=$((end - $(date +%s))); [ "$d" -gt 0 ] || exit 0; /usr/bin/caffeinate -s -t "$d" &amp; exec /usr/bin/caffeinate -i /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m engine.recorder --config config/engine/v21.yaml --refresh --until 15:50</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Month</key><integer>11</integer><key>Day</key><integer>8</integer><key>Hour</key><integer>13</integer><key>Minute</key><integer>55</integer></dict>
+  <key>RunAtLoad</key><false/>
+  <key>StandardOutPath</key><string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/muhurat_2026.out.log</string>
+  <key>StandardErrorPath</key><string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/muhurat_2026.err.log</string>
+</dict>
+</plist>
