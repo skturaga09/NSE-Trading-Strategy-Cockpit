@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.clade.engine-universe</string>
+    <!-- F&O engine pre-open job, weekdays 08:35 IST (master is generated daily, ~08:30, F-INST-3):
+         instrument master -> versioned registry + diff; NSE constituents, F&O ban list, holiday circulars.
+         Idempotent; failed sources are retried by the recorder's own refresh at 09:00. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <!-- universe first, then the NSE event calendar (options need a calendar fetched that day, events.max_age_days);
+             each runs even if the other fails; the job fails if either does -->
+        <string>/Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m engine.universe; u=$?; /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m engine.events; e=$?; [ $u -eq 0 ] &amp;&amp; [ $e -eq 0 ]</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills</string>
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>35</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>35</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>35</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>35</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>35</integer></dict>
+    </array>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/engine_universe.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/engine_universe.err.log</string>
+</dict>
+</plist>

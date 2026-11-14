@@ -34,3 +34,14 @@ dashboard/exit_breakout_seen.json
 dashboard/exit_levels.json
 dashboard/exit_auto_seen.json
 dashboard/fno_nav_history.jsonl
+
+# F&O engine recorded market data (local; archived by engine.retention)
+data/engine/
+
+# MCX commodity desk state (paper book, settings, alerts)
+data/mcx_desk/
+
+# Supertrend / ignition live state (rewritten every minute in market hours)
+dashboard/supertrend_state.json
+dashboard/supertrend_exit_alerts.json
+dashboard/ignite_seen.json

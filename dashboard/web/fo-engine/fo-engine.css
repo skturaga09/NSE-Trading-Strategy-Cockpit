@@ -1,0 +1,30 @@
+/* F&O Engine module stylesheet. Every selector is under [data-fo-engine] (grep test: fo-engine/tests/isolation.test.ts).
+   No html / body / :root / * / bare element selectors at the top level. Loaded only with the module's lazy chunk. */
+@import "./fo-tokens.css";
+@config "./tailwind.fo.config.js";
+@tailwind components;
+@tailwind utilities;
+
+[data-fo-engine] {
+  position: relative;               /* the portal container is positioned against the root */
+  padding: var(--fo-space-6);       /* on the root itself: scoped utilities only match its descendants */
+  font-family: var(--fo-font-sans);
+  font-size: var(--fo-text-base);
+  line-height: var(--fo-leading-base);
+  color: var(--fo-ink);
+  background: var(--fo-bg);
+  border: 1px solid var(--fo-line);
+  border-radius: var(--fo-radius-lg);
+  -webkit-font-smoothing: antialiased;
+}
+[data-fo-engine] .fo-num { font-family: var(--fo-font-mono); font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "zero" 1; }
+[data-fo-engine] .fo-stale-hatch {
+  background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--fo-stale) 14%, transparent) 6px 12px);
+}
+[data-fo-engine] .fo-sim-chip { border: 1px dashed var(--fo-simulated); color: var(--fo-simulated); }
+[data-fo-engine] .fo-act-chip { border: 1px solid var(--fo-actual); background: color-mix(in srgb, var(--fo-actual) 16%, transparent); color: var(--fo-ink); }
+[data-fo-engine] :focus-visible { outline: 2px solid var(--fo-accent); outline-offset: 1px; }
+[data-fo-engine] table { border-collapse: collapse; width: 100%; }
+[data-fo-engine] input, [data-fo-engine] select, [data-fo-engine] textarea, [data-fo-engine] button { font: inherit; color: inherit; }
+[data-fo-engine] [data-fo-portal] { position: absolute; inset: 0; pointer-events: none; z-index: 50; }
+[data-fo-engine] [data-fo-portal] > * { pointer-events: auto; }

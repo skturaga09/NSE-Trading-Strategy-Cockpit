@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.clade.engine-eod</string>
+    <!-- F&O engine after-close job, weekdays 15:50 IST: health summary -> compaction (verified) ->
+         docs/measured-oi-cadence.md -> Phase 6 opportunity + timing recorder (each recorded day not yet done
+         for the current config version) -> retention (archive + sha256 verify before delete).
+         Idempotent; catches up any un-compacted day; does nothing while the recorder lock is held.
+         If the Mac is asleep at 15:50, launchd runs it on the next wake. Result: data/engine/eod_last.json -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Frameworks/Python.framework/Versions/3.13/bin/python3</string>
+        <string>-m</string>
+        <string>engine.eod</string>
+        <string>--config</string>
+        <string>config/engine/v24.yaml</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills</string>
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>50</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>50</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>50</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>50</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>15</integer><key>Minute</key><integer>50</integer></dict>
+    </array>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/engine_eod.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/engine_eod.err.log</string>
+</dict>
+</plist>

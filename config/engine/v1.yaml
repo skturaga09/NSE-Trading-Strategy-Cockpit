@@ -1,0 +1,52 @@
+# F&O Positioning Engine — config v1 (Phase 1: recorder + replay).
+# Every key is required; the loader fails on a missing or empty value (no defaults in code).
+# Facts are cited by ID from docs/verified-facts.md. Owner decisions are dated.
+version: v1
+
+ws:
+  max_tokens_per_connection: 3000   # F-WS-2
+  max_connections: 3                # F-WS-2
+  reconnect_max_tries: 50           # kiteconnect 5.2.2 KiteTicker default (F-WS-8); library cap 300
+  reconnect_max_delay_s: 60         # kiteconnect 5.2.2 KiteTicker default (F-WS-8); library floor 5
+
+# Phase 1 SubscriptionProvider (owner decision 2026-11-05): NIFTY + 5 large caps, near-month future + spot.
+# select: near_future = the live NFO FUT of that name with the earliest expiry >= trading date.
+subscriptions:
+  - {exchange: NFO, name: NIFTY, select: near_future, mode: full}
+  - {exchange: NFO, name: RELIANCE, select: near_future, mode: full}
+  - {exchange: NFO, name: HDFCBANK, select: near_future, mode: full}
+  - {exchange: NFO, name: ICICIBANK, select: near_future, mode: full}
+  - {exchange: NFO, name: INFY, select: near_future, mode: full}
+  - {exchange: NFO, name: TCS, select: near_future, mode: full}
+  - {exchange: NSE, tradingsymbol: "NIFTY 50", mode: full}
+  - {exchange: NSE, tradingsymbol: RELIANCE, mode: full}
+  - {exchange: NSE, tradingsymbol: HDFCBANK, mode: full}
+  - {exchange: NSE, tradingsymbol: ICICIBANK, mode: full}
+  - {exchange: NSE, tradingsymbol: INFY, mode: full}
+  - {exchange: NSE, tradingsymbol: TCS, mode: full}
+
+writer:
+  queue_max: 200000          # frames; overflow is dropped AND logged as a gap
+  flush_interval_s: 1.0
+  status_interval_s: 1.0
+
+depth_min_interval_s: 1.0    # step 9: depth snapshot only on change, at most once per this many seconds per instrument
+
+storage:
+  root: data/engine          # relative to repo root; one directory per trading date
+
+# Equity-derivatives normal market (F-NSE-1, effective 2026-08-03). Used by the OI cadence measurement.
+market_hours:
+  open: "09:15"
+  close: "15:40"
+
+# Owner decision 2026-11-05 (Q-OPS-2).
+retention:
+  raw_sessions_local: 5
+  archive_target: ~/EngineArchive    # a local path / external drive, or s3://bucket/prefix (AWS creds from env)
+
+disk_guard:
+  check_interval_s: 10
+  alert_below_gb: 5
+  stop_depth_below_gb: 3
+  stop_ticks_below_gb: 2

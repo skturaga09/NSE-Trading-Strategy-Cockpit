@@ -1,0 +1,351 @@
+# F&O Positioning Engine — config v20 (2026-11-07): v19 + two owner answers. D-69: signals are for OPTIONS only
+# (`contracts.instrument_kinds: [CE, PE]`; futures are not considered). D-70: until options.iv_pct_min_sessions recorded
+# sessions of IV history exist, a short history is a warning on the signal, not a rejection (`options.iv_history_short: WARN`);
+# a missing current IV still rejects. v19 not edited (D-16). Used by every engine job and the signals/options/paper defaults.
+version: v20
+
+ws:
+  max_tokens_per_connection: 3000   # F-WS-2
+  max_connections: 3                # F-WS-2
+  reconnect_max_tries: 50           # kiteconnect 5.2.2 KiteTicker default (F-WS-8); library cap 300
+  reconnect_max_delay_s: 60         # kiteconnect 5.2.2 KiteTicker default (F-WS-8); library floor 5
+  stall_after_s: 10                 # owner decision 2026-11-06: no frame (heartbeats count) for this long on a
+                                    # 'connected' socket => 'stall' gap + alert + forced reconnect (half-open after sleep)
+
+# Phase 2 universe (replaces v1 `subscriptions`). Underlyings = (NIFTY 50 ∪ NIFTY 100 constituents) ∩ names with
+# live NFO futures in the day's master, plus the INDEX family below. Lot sizes, expiries, strikes: master only.
+universe:
+  indices:                          # official NSE constituent CSVs (F-NSE-2, F-NSE-3)
+    NIFTY50: https://nsearchives.nseindia.com/content/indices/ind_nifty50list.csv
+    NIFTY100: https://nsearchives.nseindia.com/content/indices/ind_nifty100list.csv
+  index_spots:                      # INDEX family: NFO name -> NSE INDICES tradingsymbol (names differ, F-INST-5)
+    NIFTY: NIFTY 50
+  constituents_max_age_days: 3      # owner decision 2026-11-05: older last-good list => recommendations blocked
+
+# Phase 3 tiered subscriptions (replace v2 universe.subscription_*). Limits: ws.* above (F-WS-2).
+# Priority when over the limit: A, then B, then C; inside a tier, earlier requests first. Drops are logged.
+tiers:
+  A:                                # whole universe: spot + every active future + the index spots above
+    spot_mode: quote                # Phase 3 text (spot and index stay quote)
+    futures_mode: full              # owner decision 2026-11-05: quote packets have no OI / exchange ts (F-WS-6)
+  B: {mode: full}                   # instruments under active watch (promote/demote by later phases)
+  C: {mode: full, max_tokens: 400}  # owner D-51 (2026-11-07): options need bid/ask and OI, which quote packets lack (F-WS-4/6); hard cap 400 tokens
+  executor_interval_s: 1.0          # how often the recorder re-plans (TTL expiry, promotions)
+
+restrictions:
+  ban_list_url: https://nsearchives.nseindia.com/content/fo/fo_secban.csv   # F-NSE-4
+  # F&O trading holidays (F-NSE-5). Each circular is re-downloaded on every refresh; a fetch failure or a
+  # changed checksum makes that day's holiday status RESTRICTION_UNVERIFIED.
+  holiday_circulars:
+    - {ref: NSE/FAOP/71777, url: https://nsearchives.nseindia.com/content/circulars/FAOP71777.pdf,
+       sha256: 5a2079cd78b2e6b536ef0d28300e63b645721bed22cc82a91facf5945f3296ea}
+    - {ref: NSE/FAOP/72262, url: https://nsearchives.nseindia.com/content/circulars/FAOP72262.pdf,
+       sha256: f98ae37cf6a6f8c18b1064b0551599d084c4b4a27804842c487f0da43fea8f0f}
+  holiday_years: [2026]             # a date in any other year => RESTRICTION_UNVERIFIED (Q-NSE-6)
+  holidays:
+    - {date: 2026-01-15, ref: NSE/FAOP/72262, title: Municipal Corporation Election in Maharashtra}
+    - {date: 2026-01-26, ref: NSE/FAOP/71777, title: Republic Day}
+    - {date: 2026-03-03, ref: NSE/FAOP/71777, title: Holi}
+    - {date: 2026-03-26, ref: NSE/FAOP/71777, title: Shri Ram Navami}
+    - {date: 2026-03-31, ref: NSE/FAOP/71777, title: Shri Mahavir Jayanti}
+    - {date: 2026-04-03, ref: NSE/FAOP/71777, title: Good Friday}
+    - {date: 2026-04-14, ref: NSE/FAOP/71777, title: Dr. Baba Saheb Ambedkar Jayanti}
+    - {date: 2026-05-01, ref: NSE/FAOP/71777, title: Maharashtra Day}
+    - {date: 2026-05-28, ref: NSE/FAOP/71777, title: Bakri Id}
+    - {date: 2026-06-26, ref: NSE/FAOP/71777, title: Muharram}
+    - {date: 2026-09-14, ref: NSE/FAOP/71777, title: Ganesh Chaturthi}
+    - {date: 2026-10-02, ref: NSE/FAOP/71777, title: Mahatma Gandhi Jayanti}
+    - {date: 2026-10-20, ref: NSE/FAOP/71777, title: Dussehra}
+    - {date: 2026-11-10, ref: NSE/FAOP/71777, title: Diwali-Balipratipada}
+    - {date: 2026-11-24, ref: NSE/FAOP/71777, title: Prakash Gurpurb Sri Guru Nanak Dev}
+    - {date: 2026-12-25, ref: NSE/FAOP/71777, title: Christmas}
+  # Sunday 2026-11-08: Muhurat trading, "timings ... shall be notified subsequently" (NSE/FAOP/71777) => unverified.
+  special_sessions:
+    - {date: 2026-11-08, ref: NSE/FAOP/71777, title: Muhurat trading (timings not yet verified)}
+
+http:                               # NSE static files time out for the default python-requests agent (F-NSE-6)
+  user_agent: clade-fno-engine/2 (personal research; read-only)
+  timeout_s: 30
+
+writer:
+  queue_max: 200000          # frames; overflow is dropped AND logged as a gap
+  flush_interval_s: 1.0
+  status_interval_s: 1.0
+
+depth_min_interval_s: 1.0    # step 9: depth snapshot only on change, at most once per this many seconds per instrument
+
+storage:
+  root: data/engine          # relative to repo root; one directory per trading date
+
+# Equity-derivatives normal market (F-NSE-1, effective 2026-08-03). Used by the OI cadence measurement.
+market_hours:
+  open: "09:15"
+  close: "15:40"
+
+# Candle sessions by segment. fno = market_hours above (F-NSE-1). cash (NSE spot + INDICES): owner decision
+# 2026-11-05, NOT in verified-facts (no NSE source checked for cash hours).
+sessions:
+  fno: {open: "09:15", close: "15:40"}
+  cash: {open: "09:15", close: "15:30"}
+
+# Phase 3 aggregation. Values are owner decisions 2026-11-05 (no verified source exists for them).
+candles:
+  intervals_min: [1, 3, 5, 15]      # plus the daily candle; buckets aligned to the session open
+  out_of_order_window_s: 2          # a tick is accepted if received <= its minute's end + this; else logged late.
+                                    # Must exceed writer.flush_interval_s (queue-drop gaps are flushed that often)
+  idle_clock_margin_s: 1            # engineering choice: an idle recorder advances the stream clock to wall - this
+  finalize_delay_s: 15              # derived, not a market fact: a minute is final at its end + this. Must exceed
+                                    # ws.stall_after_s + tiers.executor_interval_s + writer.status_interval_s, so a
+                                    # stall is always known before the minutes it covers are final (live == replay)
+
+quality:                            # seconds; a field older than its threshold degrades the status
+  stale_price_s: 10                 # price older => STALE
+  stale_volume_s: 10                # => DEGRADED
+  stale_depth_s: 5                  # Tier B depth => DEGRADED
+  stale_oi_s: 300                   # time since the last OI CHANGE => DEGRADED (F-HIST-8: minute OI gaps up to 3 min)
+  oi_age_basis: packet              # owner D-67: age since the latest OI-carrying packet (configs before v19: since the last change)
+
+baselines:
+  sessions: 20                      # N: same minute-of-day volume median, OI-change distribution over the last N sessions
+  oi_change_windows_min: [5, 15, 60]
+
+historical:                         # Kite historical candles (backfill only; source=HISTORICAL_API, own store)
+  rate_per_s: 3                     # F-RATE-2
+  max_days: {minute: 60, 3minute: 100, 5minute: 100, 60minute: 400, day: 2000}   # F-HIST-5 (measured caps)
+  oi_intervals: [minute, 5minute, day]   # F-HIST-3: oi=1 verified for NFO futures and options on these
+
+# Owner decision 2026-11-05 (Q-OPS-2).
+retention:
+  raw_sessions_local: 5
+  archive_target: "~/Library/CloudStorage/GoogleDrive-iamsanthoshkumar@gmail.com/My Drive/EngineArchive"   # D-53; checksum-verified before local delete
+
+disk_guard:
+  check_interval_s: 10
+  alert_below_gb: 5
+  stop_depth_below_gb: 3
+  stop_ticks_below_gb: 2
+
+# Phase 4 positioning hypotheses. No value here has a verified external source: all are owner decisions
+# 2026-11-06 ("as proposed"). History = Phase 3 store (history.sqlite, HISTORICAL_API), owner decision 2026-11-06.
+positioning:
+  price_windows_min: [1, 3, 5, 15, 30]   # futures and spot price change features
+  oi_windows_min: [5, 15, 30]            # OI change windows; a quadrant is formed per OI window (price w + OI w)
+  oi_cadence_stat: p90_s                 # column of docs/measured-oi-cadence.md; window disabled if window < it
+  history_sessions: 20                   # distributions: the contract's last N sessions before the day
+  min_sample: 100                        # below it a percentile is invalid => LOW_SAMPLE
+  pct_up: 0.80                           # significant up: percentile >= this AND change >= floor
+  pct_down: 0.20                         # significant down: percentile <= this AND change <= -floor
+  floor_price_pct: 0.10                  # fixed floors (%), applied on top of the percentiles
+  floor_oi_pct: 0.50
+  beta:
+    index_underlying: NIFTY              # stock returns are residualized vs this underlying's near-month future
+    window_returns: 375                  # last N 1-minute returns (about one session)
+    min_returns: 120
+  atr: {interval_min: 5, bars: 14}       # simple mean true range of the last 14 five-minute bars
+  feature_window_min: 15                 # momentum (ROC %), ATR-normalized move, basis change, volume/OI ratio, RVOL
+  basis: {abnormal_z: 3, min_samples: 30}   # |z| vs the day's own basis so far
+  oi_jump: {multiple: 3, quantile: 0.999}   # 1-min combined OI change > 3 x p99.9 |history| => OI_JUMP_INVALID
+  rollover_days: 3                       # calendar days before the near-month expiry (expiry day itself = EXPIRY_DAY)
+  illiquid: {window_min: 15, min_trades: 15, max_spread_bps: 10}   # spread only where Tier B depth exists
+  confirm_count: 3                       # consecutive evaluations before an event is created
+  invalidation_atr: 0.5                  # price back through first_observed by this many ATR => INVALIDATED
+
+# Phase 5 structure / liquidity / VWAP on each underlying's near-month future (owner decision 2026-11-06).
+# No value here has a verified external source: all are owner decisions 2026-11-06 ("as proposed").
+# A bar is usable only if COMPLETE and quality OK; a missing/PARTIAL/EMPTY/non-OK bar breaks every window over it.
+structure:
+  timeframes_min: [3, 5, 15]
+  swing: {left_bars: 2, right_bars: 2}      # pivot high: high > the L bars before and >= the R bars after; confirmed at the R-th right bar's close
+  opening_range_min: 15                    # ORH/ORL from the 1m candles 09:15-09:30, known at 09:30
+  atr: {bars: 14}                          # per timeframe: mean true range of the last 14 contiguous pairs, seeded from history minutes
+  rvol_sessions: 20                        # RVOL = bar volume / median volume of the same bar slot over the last N history sessions
+  consolidation: {bars: 12, max_width_atr: 1.5}
+  acceptance: {closes: 2, hold_min: 15, fail_bars: 3}   # accepted: N consecutive closes beyond OR held beyond M min; failed: back inside within K bars
+  zones: {impulse_body_atr: 1.5, base_max_bars: 3, base_body_atr: 0.5, reaction_bars: 3}
+  liquidity: {equal_tol_atr: 0.10, sweep_reclaim_bars: 2}
+  vwap: {slope_bars: 5, extension_atr: 2.0}
+
+# Phase 6 opportunity age / timeliness / retest / exhaustion / timing recorder. No value here has a verified external
+# source: all are owner decisions 2026-11-06 ("as proposed"). ATR = the setup's own timeframe ATR from Phase 5
+# (positioning setups: positioning_timeframe_min); price = last usable 1m close (as the LevelMap).
+opportunity:
+  positioning_timeframe_min: 5   # ATR / VWAP timeframe for Phase 4 positioning setups
+  min_rr: 1.5                    # gross current R:R; net = NET_UNAVAILABLE until a cost model exists
+  max_extension_atr: 1.0         # since FIRST detection, signed in the trade direction
+  max_stop_atr: 1.5              # stop still practical
+  pre_signal_bars: 5             # setup-timeframe bars before first detection
+  retest: {zone_width_atr: 0.25, expiry_min: 30}   # long zone [level, level + w ATR]; R:R at the zone's worse edge
+  exhaustion: {vwap_extension_atr: 2.0, vwap_atr_timeframe_min: 15,   # Q-OPP-1: VWAP extension in 15m ATR (owner)
+               windows: 3, window_min: 15, failure_tests: 3, level_tol_atr: 0.10}
+  timing: {horizons_min: [1, 3, 5, 10, 15, 30, 60]}
+
+# Phase 7 cost model (Zerodha, NSE F&O). Every entry: product FUT|OPT, component, side BUY|SELL|BOTH, then
+# `rate` (fraction of the leg's turnover; options: premium x qty), optionally `cap_inr` per executed order, or
+# `flat_inr` per executed order; `effective_from`; `verified`; `fact` (docs/verified-facts.md ID with the URL).
+# The entry in force = the latest effective_from <= trade date. No entry in force, or verified: false => the
+# estimate is UNVERIFIED (Phase 8's gate rejects it). effective_from 2026-11-06 = the date the rate was read as
+# current on the source page, which states no effective date (Q-COST-1): earlier trade dates are UNVERIFIED.
+costs:
+  schedule_version: zerodha-nse-fno-2026-11-06
+  gst_on: [brokerage, exchange, sebi, ipft]     # F-COST-5: 18% on brokerage + SEBI + transaction charges; IPFT "+ GST"
+  entries:
+    - {product: FUT, component: brokerage, side: BOTH, rate: 0.0003, cap_inr: 20, effective_from: 2026-11-06, verified: true, fact: F-COST-1}
+    - {product: OPT, component: brokerage, side: BOTH, flat_inr: 20, effective_from: 2026-11-06, verified: true, fact: F-COST-1}
+    - {product: FUT, component: stt, side: SELL, rate: 0.0005, effective_from: 2026-04-01, verified: true, fact: F-COST-2}
+    - {product: OPT, component: stt, side: SELL, rate: 0.0015, effective_from: 2026-04-01, verified: true, fact: F-COST-2}
+    - {product: FUT, component: exchange, side: BOTH, rate: 0.0000183, effective_from: 2026-11-06, verified: true, fact: F-COST-3}
+    - {product: OPT, component: exchange, side: BOTH, rate: 0.0003553, effective_from: 2026-11-06, verified: true, fact: F-COST-3}
+    - {product: FUT, component: sebi, side: BOTH, rate: 0.000001, effective_from: 2026-11-06, verified: true, fact: F-COST-4}
+    - {product: OPT, component: sebi, side: BOTH, rate: 0.000001, effective_from: 2026-11-06, verified: true, fact: F-COST-4}
+    - {product: FUT, component: stamp, side: BUY, rate: 0.00002, effective_from: 2026-11-06, verified: true, fact: F-COST-4}
+    - {product: OPT, component: stamp, side: BUY, rate: 0.00003, effective_from: 2026-11-06, verified: true, fact: F-COST-4}
+    - {product: FUT, component: ipft, side: BOTH, rate: 0.000000001, effective_from: 2026-11-06, verified: true, fact: F-COST-6}
+    - {product: OPT, component: ipft, side: BOTH, rate: 0.000000001, effective_from: 2026-11-06, verified: true, fact: F-COST-6}
+    - {product: FUT, component: gst, side: BOTH, rate: 0.18, effective_from: 2026-11-06, verified: true, fact: F-COST-5}
+    - {product: OPT, component: gst, side: BOTH, rate: 0.18, effective_from: 2026-11-06, verified: true, fact: F-COST-5}
+  slippage:
+    no_depth_spread_multiple: 1.0   # PROPOSED: no depth => slippage per side = this x the full spread (ESTIMATED)
+
+# Phase 7 contract selector V1. No value here has a verified external source: all PROPOSED 2026-11-06 (owner to
+# confirm). Quote age limits reuse quality.stale_depth_s (book) and quality.stale_price_s (spot); the futures
+# rollover window reuses positioning.rollover_days.
+contracts:
+  instrument_kinds: [CE, PE]       # owner D-69: options only (configs before v20 consider FUT, CE and PE)
+  min_dte_days: 2                  # options: nearest expiry with at least this many calendar days left; next one = alternative
+  premium_model:                   # EMPIRICAL_DELTA_OLS: option 1m close changes regressed on the setup instrument's (APPROXIMATE)
+    bars: 30                       # last N usable 1m bars before the decision time
+    min_pairs: 20                  # contiguous paired 1m changes needed
+    min_r2: 0.5                    # below => NO_PREMIUM_MODEL
+  futures_margin:                  # used only without a Kite margin quote (none is fetched yet, Q-RISK-1)
+    method: FRACTION_OF_NOTIONAL   # MARGIN_ESTIMATED = fraction x entry x qty
+    fraction: 0.25                 # owner D-62 (2026-11-07): own estimate, not a verified SPAN figure; signals stay MARGIN_ESTIMATED
+  liquidity_depth_target: 5        # liquidity score: executable-side 5-level depth / (this x order qty), capped at 1
+
+# Phase 7 risk engine (server-side; risk_check is the only gate). All PROPOSED 2026-11-06 (owner to confirm).
+# capital_inr = the dashboard's existing capital figure (dashboard/exit_monitor.py CAPITAL = 200_000).
+risk:
+  capital_inr: 200000
+  capital_reserve_pct: 20            # capital in use may not exceed (100 - this)% of capital
+  max_capital_per_trade_inr: 100000  # options: full premium; futures: margin (or MARGIN_ESTIMATED)
+  max_risk_per_trade_inr: 10000      # owner D-61 (2026-11-07, was 2000); planned_risk (size uses it)
+  max_daily_loss_inr: 6000           # realized + unrealized; once reached, the rest of the day is rejected
+  max_open_positions: 3
+  max_daily_trades: 5
+  max_consecutive_losses: 3
+  cooldown_min: 60                   # after the Nth consecutive loss
+  max_spread_pct: {FUT: 0.05, OPT: 2.0}     # (ask - bid) / mid, percent
+  max_spread_move_pct: 20            # spread / expected contract move to target 1, percent
+  min_rr_net: 1.5                    # net of round-trip costs and estimated exit slippage
+  max_slippage_pct: {FUT: 0.05, OPT: 2.0}   # entry fill (walking the book) vs mid, percent
+  min_volume_lots: {FUT: 200, OPT: 1000}    # day volume / lot size (feed volume is in units, F-QTY-1)
+  min_oi_lots: {FUT: 500, OPT: 500}
+  min_depth_coverage: 1.0            # executable-side 5-level depth must hold >= this x order qty
+  block_expiry_day: true             # no new position in a contract on its expiry day
+  event_days: []                     # owner-maintained list of dates; event-calendar sourcing is Phase 8
+  intraday_cutoff: "15:00"           # no new position at or after this IST time
+  single_position_per_underlying: true
+  gap_risk_atr_multiple: 1.0         # futures: gap risk = planned risk + this x setup ATR x qty
+
+# Phase 8 signal engine. No value here has a verified external source: all PROPOSED 2026-11-06 (Q-8-7, owner accepted
+# as assumptions). Weights are from the phase text. Scores are research priorities, NOT probabilities.
+signals:
+  families:
+    rvol_elevated: 1.5             # A/B: positioning rvol_<feature_window>m at or above this
+    rvol_supportive: 1.0           # C/D: volume "supportive" / "persistent" at or above this
+    sharp_move_atr: 1.0            # C: atr_move_<feature_window>m (in the trade direction) at or above this = "up sharply"
+    persistence_windows: 3         # D: rvol supportive at each of N feature-window closes ending at as_of
+    rejection_rvol: 1.5            # E/F: Phase 5 sweep rejection_rvol at or above this
+  accumulation:                    # SUSPECTED_ACCUMULATION / _DISTRIBUTION: persistent buildup without a breakout
+    windows: 3                     # N consecutive primary LONG_BUILDUP (SHORT_BUILDUP) states ...
+    window_min: 15                 # ... spaced this many minutes apart, and no accepted breakout (breakdown) in that span
+  weights:                         # sum must be 100
+    futures_positioning: 25
+    volume_vwap: 20
+    options: 20
+    structure: 15
+    profile_depth: 10
+    broad_market: 10
+  covering_fraction: 0.5           # futures positioning: covering / unwinding in the trade direction earns this x weight
+  bands: {high: 80, medium: 60}    # raw points: >= high RESEARCH_PRIORITY_HIGH, >= medium _MEDIUM, else _LOW (not a probability)
+  market:
+    trend_timeframe_min: 15        # NIFTY trend = the latest Phase 5 BOS/CHOCH on this timeframe
+    breadth_min_underlyings: 20    # fewer usable underlyings => breadth UNAVAILABLE
+    breadth_bullish: 0.6           # share above VWAP at or above => supports longs
+    breadth_bearish: 0.4           # at or below => supports shorts
+  single_position_mode: true       # gate: no new candidate while any position is open
+  tier_b_ttl_s: 1800               # Tier B promotion time-to-live for ENTRY_ELIGIBLE signals (Q-8-4: not wired live)
+
+# Phase 9 live monitor (pure, engine.paper). Per-trade max loss = risk.max_risk_per_trade_inr on estimated net P&L and
+# the ledger's day P&L vs risk.max_daily_loss_inr (owner 2026-11-07, Q-9-4 / D-44). Staleness reuses quality.stale_price_s
+# (price) and quality.stale_depth_s (contract quote).
+monitor:
+  squareoff_cutoff: "15:10"        # owner 2026-11-07 (Q-9-3 / D-43): EXIT_REQUIRED at or after this IST time
+  review_interval_s: 300           # thesis re-evaluation cadence (phase text: "every 5 minutes (config)"); also on each fresh OI change
+  breakeven_at_r: 1.0              # TIGHTEN_STOP to the entry once the favourable move on the price token >= this x initial risk (phase text example, PROPOSED)
+  trail_swing_timeframes: ["3m", "5m", "15m"]   # confirmed Phase 5 SWING_LOW (long) / SWING_HIGH (short) used to trail (PROPOSED)
+
+# Phase 9 ledgers. SIMULATED and ACTUAL live in separate tables of one file under storage.root; never journal.db.
+paper:
+  ledger_file: ledger.sqlite
+
+# Phase 10 dashboard (read model + API). No value here has an external source: all PROPOSED 2026-11-07 (Q-10-12).
+dashboard:
+  scrub_step_min: 5                # positioning-map history scrubber / market overview: one stored mark every N minutes from the open
+  stale_after_s:                   # a panel is STALE when its newest observation is older than this at the view time
+    overview: 120
+    radar: 120
+    positioning: 600
+    signal: 120
+    trades: 30
+    health: 30
+    chain: 900                     # Phase 11 PROPOSED: = options.snapshot_interval_min (15 min)
+  sse_interval_s: 5                # system-health stream heartbeat
+  vix_underlying: "INDIA VIX"      # shown only if this name is in universe.index_spots (it is not: UNAVAILABLE)
+  eod_step_timeout_s: 1800         # engine.eod dashboard chain: a step running longer is killed (2026-11-06 took ~4.5 + ~2 min)
+
+# Phase 11 option analytics (pure: engine/options.py). Prices are paise; IV is a decimal (0.20 = 20 %).
+options:
+  model: BLACK76_SAME_EXPIRY_FUTURE    # F-OPT-1/2 (European); the future carries dividends and carry, so no dividend forecast
+  risk_free:                           # Q-11-5: RBI 91-day T-bill cut-off YTM (simple annualised), converted to continuous in code
+    ytm_pct: 5.8970                    # F-RATE-RBI-1
+    tenor_days: 91
+    as_of: 2026-11-04
+    source: https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63918
+    max_age_days: 21                   # PROPOSED: older => every IV UNAVAILABLE (RATE_STALE) until a newer auction is entered
+  trading_days_per_year: 252           # PROPOSED convention (Q-11-6), not a sourced fact
+  iv_solver: {min: 0.005, max: 5.0, tol_paise: 0.05, max_iter: 200}   # bisection; no convergence => UNAVAILABLE
+  iv_max_spread_pct: 10.0              # PROPOSED: (ask - bid) / mid; wider => IV UNAVAILABLE (never from LTP)
+  iv_pct_min_sessions: 20              # PROPOSED (Q-11-7): fewer recorded sessions => IV percentile UNAVAILABLE
+  iv_history_short: WARN               # owner D-70: fewer sessions than iv_pct_min_sessions => warning, not rejection
+  iv_pct_max_long: 80                  # PROPOSED: long options rejected above this underlying ATM IV percentile
+  change_window_min: 15                # PROPOSED: OI / premium / IV / underlying changes over this window
+  chain_strikes: 5                     # PROPOSED: ATM +/- N strikes for PCR and concentration
+  hypothesis:                          # PROPOSED: a change smaller than its minimum counts as flat (Q-11-9)
+    min_oi_chg_pct: 2.0
+    min_premium_chg_pct: 2.0
+    min_iv_chg_pts: 0.5                # IV points (0.5 = 0.5 percentage points)
+    min_underlying_chg_pct: 0.10
+    hedge_ratio_band: [0.67, 1.5]      # CE and PE OI rising at one strike within this ratio => SPREAD_OR_HEDGE_SUSPECTED
+  factor_strikes: 2                    # PROPOSED: ATM +/- N strikes read by the Phase 8 options factor
+  factor_min_labels: 2                 # PROPOSED: labels in one direction needed for SUPPORTIVE / CONTRADICTING
+  holding_min: 30                      # PROPOSED: expected holding time for the theta cost
+  expiry_sensitive_theta_pct: 10.0     # PROPOSED: theta per trading day >= this % of premium => EXPIRY_SENSITIVE label
+  snapshot_interval_min: 15            # PROPOSED: chain snapshots stored by engine.chain_report
+  planner:                             # tier C subscription planner (feeds the recorder, D-51); PROPOSED except the cap
+    atm_strikes: 2                     # ATM +/- N strikes, CE and PE
+    level_strikes: 2                   # strikes nearest the previous session's LevelMap levels (per underlying)
+    level_window_strikes: 10           # only levels within ATM +/- this many strikes
+    top_oi_k: 2                        # highest-OI strikes per type
+    unusual_oi_k: 2                    # largest |OI change since the first scan| per type
+    scan_strikes: 15                   # REST chain scan: ATM +/- this many strikes
+    expiries: 2                        # nearest liquid expiry + next
+    liquid_min_volume_lots: 100        # an expiry is liquid when its ATM CE + PE day volume >= this many lots
+    replan_interval_min: 15
+    quote_batch: 500                   # F-QUOTE-1 (500 instruments per /quote)
+    quote_rate_per_s: 1                # F-RATE-1
+
+# Phase 11 event gates (engine/events.py)
+events:
+  url: https://www.nseindia.com/api/event-calendar   # F-EVT-1
+  max_age_days: 1                      # PROPOSED: calendar fetched before the decision day - 1 => EVENT_UNVERIFIED
+  option_block_trading_days: 5         # PROPOSED: long options rejected from this many trading days before a board meeting through its day

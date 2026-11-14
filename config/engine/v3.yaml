@@ -1,0 +1,119 @@
+# F&O Positioning Engine — config v3 (Phase 3: tiered subscriptions, aggregation, data quality).
+# Every key is required; the loader fails on a missing or empty value (no defaults in code).
+# Facts are cited by ID from docs/verified-facts.md. Owner decisions are dated.
+version: v3
+
+ws:
+  max_tokens_per_connection: 3000   # F-WS-2
+  max_connections: 3                # F-WS-2
+  reconnect_max_tries: 50           # kiteconnect 5.2.2 KiteTicker default (F-WS-8); library cap 300
+  reconnect_max_delay_s: 60         # kiteconnect 5.2.2 KiteTicker default (F-WS-8); library floor 5
+
+# Phase 2 universe (replaces v1 `subscriptions`). Underlyings = (NIFTY 50 ∪ NIFTY 100 constituents) ∩ names with
+# live NFO futures in the day's master, plus the INDEX family below. Lot sizes, expiries, strikes: master only.
+universe:
+  indices:                          # official NSE constituent CSVs (F-NSE-2, F-NSE-3)
+    NIFTY50: https://nsearchives.nseindia.com/content/indices/ind_nifty50list.csv
+    NIFTY100: https://nsearchives.nseindia.com/content/indices/ind_nifty100list.csv
+  index_spots:                      # INDEX family: NFO name -> NSE INDICES tradingsymbol (names differ, F-INST-5)
+    NIFTY: NIFTY 50
+  constituents_max_age_days: 3      # owner decision 2026-11-05: older last-good list => recommendations blocked
+
+# Phase 3 tiered subscriptions (replace v2 universe.subscription_*). Limits: ws.* above (F-WS-2).
+# Priority when over the limit: A, then B, then C; inside a tier, earlier requests first. Drops are logged.
+tiers:
+  A:                                # whole universe: spot + every active future + the index spots above
+    spot_mode: quote                # Phase 3 text (spot and index stay quote)
+    futures_mode: full              # owner decision 2026-11-05: quote packets have no OI / exchange ts (F-WS-6)
+  B: {mode: full}                   # instruments under active watch (promote/demote by later phases)
+  C: {mode: quote}                  # option contracts selected by later phases (Phase 3 text: quote)
+  executor_interval_s: 1.0          # how often the recorder re-plans (TTL expiry, promotions)
+
+restrictions:
+  ban_list_url: https://nsearchives.nseindia.com/content/fo/fo_secban.csv   # F-NSE-4
+  # F&O trading holidays (F-NSE-5). Each circular is re-downloaded on every refresh; a fetch failure or a
+  # changed checksum makes that day's holiday status RESTRICTION_UNVERIFIED.
+  holiday_circulars:
+    - {ref: NSE/FAOP/71777, url: https://nsearchives.nseindia.com/content/circulars/FAOP71777.pdf,
+       sha256: 5a2079cd78b2e6b536ef0d28300e63b645721bed22cc82a91facf5945f3296ea}
+    - {ref: NSE/FAOP/72262, url: https://nsearchives.nseindia.com/content/circulars/FAOP72262.pdf,
+       sha256: f98ae37cf6a6f8c18b1064b0551599d084c4b4a27804842c487f0da43fea8f0f}
+  holiday_years: [2026]             # a date in any other year => RESTRICTION_UNVERIFIED (Q-NSE-6)
+  holidays:
+    - {date: 2026-01-15, ref: NSE/FAOP/72262, title: Municipal Corporation Election in Maharashtra}
+    - {date: 2026-01-26, ref: NSE/FAOP/71777, title: Republic Day}
+    - {date: 2026-03-03, ref: NSE/FAOP/71777, title: Holi}
+    - {date: 2026-03-26, ref: NSE/FAOP/71777, title: Shri Ram Navami}
+    - {date: 2026-03-31, ref: NSE/FAOP/71777, title: Shri Mahavir Jayanti}
+    - {date: 2026-04-03, ref: NSE/FAOP/71777, title: Good Friday}
+    - {date: 2026-04-14, ref: NSE/FAOP/71777, title: Dr. Baba Saheb Ambedkar Jayanti}
+    - {date: 2026-05-01, ref: NSE/FAOP/71777, title: Maharashtra Day}
+    - {date: 2026-05-28, ref: NSE/FAOP/71777, title: Bakri Id}
+    - {date: 2026-06-26, ref: NSE/FAOP/71777, title: Muharram}
+    - {date: 2026-09-14, ref: NSE/FAOP/71777, title: Ganesh Chaturthi}
+    - {date: 2026-10-02, ref: NSE/FAOP/71777, title: Mahatma Gandhi Jayanti}
+    - {date: 2026-10-20, ref: NSE/FAOP/71777, title: Dussehra}
+    - {date: 2026-11-10, ref: NSE/FAOP/71777, title: Diwali-Balipratipada}
+    - {date: 2026-11-24, ref: NSE/FAOP/71777, title: Prakash Gurpurb Sri Guru Nanak Dev}
+    - {date: 2026-12-25, ref: NSE/FAOP/71777, title: Christmas}
+  # Sunday 2026-11-08: Muhurat trading, "timings ... shall be notified subsequently" (NSE/FAOP/71777) => unverified.
+  special_sessions:
+    - {date: 2026-11-08, ref: NSE/FAOP/71777, title: Muhurat trading (timings not yet verified)}
+
+http:                               # NSE static files time out for the default python-requests agent (F-NSE-6)
+  user_agent: clade-fno-engine/2 (personal research; read-only)
+  timeout_s: 30
+
+writer:
+  queue_max: 200000          # frames; overflow is dropped AND logged as a gap
+  flush_interval_s: 1.0
+  status_interval_s: 1.0
+
+depth_min_interval_s: 1.0    # step 9: depth snapshot only on change, at most once per this many seconds per instrument
+
+storage:
+  root: data/engine          # relative to repo root; one directory per trading date
+
+# Equity-derivatives normal market (F-NSE-1, effective 2026-08-03). Used by the OI cadence measurement.
+market_hours:
+  open: "09:15"
+  close: "15:40"
+
+# Candle sessions by segment. fno = market_hours above (F-NSE-1). cash (NSE spot + INDICES): owner decision
+# 2026-11-05, NOT in verified-facts (no NSE source checked for cash hours).
+sessions:
+  fno: {open: "09:15", close: "15:40"}
+  cash: {open: "09:15", close: "15:30"}
+
+# Phase 3 aggregation. Values are owner decisions 2026-11-05 (no verified source exists for them).
+candles:
+  intervals_min: [1, 3, 5, 15]      # plus the daily candle; buckets aligned to the session open
+  out_of_order_window_s: 2          # a tick is accepted if received <= its minute's end + this; else logged late.
+                                    # Must exceed writer.flush_interval_s (queue-drop gaps are flushed that often)
+  idle_clock_margin_s: 1            # engineering choice: an idle recorder advances the stream clock to wall - this
+
+quality:                            # seconds; a field older than its threshold degrades the status
+  stale_price_s: 10                 # price older => STALE
+  stale_volume_s: 10                # => DEGRADED
+  stale_depth_s: 5                  # Tier B depth => DEGRADED
+  stale_oi_s: 300                   # time since the last OI CHANGE => DEGRADED (F-HIST-8: minute OI gaps up to 3 min)
+
+baselines:
+  sessions: 20                      # N: same minute-of-day volume median, OI-change distribution over the last N sessions
+  oi_change_windows_min: [5, 15, 60]
+
+historical:                         # Kite historical candles (backfill only; source=HISTORICAL_API, own store)
+  rate_per_s: 3                     # F-RATE-2
+  max_days: {minute: 60, 3minute: 100, 5minute: 100, 60minute: 400, day: 2000}   # F-HIST-5 (measured caps)
+  oi_intervals: [minute, 5minute, day]   # F-HIST-3: oi=1 verified for NFO futures and options on these
+
+# Owner decision 2026-11-05 (Q-OPS-2).
+retention:
+  raw_sessions_local: 5
+  archive_target: ~/EngineArchive    # a local path / external drive, or s3://bucket/prefix (AWS creds from env)
+
+disk_guard:
+  check_interval_s: 10
+  alert_below_gb: 5
+  stop_depth_below_gb: 3
+  stop_ticks_below_gb: 2

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.clade.engine-sync</string>
+    <!-- Auto-setup (owner D-66): installs / reloads changed engine launchd jobs, rebuilds the dashboard bundle when its
+         source changed, restarts the dashboard server when Python code changed. Daily 08:15 (before the recorder)
+         and 16:15 (after EOD), and at login. scripts/sync_launchd.py refuses to act on a weekday 08:55-15:55. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Frameworks/Python.framework/Versions/3.13/bin/python3</string>
+        <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/scripts/sync_launchd.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills</string>
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Hour</key><integer>16</integer><key>Minute</key><integer>15</integer></dict>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/engine_sync.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/engine_sync.err.log</string>
+</dict>
+</plist>

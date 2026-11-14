@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.clade.engine-intraday</string>
+    <!-- F&O engine intraday refresh (Phase 15). Every 5 min on weekdays 09:20-15:35 it re-runs the option chain, the
+         Phase 8 signals and the dashboard export on today's live recording, so the F&O Engine tab shows today's
+         recommendations during the session. engine.intraday does nothing unless the recorder holds its lock.
+         Last start 15:35 so a run (about 3-6 min on a full day) ends before the 15:50 EOD job, which re-runs the same
+         steps for the tail of the day and then the paper ledger. launchd never starts a second copy while one runs. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>d=$(date +%u); t=$(date +%H%M); [ "$d" -le 5 ] &amp;&amp; [ "$t" -ge 0920 ] &amp;&amp; [ "$t" -lt 1535 ] || exit 0; exec /usr/bin/caffeinate -i /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m engine.intraday --config config/engine/v24.yaml</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills</string>
+    <key>StartInterval</key>
+    <integer>300</integer>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/engine_intraday.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/engine_intraday.err.log</string>
+</dict>
+</plist>

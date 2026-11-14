@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.clade.engine-recorder</string>
+    <!-- F&O engine Phase 1 recorder. Starts 09:00 IST on weekdays (captures F&O pre-open, F-NSE-1)
+         and stops itself at 15:45. Also fires every 15 min as a crash/late-wake retry: outside
+         weekdays 09:00-15:45 the shell guard exits at once, and inside it a second recorder exits
+         at once because the first holds data/engine/recorder.lock. A restart is written as a
+         'restart' gap. caffeinate -i blocks idle sleep while it runs (a closed lid still sleeps).
+         The token comes from the 08:00 com.clade.kite-refresh job; this job never logs in. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>d=$(date +%u); t=$(date +%H%M); [ "$d" -le 5 ] &amp;&amp; [ "$t" -ge 0900 ] &amp;&amp; [ "$t" -lt 1545 ] || exit 0; exec /usr/bin/caffeinate -i /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m engine.recorder --config config/engine/v24.yaml --until 15:45</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills</string>
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+    </array>
+    <key>StartInterval</key>
+    <integer>900</integer>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/engine_recorder.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/engine_recorder.err.log</string>
+</dict>
+</plist>

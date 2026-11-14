@@ -1,0 +1,210 @@
+{
+ "config_version": "v16",
+ "entries": {
+  "HISTORICAL_CANDLES": {
+   "BREAKDOWN_ACCEPTED": {
+    "basis": "gross price-path R (no fills, no costs)",
+    "buckets": [
+     {
+      "age_min": 0,
+      "expectancy_r": -0.014269,
+      "n": 21
+     },
+     {
+      "age_min": 5,
+      "expectancy_r": 0.109674,
+      "n": 17
+     },
+     {
+      "age_min": 15,
+      "expectancy_r": 0.091967,
+      "n": 15
+     },
+     {
+      "age_min": 30,
+      "expectancy_r": 0.187843,
+      "n": 13
+     },
+     {
+      "age_min": 60,
+      "expectancy_r": 0.074031,
+      "n": 11
+     },
+     {
+      "age_min": 120,
+      "expectancy_r": -0.245406,
+      "n": 8
+     }
+    ],
+    "dataset": "HISTORICAL_CANDLES",
+    "half_life_s": null,
+    "stage": "HISTORICAL_CANDLES",
+    "status": "INSUFFICIENT_SAMPLE",
+    "why": "21 fresh entries < minimum 100"
+   },
+   "BREAKOUT_ACCEPTED": {
+    "basis": "gross price-path R (no fills, no costs)",
+    "buckets": [
+     {
+      "age_min": 0,
+      "expectancy_r": -0.017206,
+      "n": 19
+     },
+     {
+      "age_min": 5,
+      "expectancy_r": -0.030922,
+      "n": 12
+     },
+     {
+      "age_min": 15,
+      "expectancy_r": 0.035246,
+      "n": 12
+     },
+     {
+      "age_min": 30,
+      "expectancy_r": -0.011204,
+      "n": 12
+     },
+     {
+      "age_min": 60,
+      "expectancy_r": 0.000341,
+      "n": 11
+     },
+     {
+      "age_min": 120,
+      "expectancy_r": -0.129667,
+      "n": 8
+     }
+    ],
+    "dataset": "HISTORICAL_CANDLES",
+    "half_life_s": null,
+    "stage": "HISTORICAL_CANDLES",
+    "status": "INSUFFICIENT_SAMPLE",
+    "why": "19 fresh entries < minimum 100"
+   },
+   "SWEEP_HIGH": {
+    "basis": "gross price-path R (no fills, no costs)",
+    "buckets": [
+     {
+      "age_min": 0,
+      "expectancy_r": -0.111952,
+      "n": 5627
+     },
+     {
+      "age_min": 5,
+      "expectancy_r": -0.070001,
+      "n": 1794
+     },
+     {
+      "age_min": 15,
+      "expectancy_r": -0.082571,
+      "n": 643
+     },
+     {
+      "age_min": 30,
+      "expectancy_r": 0.032488,
+      "n": 235
+     },
+     {
+      "age_min": 60,
+      "expectancy_r": 0.034907,
+      "n": 56
+     },
+     {
+      "age_min": 120,
+      "expectancy_r": -0.002569,
+      "n": 18
+     }
+    ],
+    "dataset": "HISTORICAL_CANDLES",
+    "half_life_s": null,
+    "stage": "HISTORICAL_CANDLES",
+    "status": "NO_POSITIVE_EDGE",
+    "why": "age-0 expectancy -0.111952 R <= 0"
+   },
+   "SWEEP_LOW": {
+    "basis": "gross price-path R (no fills, no costs)",
+    "buckets": [
+     {
+      "age_min": 0,
+      "expectancy_r": -0.066366,
+      "n": 5658
+     },
+     {
+      "age_min": 5,
+      "expectancy_r": 0.008424,
+      "n": 1874
+     },
+     {
+      "age_min": 15,
+      "expectancy_r": 0.047918,
+      "n": 639
+     },
+     {
+      "age_min": 30,
+      "expectancy_r": -0.011948,
+      "n": 243
+     },
+     {
+      "age_min": 60,
+      "expectancy_r": 0.023352,
+      "n": 69
+     },
+     {
+      "age_min": 120,
+      "expectancy_r": 0.479888,
+      "n": 11
+     }
+    ],
+    "dataset": "HISTORICAL_CANDLES",
+    "half_life_s": null,
+    "stage": "HISTORICAL_CANDLES",
+    "status": "NO_POSITIVE_EDGE",
+    "why": "age-0 expectancy -0.066366 R <= 0"
+   },
+   "ZONE_DEFENDED": {
+    "basis": "gross price-path R (no fills, no costs)",
+    "buckets": [
+     {
+      "age_min": 0,
+      "expectancy_r": -0.040387,
+      "n": 860
+     },
+     {
+      "age_min": 5,
+      "expectancy_r": 0.015149,
+      "n": 325
+     },
+     {
+      "age_min": 15,
+      "expectancy_r": 0.031101,
+      "n": 177
+     },
+     {
+      "age_min": 30,
+      "expectancy_r": -0.011273,
+      "n": 97
+     },
+     {
+      "age_min": 60,
+      "expectancy_r": 0.001069,
+      "n": 35
+     },
+     {
+      "age_min": 120,
+      "expectancy_r": 0.284807,
+      "n": 11
+     }
+    ],
+    "dataset": "HISTORICAL_CANDLES",
+    "half_life_s": null,
+    "stage": "HISTORICAL_CANDLES",
+    "status": "NO_POSITIVE_EDGE",
+    "why": "age-0 expectancy -0.040387 R <= 0"
+   }
+  },
+  "RECORDED": {}
+ },
+ "generated_by": "engine.backtest_report 20261107T171600",
+ "version": "v1"
+}
