@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/web
+
+ ✓ fo-engine/tests/isolation.test.ts (20 tests) 76ms
+ ✓ fo-engine/tests/components.test.tsx (7 tests) 168ms
+
+ Test Files  2 passed (2)
+      Tests  27 passed (27)
+   Start at  21:58:42
+   Duration  1.10s (transform 93ms, setup 0ms, collect 196ms, tests 244ms, environment 357ms, prepare 89ms)
+
+exit 0

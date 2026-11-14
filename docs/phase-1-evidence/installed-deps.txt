@@ -1,0 +1,10 @@
+Name: kiteconnect
+Version: 5.2.2
+Name: pyarrow
+Version: 26.0.1
+Name: boto3
+Version: 1.43.124
+Name: Twisted
+Version: 26.10.0
+Name: autobahn
+Version: 19.11.2

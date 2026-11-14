@@ -1,0 +1,64 @@
+# live smoke run 2026-11-05 21:41 IST (market closed), 25 s, scratch storage root; read-only
+$ python3 -m engine.recorder --config <scratch>/smoke.yaml   (SIGTERM after 25 s)
+[engine.recorder] 2026-11-05: 12 tokens on 1 connection(s) -> /private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/66f3bffa-a01b-476b-9cc5-3af7cee3ca52/scratchpad/engine-smoke/2026-11-05
+Connection error: 1006 - connection was closed uncleanly (WebSocket closing handshake timeout (peer did not finish the opening handshake in time))
+Connection closed: 1006 - connection was closed uncleanly (WebSocket closing handshake timeout (peer did not finish the opening handshake in time))
+{"counts": {"frames": 1, "packets": 12, "ticks_written": 12}, "dropped_total": 0, "gaps_today": 0}
+exit=0
+
+$ engine.health summary
+recorder status @ 2026-11-05 21:41:29 IST (status age 52.7s, config v1)
+ticks/sec 0.0  instruments live 12  queue 0/200000  dropped 0  gaps today 0
+connections {'0': 'connected'}  degraded {'depth': False, 'ticks': False}  counts {'frames': 1, 'packets': 12, 'ticks_written': 12}
+instrument                   token   packets  last tick age s           exchange ts
+NFO:HDFCBANK26NOVFUT      15764994         1             77.8              16:55:08
+NFO:ICICIBANK26NOVFUT     15768322         1             77.8              16:55:08
+NFO:INFY26NOVFUT          15771650         1             77.8              16:55:08
+NFO:NIFTY26NOVFUT         15736578         1             77.8              16:55:07
+NFO:RELIANCE26NOVFUT      15794434         1             77.8              16:55:08
+NFO:TCS26NOVFUT           15801346         1             77.8              16:55:08
+NSE:HDFCBANK                341249         1             77.8              17:34:34
+NSE:ICICIBANK              1270529         1             77.8              17:34:34
+NSE:INFY                    408065         1             77.8              17:34:34
+NSE:NIFTY 50                256265         1             77.8              17:35:05
+NSE:RELIANCE                738561         1             77.8              17:34:34
+NSE:TCS                    2953217         1             77.8              17:34:34
+
+$ python3 -m engine.compact 2026-11-05 --config <scratch>/smoke.yaml
+{
+  "date": "2026-11-05",
+  "before_bytes": {
+    "ticks": 8192,
+    "depth": 8192,
+    "oi_changes": 8192,
+    "events": 8192,
+    "gaps": 8192,
+    "meta": 8192,
+    "frames.bin": 2103,
+    "buffer.sqlite(file)": 28672,
+    "instrument_master(csv.gz)": 1658982
+  },
+  "A_parquet_bytes": {
+    "ticks": 17230,
+    "depth": 19301,
+    "oi_changes": 4353,
+    "events": 2334,
+    "gaps": 1113,
+    "meta": 2015
+  },
+  "B_frames_zst_bytes": 987,
+  "replay": {
+    "events_buffer": 23,
+    "events_parquet": 23,
+    "events_frames": 23,
+    "seconds_buffer": 0.0007,
+    "seconds_parquet_A": 0.0545,
+    "seconds_frames_B": 0.0002
+  },
+  "verified": {
+    "parquet_replay_identical": true,
+    "frames_zst_roundtrip": true,
+    "row_counts_match": true
+  },
+  "buffer_deleted": true
+}

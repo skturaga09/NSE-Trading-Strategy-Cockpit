@@ -1,0 +1,25 @@
+Phase 11 source checks, 2026-11-07 (Saturday, market closed). curl -A 'clade-fno-engine/2', no cookies (F-NSE-6 policy).
+
+1) GET https://www.nseindia.com/api/event-calendar  -> HTTP 200, 151841 bytes, sha256 c31783a7080c81b9c398199babbd22f09df4772034bfb9dfc95cc0ad21f7a63e
+   rows: 607 keys: ['bm_desc', 'company', 'date', 'purpose', 'symbol']
+   meeting dates: 2026-11-09 .. 2026-12-05
+   purposes: [('Financial Results', 430), ('Financial Results/Other business matters', 145), ('Financial Results/Dividend', 13), ('Financial Results/Dividend/Other business matters', 4), ('Other business matters', 3), ('Financial Results/Fund Raising', 3), ('Fund Raising', 2), ('Buyback', 2)]
+   first row: {"symbol": "MEDICO", "company": "Medico Remedies Limited", "purpose": "Financial Results", "bm_desc": "To consider and approve the financial results for the period ended September 30, 2026", "date": "09-Nov-2026"}
+   with ?index=equities&from_date=01-11-2026&to_date=30-11-2026 -> HTTP 200, 1567 rows, sha256 bf41d50e2b65c8eaffaa0a4068c07810b87d70cd3af1a18a652c49db8d2beb9c
+
+2) GET https://www.nseindia.com/static/products-services/equity-derivatives-bank-nifty-option-contract-specification-monthly -> HTTP 200
+   excerpt: Option Type The options contracts shall be European styled which can be exercised only on the expiration date Daily Settlement Price Daily premium settlement Final Settlement Price Final settlement price for an option contract shall be the closing price of the underlying index in the Normal Market of the Capital Market segment o
+   (the individual-securities spec URL guessed by me returned 404: stock-option exercise style NOT verified from NSE here)
+
+3) GET https://www.nseindia.com/static/products-services/equity-derivatives-individual-securities -> HTTP 200, sha256 27ff83df53263b25eea432ad527c033acb99c77f464b621ca14bba653dc9b94a
+   excerpt: Options contracts are European style and physically settled and are available on more than 200 securities stipulated by the Securities & Exchange Board of India (SEBI). (
+   excerpt: tion type identifies whether it is a call or a put option., CE - Call European, PE - Put European. Underlying Instrument
+
+4) GET https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63918 -> HTTP 200, sha256 bd6c0a83af142174ce03dd7b4787653ced9f09f480cb975eda6c6f8fb03a3c2c
+   excerpt: Date : Nov 04, 2026 Treasury Bills: Full Auction Result (Amount in ₹ crore) Auction Results 91-Day 182-Day 364-Day I. Notified Amount 8,000 8,000 7,000 II. Competitive Bids Received (i) Number 125 81 116 (ii) Amount 20,465.330 17,031.500 18,875.000 III. Cut-off price (₹) / Yield 98.5511 - 93.7820 (YTM: 5.8970%) - (YTM: 6.6485%) 
+    Press Release: 2026-2027/1440 
+   check: (100 - 98.5511) / 98.5511 x 365/91 = 5.897 % (matches the published YTM: simple annualised yield)
+
+5) Black-76 textbook references, computed with dashboard/black76.price (protected, not imported by the engine):
+   Hull, Options Futures and Other Derivatives (Black's model worked example): F=K=20, r=9%, T=4/12, sigma=25% -> put 1.12; dashboard/black76 -> 1.11664
+   Haug, The Complete Guide to Option Pricing Formulas, 2nd ed., sec. 1.1.4 (Black-76): F=K=19, T=0.75, r=10%, sigma=28% -> call = put = 1.7011; dashboard/black76 -> 1.70105

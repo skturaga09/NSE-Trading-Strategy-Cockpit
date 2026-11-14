@@ -1,0 +1,52 @@
+test_expired_token_fails_cleanly_without_leaking_token (tests.engine_tests.test_edges.TestBroker.test_expired_token_fails_cleanly_without_leaking_token) ... ok
+test_session_prefers_env_then_config_file (tests.engine_tests.test_edges.TestBroker.test_session_prefers_env_then_config_file) ... ok
+test_v1_loads_and_missing_key_fails (tests.engine_tests.test_edges.TestConfig.test_v1_loads_and_missing_key_fails) ... ok
+test_engine_never_uses_kiteconnect_rest_class (tests.engine_tests.test_edges.TestNoOrderCode.test_engine_never_uses_kiteconnect_rest_class) ... ok
+test_no_order_methods_in_repo_code (tests.engine_tests.test_edges.TestNoOrderCode.test_no_order_methods_in_repo_code) ... ok
+test_connection_limits_from_config (tests.engine_tests.test_edges.TestProvider.test_connection_limits_from_config) ... ok
+test_near_future_and_spot_resolve (tests.engine_tests.test_edges.TestProvider.test_near_future_and_spot_resolve) ... ok
+test_unknown_symbol_fails_loudly (tests.engine_tests.test_edges.TestProvider.test_unknown_symbol_fails_loudly) ... ok
+test_get_latest_never_returns_future_data_property (tests.engine_tests.test_recorder_replay.TestAsOf.test_get_latest_never_returns_future_data_property) ... ok
+test_real_time_speed_sleeps_by_clock_delta (tests.engine_tests.test_recorder_replay.TestAsOf.test_real_time_speed_sleeps_by_clock_delta) ... ok
+test_full_and_index_decode_raw_ints (tests.engine_tests.test_recorder_replay.TestPackets.test_full_and_index_decode_raw_ints) ... ok
+test_heartbeat_has_no_packets (tests.engine_tests.test_recorder_replay.TestPackets.test_heartbeat_has_no_packets) ... ok
+test_unknown_length_is_flagged_not_guessed (tests.engine_tests.test_recorder_replay.TestPackets.test_unknown_length_is_flagged_not_guessed) ... ok
+test_change_only_ticks_and_rate_limited_depth (tests.engine_tests.test_recorder_replay.TestRecorder.test_change_only_ticks_and_rate_limited_depth) ... ok
+test_disconnect_open_at_session_end_is_closed_as_gap (tests.engine_tests.test_recorder_replay.TestRecorder.test_disconnect_open_at_session_end_is_closed_as_gap) ... ok
+test_disconnect_produces_gap_and_no_synthetic_ticks (tests.engine_tests.test_recorder_replay.TestRecorder.test_disconnect_produces_gap_and_no_synthetic_ticks) ... ok
+test_disk_guard_degrades_depth_then_ticks_with_gap_records (tests.engine_tests.test_recorder_replay.TestRecorder.test_disk_guard_degrades_depth_then_ticks_with_gap_records) ... ok
+test_live_consumers_get_same_events_as_replay (tests.engine_tests.test_recorder_replay.TestRecorder.test_live_consumers_get_same_events_as_replay) ... ok
+test_oi_change_log_only_on_change (tests.engine_tests.test_recorder_replay.TestRecorder.test_oi_change_log_only_on_change) ... ok
+test_out_of_order_and_duplicates_stored_as_received_and_replay_deterministic (tests.engine_tests.test_recorder_replay.TestRecorder.test_out_of_order_and_duplicates_stored_as_received_and_replay_deterministic) ... ok
+test_own_shutdown_close_is_not_a_gap (tests.engine_tests.test_recorder_replay.TestRecorder.test_own_shutdown_close_is_not_a_gap) ... ok
+test_queue_overflow_logs_gap_not_crash (tests.engine_tests.test_recorder_replay.TestRecorder.test_queue_overflow_logs_gap_not_crash) ... ok
+test_alert_once_per_day_and_failed_send_is_retried (tests.engine_tests.test_storage.TestAlerts.test_alert_once_per_day_and_failed_send_is_retried) ... [engine] ALERT T: m
+[engine] ALERT T: m
+[engine] ALERT T2: m
+[engine] alert not delivered: OSError('offline')
+[engine] ALERT T2: m
+ok
+test_eod_day_checks (tests.engine_tests.test_storage.TestAlerts.test_eod_day_checks) ... [engine] ALERT Engine: NOTHING recorded today: No recording for today (ignore if NSE was closed). Check dashboard/logs/engine_recorder.err.log
+[engine] ALERT Engine recorder DIED and did not restart: Last data 09:15:20 IST; no clean shutdown logged.
+ok
+test_unclean_stop_detected_only_without_shutdown (tests.engine_tests.test_storage.TestAlerts.test_unclean_stop_detected_only_without_shutdown) ... ok
+test_eod_compacts_writes_cadence_and_runs_retention (tests.engine_tests.test_storage.TestAutomation.test_eod_compacts_writes_cadence_and_runs_retention) ... [engine] ALERT Engine recorder DIED and did not restart: Last data 09:19:50 IST; no clean shutdown logged.
+ok
+test_restart_records_gap_and_uses_new_connection_id (tests.engine_tests.test_storage.TestAutomation.test_restart_records_gap_and_uses_new_connection_id) ... ok
+test_single_recorder_lock_and_eod_refuses_while_held (tests.engine_tests.test_storage.TestAutomation.test_single_recorder_lock_and_eod_refuses_while_held) ... /Users/turagasanthoshkumar/Clade-NSE-Skills/tests/engine_tests/test_storage.py:235: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/tmpscnxg57q/recorder.lock' mode='a' encoding='utf-8'>
+  self.assertIsNotNone(acquire_lock(root))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_compacted_replay_identical_to_raw_buffer_and_sizes_reported (tests.engine_tests.test_storage.TestCompaction.test_compacted_replay_identical_to_raw_buffer_and_sizes_reported) ... ok
+test_intervals_from_change_log_excluding_gaps (tests.engine_tests.test_storage.TestOiCadence.test_intervals_from_change_log_excluding_gaps) ... ok
+test_archive_then_delete_only_with_verified_checksum (tests.engine_tests.test_storage.TestRetention.test_archive_then_delete_only_with_verified_checksum) ... ok
+test_mismatch_or_failure_never_deletes (tests.engine_tests.test_storage.TestRetention.test_mismatch_or_failure_never_deletes) ... ok
+test_uncompacted_day_is_skipped (tests.engine_tests.test_storage.TestRetention.test_uncompacted_day_is_skipped) ... ok
+
+----------------------------------------------------------------------
+Ran 33 tests in 0.924s
+
+OK
+
+fixture storage report: {"before_bytes": {"ticks": 20480, "depth": 8192, "oi_changes": 8192, "events": 8192, "gaps": 8192, "meta": 8192, "frames.bin": 21659, "buffer.sqlite(file)": 40960, "instrument_master(csv.gz)": 235}, "A_parquet_bytes": {"ticks": 19537, "depth": 19721, "oi_changes": 4732, "events": 1298, "gaps": 1113, "meta": 481}, "B_frames_zst_bytes": 1300, "replay": {"events_buffer": 202, "events_parquet": 202, "events_frames": 252, "seconds_buffer": 0.0012, "seconds_parquet_A": 0.0045, "seconds_frames_B": 0.0012}}
+exit=0

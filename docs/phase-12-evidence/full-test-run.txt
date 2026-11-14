@@ -1,0 +1,130 @@
+.../Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/yaml/scanner.py:289: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10a5f9210>
+  or self.index-key.index > 1024:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+....................../Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/typing.py:1449: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10a5fad40>
+  self.__args__ = tuple(... if a is _TypingEllipsis else
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/typing.py:1449: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10a5fab60>
+  self.__args__ = tuple(... if a is _TypingEllipsis else
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/typing.py:1449: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10a5faa70>
+  self.__args__ = tuple(... if a is _TypingEllipsis else
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/typing.py:1449: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10a5fa6b0>
+  self.__args__ = tuple(... if a is _TypingEllipsis else
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+....../Users/turagasanthoshkumar/Clade-NSE-Skills/tests/engine_tests/test_positioning.py:74: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39e020>
+  d.c1.setdefault(t, {})[end] = c
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Users/turagasanthoshkumar/Clade-NSE-Skills/tests/engine_tests/test_positioning.py:74: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39e110>
+  d.c1.setdefault(t, {})[end] = c
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Users/turagasanthoshkumar/Clade-NSE-Skills/tests/engine_tests/test_positioning.py:74: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39e200>
+  d.c1.setdefault(t, {})[end] = c
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Users/turagasanthoshkumar/Clade-NSE-Skills/tests/engine_tests/test_positioning.py:74: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39e2f0>
+  d.c1.setdefault(t, {})[end] = c
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Users/turagasanthoshkumar/Clade-NSE-Skills/tests/engine_tests/test_positioning.py:74: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39e3e0>
+  d.c1.setdefault(t, {})[end] = c
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+......<frozen abc>:117: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39e6b0>
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+........................................./Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/yaml/scanner.py:286: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39e200>
+  for level in list(self.possible_simple_keys):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.........................................................../Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39e890>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39f3d0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39f4c0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39f5b0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39f6a0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39f790>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39f880>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39f970>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39fa60>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39fb50>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39fc40>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39fd30>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39fe20>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10e39ff10>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x1151e4040>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x1151e4130>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x1151e4220>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x1151e4310>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x1151e4400>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/ast.py:50: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x1151e44f0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.....................................................................................[engine] ALERT T: m
+[engine] ALERT T: m
+[engine] ALERT T2: m
+[engine] alert not delivered: OSError('offline')
+[engine] ALERT T2: m
+.[engine] ALERT Engine: NOTHING recorded today: No recording for today (ignore if NSE was closed). Check dashboard/logs/engine_recorder.err.log
+[engine] ALERT Engine recorder DIED and did not restart: Last data 09:15:20 IST; no clean shutdown logged.
+.[engine] ALERT Engine: NOTHING recorded today: No recording for today (ignore if NSE was closed). Check dashboard/logs/engine_recorder.err.log
+[engine] ALERT Engine: NOTHING recorded today: No recording for today (ignore if NSE was closed). Check dashboard/logs/engine_recorder.err.log
+..F./Users/turagasanthoshkumar/Clade-NSE-Skills/tests/engine_tests/test_storage.py:253: ResourceWarning: unclosed file <_io.TextIOWrapper name='/var/folders/d_/gcs_djps3jq3mqfnldp2nt6h0000gn/T/tmpdbnbz_1j/recorder.lock' mode='a' encoding='utf-8'>
+  self.assertIsNotNone(acquire_lock(root))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+...............................................
+======================================================================
+FAIL: test_eod_compacts_writes_cadence_and_runs_retention (tests.engine_tests.test_storage.TestAutomation.test_eod_compacts_writes_cadence_and_runs_retention)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/turagasanthoshkumar/Clade-NSE-Skills/tests/engine_tests/test_storage.py", line 270, in test_eod_compacts_writes_cadence_and_runs_retention
+    self.assertEqual(sent, ["Engine recorder DIED and did not restart"])  # fixture day has no shutdown event
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [] != ['Engine recorder DIED and did not restart']
+
+Second list contains 1 additional elements.
+First extra element 0:
+'Engine recorder DIED and did not restart'
+
+- []
++ ['Engine recorder DIED and did not restart']
+
+----------------------------------------------------------------------
+Ran 275 tests in 43.285s
+
+FAILED (failures=1)
+
+fixture storage report: {"before_bytes": {"ticks": 20480, "depth": 8192, "oi_changes": 8192, "events": 8192, "gaps": 8192, "meta": 8192, "frames.bin": 21659, "buffer.sqlite(file)": 40960, "instrument_master(csv.gz)": 235}, "A_parquet_bytes": {"ticks": 19537, "depth": 19721, "oi_changes": 4732, "events": 1298, "gaps": 716, "meta": 346}, "B_frames_zst_bytes": 1300, "replay": {"events_buffer": 202, "events_parquet": 202, "events_frames": 252, "seconds_buffer": 0.0007, "seconds_parquet_A": 0.0033, "seconds_frames_B": 0.0009, "method": "streamed passes (Q-6-5); no event list is built"}}

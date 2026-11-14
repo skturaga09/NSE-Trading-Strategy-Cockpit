@@ -1,0 +1,30 @@
+$ python3 -m dashboard.iv_rank selfcheck
+selfcheck ok
+exit=0
+$ python3 -m dashboard.liquidity_sweep selfcheck
+selfcheck ok
+exit=0
+$ python3 -m dashboard.news_sweep selfcheck
+selfcheck ok
+exit=0
+$ python3 -m dashboard.overnight_backtest selfcheck
+selfcheck ok
+exit=0
+$ python3 -m dashboard.oi_target_backtest selfcheck
+selfcheck ok
+exit=0
+$ python3 -m dashboard.rec_ledger selfcheck
+selfcheck ok
+exit=0
+$ python3 -m dashboard.regime_filter_backtest selfcheck
+selfcheck ok
+exit=0
+$ python3 -m dashboard.premarket_gap_backtest selfcheck
+selfcheck ok
+exit=0
+$ python3 -m dashboard.radar_exit_backtest selfcheck
+selfcheck ok
+exit=0
+$ python3 -m dashboard.swing_backtest selfcheck
+selfcheck ok
+exit=0

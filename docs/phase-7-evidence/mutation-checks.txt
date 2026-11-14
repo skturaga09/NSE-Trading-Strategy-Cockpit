@@ -1,0 +1,13 @@
+MUTATION short-option guard removed: exit=1 -> 1 failing
+    FAIL: test_no_short_option_candidate_is_ever_generated (tests.engine_tests.test_contracts_risk.Selector.test_no_short_option_candidate_is_ever_generated)
+MUTATION daily-loss latch removed (current P&L only): exit=1 -> 1 failing
+    FAIL: test_daily_loss_breach_rejects_every_candidate_for_the_day (tests.engine_tests.test_contracts_risk.Risk.test_daily_loss_breach_rejects_every_candidate_for_the_day)
+MUTATION approval token mint check removed: exit=1 -> 1 failing
+    FAIL: test_recommendation_requires_an_approval_token_from_risk_check (tests.engine_tests.test_contracts_risk.Risk.test_recommendation_requires_an_approval_token_from_risk_check)
+MUTATION spread exclusion removed from selector: exit=1 -> 1 failing
+    FAIL: test_wide_spread_option_excluded (tests.engine_tests.test_contracts_risk.Selector.test_wide_spread_option_excluded)
+MUTATION unverified flag ignored: exit=1 -> 1 failing
+    FAIL: test_unverified_rate_or_no_rate_in_force_sets_unverified (tests.engine_tests.test_contracts_risk.CostModel.test_unverified_rate_or_no_rate_in_force_sets_unverified)
+MUTATION option capital check on premium x qty only: exit=1 -> 1 failing
+    FAIL: test_capital_above_limit_rejected (tests.engine_tests.test_contracts_risk.Risk.test_capital_above_limit_rejected)
+restored: OK

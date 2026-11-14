@@ -1,0 +1,5 @@
+distinct setups 78 (of 86 rows); 5 had no stop/target, so no trade
+  target first: 51
+  neither by 15:00: 13
+  stop first: 9
+in units of risk (1R = stop distance), gross before costs: 52 ahead, avg +0.27R; 21 behind; total +1.2R over 73 = +0.02R per trade

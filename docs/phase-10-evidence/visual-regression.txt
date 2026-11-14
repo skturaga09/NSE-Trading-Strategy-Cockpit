@@ -1,0 +1,408 @@
+=== nav strip masked (must be identical):
+
+Running 8 tests using 1 worker
+
+[1/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Today
+[2/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Radar
+[3/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Swing
+[4/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Exits
+[5/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Journal
+[6/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Ideas
+[7/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Screener
+[8/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Commodities
+  8 passed (10.0s)
+exit=0
+=== full page incl. nav strip (difference expected in the nav strip only):
+
+Running 8 tests using 1 worker
+
+[1/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Today
+  1) fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Today ───────────────────────────────
+
+    Error: expect(page).toHaveScreenshot(expected) failed
+
+      341 pixels (ratio 0.01 of all image pixels) are different.
+
+      Snapshot: Today-full.png
+
+    Call log:
+      - Expect "toHaveScreenshot(Today-full.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - captured a stable screenshot
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+
+
+      29 |     const nav = page.locator("main > div").first();
+      30 |     await expect(page).toHaveScreenshot(`${tab}-nav-masked.png`, { fullPage: true, mask: [nav] });
+    > 31 |     if (process.env.FO_FULL === "1") await expect(page).toHaveScreenshot(`${tab}-full.png`, { fullPage: true });
+         |                                                         ^
+      32 |   });
+      33 | }
+      34 |
+        at /Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/web/fo-engine/tests/existing-tabs.spec.ts:31:57
+
+    attachment #1: Today-full (image/png) ──────────────────────────────────────────────────────────
+    Expected: fo-engine/tests/__screenshots__/Today-full.png
+    Received: test-results/existing-tabs-existing-tab-Today/Today-full-actual.png
+    Diff:     test-results/existing-tabs-existing-tab-Today/Today-full-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/existing-tabs-existing-tab-Today/error-context.md
+
+
+[2/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Radar
+  2) fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Radar ───────────────────────────────
+
+    Error: expect(page).toHaveScreenshot(expected) failed
+
+      341 pixels (ratio 0.01 of all image pixels) are different.
+
+      Snapshot: Radar-full.png
+
+    Call log:
+      - Expect "toHaveScreenshot(Radar-full.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - captured a stable screenshot
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+
+
+      29 |     const nav = page.locator("main > div").first();
+      30 |     await expect(page).toHaveScreenshot(`${tab}-nav-masked.png`, { fullPage: true, mask: [nav] });
+    > 31 |     if (process.env.FO_FULL === "1") await expect(page).toHaveScreenshot(`${tab}-full.png`, { fullPage: true });
+         |                                                         ^
+      32 |   });
+      33 | }
+      34 |
+        at /Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/web/fo-engine/tests/existing-tabs.spec.ts:31:57
+
+    attachment #1: Radar-full (image/png) ──────────────────────────────────────────────────────────
+    Expected: fo-engine/tests/__screenshots__/Radar-full.png
+    Received: test-results/existing-tabs-existing-tab-Radar/Radar-full-actual.png
+    Diff:     test-results/existing-tabs-existing-tab-Radar/Radar-full-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/existing-tabs-existing-tab-Radar/error-context.md
+
+
+[3/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Swing
+  3) fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Swing ───────────────────────────────
+
+    Error: expect(page).toHaveScreenshot(expected) failed
+
+      341 pixels (ratio 0.01 of all image pixels) are different.
+
+      Snapshot: Swing-full.png
+
+    Call log:
+      - Expect "toHaveScreenshot(Swing-full.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - captured a stable screenshot
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+
+
+      29 |     const nav = page.locator("main > div").first();
+      30 |     await expect(page).toHaveScreenshot(`${tab}-nav-masked.png`, { fullPage: true, mask: [nav] });
+    > 31 |     if (process.env.FO_FULL === "1") await expect(page).toHaveScreenshot(`${tab}-full.png`, { fullPage: true });
+         |                                                         ^
+      32 |   });
+      33 | }
+      34 |
+        at /Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/web/fo-engine/tests/existing-tabs.spec.ts:31:57
+
+    attachment #1: Swing-full (image/png) ──────────────────────────────────────────────────────────
+    Expected: fo-engine/tests/__screenshots__/Swing-full.png
+    Received: test-results/existing-tabs-existing-tab-Swing/Swing-full-actual.png
+    Diff:     test-results/existing-tabs-existing-tab-Swing/Swing-full-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/existing-tabs-existing-tab-Swing/error-context.md
+
+
+[4/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Exits
+  4) fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Exits ───────────────────────────────
+
+    Error: expect(page).toHaveScreenshot(expected) failed
+
+      341 pixels (ratio 0.01 of all image pixels) are different.
+
+      Snapshot: Exits-full.png
+
+    Call log:
+      - Expect "toHaveScreenshot(Exits-full.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - captured a stable screenshot
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+
+
+      29 |     const nav = page.locator("main > div").first();
+      30 |     await expect(page).toHaveScreenshot(`${tab}-nav-masked.png`, { fullPage: true, mask: [nav] });
+    > 31 |     if (process.env.FO_FULL === "1") await expect(page).toHaveScreenshot(`${tab}-full.png`, { fullPage: true });
+         |                                                         ^
+      32 |   });
+      33 | }
+      34 |
+        at /Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/web/fo-engine/tests/existing-tabs.spec.ts:31:57
+
+    attachment #1: Exits-full (image/png) ──────────────────────────────────────────────────────────
+    Expected: fo-engine/tests/__screenshots__/Exits-full.png
+    Received: test-results/existing-tabs-existing-tab-Exits/Exits-full-actual.png
+    Diff:     test-results/existing-tabs-existing-tab-Exits/Exits-full-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/existing-tabs-existing-tab-Exits/error-context.md
+
+
+[5/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Journal
+  5) fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Journal ─────────────────────────────
+
+    Error: expect(page).toHaveScreenshot(expected) failed
+
+      341 pixels (ratio 0.01 of all image pixels) are different.
+
+      Snapshot: Journal-full.png
+
+    Call log:
+      - Expect "toHaveScreenshot(Journal-full.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - captured a stable screenshot
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+
+
+      29 |     const nav = page.locator("main > div").first();
+      30 |     await expect(page).toHaveScreenshot(`${tab}-nav-masked.png`, { fullPage: true, mask: [nav] });
+    > 31 |     if (process.env.FO_FULL === "1") await expect(page).toHaveScreenshot(`${tab}-full.png`, { fullPage: true });
+         |                                                         ^
+      32 |   });
+      33 | }
+      34 |
+        at /Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/web/fo-engine/tests/existing-tabs.spec.ts:31:57
+
+    attachment #1: Journal-full (image/png) ────────────────────────────────────────────────────────
+    Expected: fo-engine/tests/__screenshots__/Journal-full.png
+    Received: test-results/existing-tabs-existing-tab-Journal/Journal-full-actual.png
+    Diff:     test-results/existing-tabs-existing-tab-Journal/Journal-full-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/existing-tabs-existing-tab-Journal/error-context.md
+
+
+[6/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Ideas
+  6) fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Ideas ───────────────────────────────
+
+    Error: expect(page).toHaveScreenshot(expected) failed
+
+      341 pixels (ratio 0.01 of all image pixels) are different.
+
+      Snapshot: Ideas-full.png
+
+    Call log:
+      - Expect "toHaveScreenshot(Ideas-full.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - captured a stable screenshot
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+
+
+      29 |     const nav = page.locator("main > div").first();
+      30 |     await expect(page).toHaveScreenshot(`${tab}-nav-masked.png`, { fullPage: true, mask: [nav] });
+    > 31 |     if (process.env.FO_FULL === "1") await expect(page).toHaveScreenshot(`${tab}-full.png`, { fullPage: true });
+         |                                                         ^
+      32 |   });
+      33 | }
+      34 |
+        at /Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/web/fo-engine/tests/existing-tabs.spec.ts:31:57
+
+    attachment #1: Ideas-full (image/png) ──────────────────────────────────────────────────────────
+    Expected: fo-engine/tests/__screenshots__/Ideas-full.png
+    Received: test-results/existing-tabs-existing-tab-Ideas/Ideas-full-actual.png
+    Diff:     test-results/existing-tabs-existing-tab-Ideas/Ideas-full-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/existing-tabs-existing-tab-Ideas/error-context.md
+
+
+[7/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Screener
+  7) fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Screener ────────────────────────────
+
+    Error: expect(page).toHaveScreenshot(expected) failed
+
+      341 pixels (ratio 0.01 of all image pixels) are different.
+
+      Snapshot: Screener-full.png
+
+    Call log:
+      - Expect "toHaveScreenshot(Screener-full.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - captured a stable screenshot
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+
+
+      29 |     const nav = page.locator("main > div").first();
+      30 |     await expect(page).toHaveScreenshot(`${tab}-nav-masked.png`, { fullPage: true, mask: [nav] });
+    > 31 |     if (process.env.FO_FULL === "1") await expect(page).toHaveScreenshot(`${tab}-full.png`, { fullPage: true });
+         |                                                         ^
+      32 |   });
+      33 | }
+      34 |
+        at /Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/web/fo-engine/tests/existing-tabs.spec.ts:31:57
+
+    attachment #1: Screener-full (image/png) ───────────────────────────────────────────────────────
+    Expected: fo-engine/tests/__screenshots__/Screener-full.png
+    Received: test-results/existing-tabs-existing-tab-Screener/Screener-full-actual.png
+    Diff:     test-results/existing-tabs-existing-tab-Screener/Screener-full-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/existing-tabs-existing-tab-Screener/error-context.md
+
+
+[8/8] fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Commodities
+  8) fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Commodities ─────────────────────────
+
+    Error: expect(page).toHaveScreenshot(expected) failed
+
+      341 pixels (ratio 0.01 of all image pixels) are different.
+
+      Snapshot: Commodities-full.png
+
+    Call log:
+      - Expect "toHaveScreenshot(Commodities-full.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - captured a stable screenshot
+      - 341 pixels (ratio 0.01 of all image pixels) are different.
+
+
+      29 |     const nav = page.locator("main > div").first();
+      30 |     await expect(page).toHaveScreenshot(`${tab}-nav-masked.png`, { fullPage: true, mask: [nav] });
+    > 31 |     if (process.env.FO_FULL === "1") await expect(page).toHaveScreenshot(`${tab}-full.png`, { fullPage: true });
+         |                                                         ^
+      32 |   });
+      33 | }
+      34 |
+        at /Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/web/fo-engine/tests/existing-tabs.spec.ts:31:57
+
+    attachment #1: Commodities-full (image/png) ────────────────────────────────────────────────────
+    Expected: fo-engine/tests/__screenshots__/Commodities-full.png
+    Received: test-results/existing-tabs-existing-tab-Commodities/Commodities-full-actual.png
+    Diff:     test-results/existing-tabs-existing-tab-Commodities/Commodities-full-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/existing-tabs-existing-tab-Commodities/error-context.md
+
+
+  8 failed
+    fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Today ────────────────────────────────
+    fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Radar ────────────────────────────────
+    fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Swing ────────────────────────────────
+    fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Exits ────────────────────────────────
+    fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Journal ──────────────────────────────
+    fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Ideas ────────────────────────────────
+    fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Screener ─────────────────────────────
+    fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Commodities ──────────────────────────
+exit=1
+=== full-page differences vs the nav strip box y=85..144 (x=44..1396)
+Commodities  diff bbox (1037, 98, 1144, 130) -> inside the nav strip
+Exits        diff bbox (44, 98, 1396, 412) -> OUTSIDE THE NAV STRIP
+Ideas        diff bbox (1037, 98, 1144, 130) -> inside the nav strip
+Journal      diff bbox (1037, 98, 1144, 130) -> inside the nav strip
+Radar        diff bbox (1037, 98, 1144, 130) -> inside the nav strip
+Screener     diff bbox (1037, 98, 1144, 130) -> inside the nav strip
+Swing        diff bbox (1037, 98, 1144, 130) -> inside the nav strip
+Today        diff bbox (44, 98, 1396, 222) -> OUTSIDE THE NAV STRIP
+=== pixels that differ OUTSIDE the nav strip (any channel), with the largest channel difference (0-255)
+Commodities      0 px outside the nav strip, max channel diff 0, rows None
+Exits           32 px outside the nav strip, max channel diff 2, rows (357, 411)
+Ideas            0 px outside the nav strip, max channel diff 0, rows None
+Journal          0 px outside the nav strip, max channel diff 0, rows None
+Radar            0 px outside the nav strip, max channel diff 0, rows None
+Screener         0 px outside the nav strip, max channel diff 0, rows None
+Swing            0 px outside the nav strip, max channel diff 0, rows None
+Today           16 px outside the nav strip, max channel diff 2, rows (216, 221)
+=== control: the SAME pre-Phase-10 build screenshotted 3 times; pixels differing between runs (outside the nav strip)
+Exits run0 vs run1: 0 px differ, max channel diff 0
+Exits run0 vs run2: 0 px differ, max channel diff 0
+Today run0 vs run1: 0 px differ, max channel diff 0
+Today run0 vs run2: 0 px differ, max channel diff 0
+=== attribution: build with ONLY the nav entry added (App.tsx at HEAD, no module import)
+Exits: before vs nav-entry-only: 0 px differ outside the nav strip, max channel diff 0
+Exits: nav-entry-only vs full Phase 10: 0 px differ outside the nav strip, max channel diff 0
+Today: before vs nav-entry-only: 0 px differ outside the nav strip, max channel diff 0
+Today: nav-entry-only vs full Phase 10: 0 px differ outside the nav strip, max channel diff 0

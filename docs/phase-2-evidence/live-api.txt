@@ -1,0 +1,10 @@
+# live API checks on the registry built above
+subscriptions 291 {'quote'} connections 1
+members with <2 futures []
+NIFTY 256265 ['NIFTY26NOVFUT', 'NIFTY26DECFUT', 'NIFTY27JANFUT'] 65
+NIFTY active contracts 4118 expiries ['2026-11-09', '2026-11-17', '2026-11-23', '2026-12-01'] strike gaps 11-23 (Decimal('50'),)
+is_tradable NIFTY fut (False, ['RESTRICTION_UNVERIFIED:ban_list (none fetched for trade date 2026-11-05)'])
+is_tradable NIFTY spot (True, [])
+KAYNES in universe False
+KAYNES fut (False, ['NOT_IN_UNIVERSE', 'RESTRICTION_UNVERIFIED:ban_list (none fetched for trade date 2026-11-05)'])
+6-Nov restriction (not refreshed yet) ['RESTRICTION_UNVERIFIED:holidays (not re-verified on 2026-11-06: NSE/FAOP/71777, NSE/FAOP/72262)', 'BANNED']

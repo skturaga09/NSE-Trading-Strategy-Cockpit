@@ -1,0 +1,3 @@
+EOD config v4 root /Users/turagasanthoshkumar/Clade-NSE-Skills/data/engine | cadence doc exists: False
+run 1 (119s): {"2026-11-06": {"date": "2026-11-06", "setups": 961, "evaluations": 22594, "timing_rows": 25947, "rows_written": 1}} | failed(): False
+run 2 (0s): {} | failed(): False

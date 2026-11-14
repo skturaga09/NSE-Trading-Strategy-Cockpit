@@ -1,0 +1,8 @@
+rows: {'setups': 961, 'evaluations': 25639, 'timing': 25947}
+setups whose structural_stop differs between evaluations: 0 of 961
+setups vs stored setup stop mismatch: 0
+first evaluation not ACTIVE: [('2d6476bcd0934564', 'ZONE', 'INVALIDATED', 'CLOSE_THROUGH_STOP: 56905 vs 56905'), ('4f604c38fe6e78d3', 'ZONE', 'INVALIDATED', 'CLOSE_THROUGH_STOP: 177200 vs 177200')]
+UNKNOWN at confirmation, missing: Counter({'obstacle: NO_OBSTACLE_IN_TRADE_DIRECTION': 6, 'rr: NO_OBSTACLE_IN_TRADE_DIRECTION': 6})
+VWAP_EXTENSION flagged evaluations: 14029 median distance ATR 6.09 p90 9.45
+MFE/MAE rows with a value whose horizon ends after 15:40: 0
+timing values: Counter({('MFE', True): 10367, ('MFE', False): 9814, ('TIME', True): 3555, ('TIME', False): 2211})

@@ -1,0 +1,39 @@
+# NSE source probes 2026-11-05 ~21:55-22:10 IST (plain GET of static files)
+== https___nsearchives.nseindia.com_content_fo_fo_secban.csv
+97eb2de4aa066b5923d5a79530ddf8095d4dfcb4b0b97ff81363398b48bea72d  https___nsearchives.nseindia.com_content_fo_fo_secban.csv
+      55
+== https___nsearchives.nseindia.com_content_indices_ind_nifty100list.csv
+0a53ad14c15e9ec258dc72117a8c0699546ec25f2d283c47d53412e2de8a06fc  https___nsearchives.nseindia.com_content_indices_ind_nifty100list.csv
+    6601
+== https___nsearchives.nseindia.com_content_indices_ind_nifty50list.csv
+f5ba4027d935ae72879d5c24bbebf0e8439ec8ed504ffdf4175fde69206244b3  https___nsearchives.nseindia.com_content_indices_ind_nifty50list.csv
+    3344
+== https___www.niftyindices.com_IndexConstituent_ind_nifty100list.csv
+0a53ad14c15e9ec258dc72117a8c0699546ec25f2d283c47d53412e2de8a06fc  https___www.niftyindices.com_IndexConstituent_ind_nifty100list.csv
+    6601
+== https___www.niftyindices.com_IndexConstituent_ind_nifty50list.csv
+f5ba4027d935ae72879d5c24bbebf0e8439ec8ed504ffdf4175fde69206244b3  https___www.niftyindices.com_IndexConstituent_ind_nifty50list.csv
+    3344
+== FAOP71777.pdf
+5a2079cd78b2e6b536ef0d28300e63b645721bed22cc82a91facf5945f3296ea  FAOP71777.pdf
+  176660
+== FAOP72262.pdf
+f98ae37cf6a6f8c18b1064b0551599d084c4b4a27804842c487f0da43fea8f0f  FAOP72262.pdf
+   79468
+== CMTR71775.pdf
+aa97e0afc0ce394097f2fc62631c68e3c2e4c7c23541ed35f21d9fc06b0dcacb  CMTR71775.pdf
+  176256
+== CMTR72260.pdf
+c5d32a838b46d5044717b830a4793479a51a40f8e4e19d3896c65682d15b6ebc  CMTR72260.pdf
+   78974
+== fo_secban.csv bytes
+00000000: 5365 6375 7269 7469 6573 2069 6e20 4261  Securities in Ba
+00000010: 6e20 466f 7220 5472 6164 6520 4461 7465  n For Trade Date
+00000020: 2030 362d 4e4f 562d 3230 3236 3a0a 312c   06-NOV-2026:.1,
+00000030: 4b41 594e 4553 0a                        KAYNES.
+== nifty50 header
+Company Name,Industry,Symbol,Series,ISIN Code
+Adani Enterprises Ltd.,Metals & Mining,ADANIENT,EQ,INE423A01024
+== niftyindices.com vs nsearchives copies identical:
+yes
+== default python-requests User-Agent: ReadTimeout (20 s) on nsearchives + niftyindices; 'clade-fno-engine/2' UA: HTTP 200 (same session)

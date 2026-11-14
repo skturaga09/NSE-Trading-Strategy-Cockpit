@@ -1,0 +1,14 @@
+
+Running 8 tests using 1 worker
+
+  ✓  1 fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Today (1.9s)
+  ✓  2 fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Radar (1.0s)
+  ✓  3 fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Swing (1.0s)
+  ✓  4 fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Exits (1.1s)
+  ✓  5 fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Journal (1.1s)
+  ✓  6 fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Ideas (951ms)
+  ✓  7 fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Screener (996ms)
+  ✓  8 fo-engine/tests/existing-tabs.spec.ts:23:3 › existing tab Commodities (1.0s)
+
+  8 passed (9.9s)
+exit=0

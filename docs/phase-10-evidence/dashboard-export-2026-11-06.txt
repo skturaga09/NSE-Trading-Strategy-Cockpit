@@ -1,0 +1,2 @@
+{"date": "2026-11-06", "rows_written": 52069, "states": 37248, "marks": 76, "underlyings": 97, "config_version": "v12"}
+python3 -m engine.dashboard_export 2026-11-06  93.48s user 16.33s system 93% cpu 1:56.99 total

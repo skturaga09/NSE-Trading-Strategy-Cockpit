@@ -1,0 +1,8 @@
+=== engine.opportunity 2026-11-06
+exit=0 128.50s maxrss=2400845824
+=== engine.signal_report 2026-11-06
+exit=0 263.72s maxrss=2419834880
+=== engine.ledger run 2026-11-06
+exit=0 0.26s maxrss=56688640
+=== engine.dashboard_export 2026-11-06
+exit=0 111.67s maxrss=2321252352

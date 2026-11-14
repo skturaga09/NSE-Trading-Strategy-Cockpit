@@ -1,0 +1,5 @@
+underlyings 97 depth snapshot rows 0
+detections {'PROFILE_UNAVAILABLE': 7469}
+labels {('PROFILE_UNAVAILABLE', 'TICK_BASED'): 7469}
+unavailable reasons {'INSUFFICIENT_DATA': 2528, 'INSUFFICIENT_COVERAGE': 4941}
+runtime_s 21.2

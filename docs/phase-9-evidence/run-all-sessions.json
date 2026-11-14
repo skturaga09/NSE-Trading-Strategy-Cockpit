@@ -1,0 +1,38 @@
+{
+ "config_version": "v11",
+ "days": [
+  {
+   "day": "2026-11-05",
+   "eligible": 0,
+   "opened": [],
+   "not_opened": [],
+   "actual": [],
+   "skipped": "no signals.sqlite (Phase 8 not run for this date)"
+  },
+  {
+   "day": "2026-11-06",
+   "eligible": 0,
+   "opened": [],
+   "not_opened": [],
+   "actual": []
+  }
+ ],
+ "summary": {
+  "SIMULATED": {
+   "ledger": "SIMULATED",
+   "label": "SIMULATED",
+   "trades": 0,
+   "closed": 0,
+   "open": 0,
+   "realized_gross_inr": 0
+  },
+  "ACTUAL": {
+   "ledger": "ACTUAL",
+   "label": "ACTUAL",
+   "trades": 0,
+   "closed": 0,
+   "open": 0,
+   "realized_gross_inr": 0
+  }
+ }
+}

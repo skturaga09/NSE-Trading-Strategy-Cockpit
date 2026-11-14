@@ -1,0 +1,17 @@
+MUTATION global selector added to the module CSS: exit=1 -> 1 failing
+    FAIL: CSS is scoped to the module root > fo-engine.css
+MUTATION unprefixed class in a component: exit=1 -> 1 failing
+    FAIL: every class in the module is fo- prefixed > panels/Health.tsx
+MUTATION UNAVAILABLE shown as 0 instead of —: exit=1 -> 1 failing
+    FAIL: values > renders UNAVAILABLE as an em dash with its reason, in a tooltip inside the scoped root
+MUTATION stale panel not marked: exit=1 -> 1 failing
+    FAIL: panel age and staleness > shows the data age on every panel and marks STALE visibly (label + hatch, not colour only)
+MUTATION tooltip portal into document.body: exit=1 -> 1 failing
+    FAIL: values > renders UNAVAILABLE as an em dash with its reason, in a tooltip inside the scoped root
+MUTATION performance fetch ignores the ledger (shows SIMULATED under ACTUAL): exit=1 -> 1 failing
+    FAIL: SIMULATED and ACTUAL are never displayed in the same total > performance: one ledger per tab, each fetched alone; no number is the sum of both
+MUTATION token CSS drifts from the token file: exit=1 -> 1 failing
+    FAIL: tokens: fo-tokens.css mirrors fo-design-tokens.ts > colours (light and dark)
+MUTATION preflight enabled: exit=1 -> 1 failing
+    FAIL: CSS is scoped to the module root > tailwind module config: prefix, scoped important, preflight off, own content only
+restored: OK

@@ -1,0 +1,10 @@
+config v6 sha256 2d85dc49; snapshot rows 468515
+NIFTY      token 15736578: 218 detections, twice identical=True, 385 one-minute prefixes differing from batch-cut-at-confirmed_ts: 0  (13.3s)
+RELIANCE   token 15794434: 239 detections, twice identical=True, 385 one-minute prefixes differing from batch-cut-at-confirmed_ts: 0  (13.0s)
+HDFCBANK   token 15764994: 229 detections, twice identical=True, 385 one-minute prefixes differing from batch-cut-at-confirmed_ts: 0  (13.0s)
+ICICIBANK  token 15768322: 221 detections, twice identical=True, 385 one-minute prefixes differing from batch-cut-at-confirmed_ts: 0  (12.9s)
+INFY       token 15771650: 260 detections, twice identical=True, 385 one-minute prefixes differing from batch-cut-at-confirmed_ts: 0  (12.9s)
+TCS        token 15801346: 260 detections, twice identical=True, 385 one-minute prefixes differing from batch-cut-at-confirmed_ts: 0  (14.4s)
+SBIN       token 15796738: 203 detections, twice identical=True, 385 one-minute prefixes differing from batch-cut-at-confirmed_ts: 0  (13.7s)
+BHARTIARTL token 15747842: 252 detections, twice identical=True, 385 one-minute prefixes differing from batch-cut-at-confirmed_ts: 0  (13.7s)
+JIOFIN     token 15773954: 215 detections, twice identical=True, 385 one-minute prefixes differing from batch-cut-at-confirmed_ts: 0  (13.4s)

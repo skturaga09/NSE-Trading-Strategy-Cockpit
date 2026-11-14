@@ -1,0 +1,83 @@
+{"id": "F-AUTH-1", "url": "https://kite.trade/docs/connect/v3/user/", "http": 200, "quote": "\"https://api.kite.trade\"", "result": "OK", "missing": []}
+{"id": "F-AUTH-2", "url": "https://kite.trade/docs/connect/v3/user/", "http": 200, "quote": "\"Authorization: token api_key:access_token\"", "result": "OK", "missing": []}
+{"id": "F-AUTH-3", "url": "https://kite.trade/docs/connect/v3/user/", "http": 200, "quote": "\"POST the request_token and checksum \u2026 to /session/token\"", "result": "OK", "missing": []}
+{"id": "F-AUTH-4", "url": "https://kite.trade/docs/connect/v3/user/", "http": 200, "quote": "\"SHA-256 hash of (api_key + request_token + api_secret)\"", "result": "OK", "missing": []}
+{"id": "F-AUTH-5", "url": "https://kite.trade/docs/connect/v3/user/", "http": 200, "quote": "\"This token's lifetime is only a few minutes\"", "result": "OK", "missing": []}
+{"id": "F-AUTH-6", "url": "https://kite.trade/docs/connect/v3/user/", "http": 200, "quote": "\"it'll expire at 6 AM on the next day (regulatory requirement)\"", "result": "OK", "missing": []}
+{"id": "F-AUTH-7", "url": "https://kite.trade/docs/connect/v3/exceptions/", "http": 200, "quote": "\"Preceded by a 403 header, this indicates the expiry or invalidation of an authenticated session\"", "result": "OK", "missing": []}
+{"id": "F-AUTH-8", "result": "SKIPPED_MEASURED", "source": "MEASURED `dashboard/logs/kite_refresh.log` + live probe 2026-11-05 11:55 IST"}
+{"id": "F-RATE-1", "url": "https://kite.trade/docs/connect/v3/exceptions/", "http": 200, "quote": "\"Quote\" \u2014 \"1req/second\"", "result": "OK", "missing": []}
+{"id": "F-RATE-2", "url": "https://kite.trade/docs/connect/v3/exceptions/", "http": 200, "quote": "\"Historical candle\" \u2014 \"3req/second\"", "result": "OK", "missing": []}
+{"id": "F-RATE-3", "url": "https://kite.trade/docs/connect/v3/exceptions/", "http": 200, "quote": "\"All other endpoints\" \u2014 \"10req/second\"", "result": "OK", "missing": []}
+{"id": "F-RATE-4", "url": "https://kite.trade/docs/connect/v3/exceptions/", "http": 200, "quote": "\"400 orders per minute and 10 orders per second\"", "result": "OK", "missing": []}
+{"id": "F-QUOTE-1", "url": "https://kite.trade/docs/connect/v3/market-quotes/", "http": 200, "quote": "\"complete market data snapshot of up to 500 instruments in one go\"", "result": "OK", "missing": []}
+{"id": "F-QUOTE-2", "url": "https://kite.trade/docs/connect/v3/market-quotes/", "http": 200, "quote": "\"OHLC + LTP snapshots of up to 1000 instruments\"; \"LTPs of up to 1000 instruments\"", "result": "OK", "missing": []}
+{"id": "F-QUOTE-3", "url": "https://kite.trade/docs/connect/v3/market-quotes/", "http": 200, "quote": "field table", "result": "NO_QUOTE_TO_CHECK", "missing": []}
+{"id": "F-QUOTE-4", "url": "https://kite.trade/docs/connect/v3/market-quotes/", "http": 200, "quote": "\"The exchange timestamp of the quote packet\"", "result": "OK", "missing": []}
+{"id": "F-QUOTE-5", "url": "https://kite.trade/docs/connect/v3/market-quotes/", "http": 200, "quote": "\"Total quantity of buy orders pending at the exchange\"", "result": "OK", "missing": []}
+{"id": "F-QUOTE-6", "url": "https://kite.trade/docs/connect/v3/market-quotes/", "http": 200, "quote": "\"The volume weighted average price of a stock at a given time during the day\"", "result": "OK", "missing": []}
+{"id": "F-QUOTE-7", "url": "https://kite.trade/docs/connect/v3/market-quotes/", "http": 200, "quote": "\"Net quantity from the pending orders\"", "result": "OK", "missing": []}
+{"id": "F-QUOTE-8", "result": "SKIPPED_MEASURED", "source": "MEASURED measured-kite.txt (NIFTY26NOVFUT, NIFTY26N0924400CE)"}
+{"id": "F-QUOTE-9", "result": "SKIPPED_MEASURED", "source": "MEASURED measured-kite.txt"}
+{"id": "F-QUOTE-10", "result": "SKIPPED_MEASURED", "source": "MEASURED measured-kite.txt"}
+{"id": "F-INST-1", "url": "https://kite.trade/docs/connect/v3/market-quotes/", "http": 200, "quote": "\"returns a gzipped CSV dump of instruments across all exchanges\"", "result": "OK", "missing": []}
+{"id": "F-INST-2", "url": "https://kite.trade/docs/connect/v3/market-quotes/", "http": 200, "quote": "column list", "result": "NO_QUOTE_TO_CHECK", "missing": []}
+{"id": "F-INST-3", "url": "https://kite.trade/docs/connect/v3/market-quotes/", "http": 200, "quote": "\"The dump is generated once everyday and hence last_price is not real time\"", "result": "OK", "missing": []}
+{"id": "F-WS-1", "url": "https://kite.trade/docs/connect/v3/websocket/", "http": 200, "quote": "\"wss://ws.kite.trade\"", "result": "OK", "missing": []}
+{"id": "F-WS-2", "url": "https://kite.trade/docs/connect/v3/websocket/", "http": 200, "quote": "\"up to 3000 instruments on a single WebSocket connection\"; \"Single API key can have upto 3 websocket connections.\"", "result": "OK", "missing": []}
+{"id": "F-WS-3", "url": "https://kite.trade/docs/connect/v3/websocket/", "http": 200, "quote": "\"Packet contains several fields including market depth (184 bytes)\"", "result": "OK", "missing": []}
+{"id": "F-WS-4", "url": "https://kite.trade/docs/connect/v3/websocket/", "http": 200, "quote": "byte table", "result": "NO_QUOTE_TO_CHECK", "missing": []}
+{"id": "F-WS-5", "url": "https://kite.trade/docs/connect/v3/websocket/", "http": 200, "quote": "byte table", "result": "NO_QUOTE_TO_CHECK", "missing": []}
+{"id": "F-WS-6", "url": "https://kite.trade/docs/connect/v3/websocket/", "http": 200, "quote": "\u2014", "result": "NO_QUOTE_TO_CHECK", "missing": []}
+{"id": "F-WS-7", "url": "https://kite.trade/docs/connect/v3/websocket/", "http": 200, "quote": "\"have fewer fields\"", "result": "OK", "missing": []}
+{"id": "F-HIST-1", "url": "https://kite.trade/docs/connect/v3/historical/", "http": 200, "quote": "interval list", "result": "NO_QUOTE_TO_CHECK", "missing": []}
+{"id": "F-HIST-2", "url": "https://kite.trade/docs/connect/v3/historical/", "http": 200, "quote": "\"[timestamp, open, high, low, close, volume]\"", "result": "OK", "missing": []}
+{"id": "F-HIST-3", "result": "SKIPPED_MEASURED", "source": "MEASURED measured-kite.txt (NIFTY26NOVFUT, NIFTY26N0924400CE)"}
+{"id": "F-HIST-4", "url": "https://kite.trade/docs/connect/v3/historical/", "http": 200, "quote": "\"works for NFO and MCX futures contracts\"", "result": "OK", "missing": []}
+{"id": "F-HIST-5", "result": "SKIPPED_MEASURED", "source": "MEASURED measured-kite.txt: `InputException: interval exceeds max limit: 60 days` / `100 days` / `400 days` / `2000 days"}
+{"id": "F-HIST-6", "result": "SKIPPED_MEASURED", "source": "MEASURED measured-kite.txt"}
+{"id": "F-HIST-7", "result": "SKIPPED_MEASURED", "source": "MEASURED measured-kite.txt; DOC F-HIST-4 (day only)"}
+{"id": "F-HIST-8", "result": "SKIPPED_MEASURED", "source": "MEASURED measured-kite.txt (third batch)"}
+{"id": "F-HIST-11", "result": "SKIPPED_MEASURED", "source": "MEASURED docs/q-3-4-evidence/ (`q34_measure.py`, `measurement.txt`)"}
+{"id": "F-ACCT-1", "result": "SKIPPED_MEASURED", "source": "MEASURED measured-kite.txt"}
+{"id": "F-REG-1", "url": "https://www.sebi.gov.in/legal/circulars/feb-2025/safer-participation-of-retail-investors-in-algorithmic-trading_91614.html", "http": 200, "quote": "", "result": "NO_QUOTE_TO_CHECK", "missing": []}
+{"id": "F-REG-2", "url": "https://www.sebi.gov.in/legal/circulars/sep-2025/extension-of-timeline-for-implementation-of-sebi-circular-dated-february-04-2025-on-safer-participation-of-retail-investors-in-algorithmic-trading-_96979.html", "http": 200, "quote": "", "result": "NO_QUOTE_TO_CHECK", "missing": []}
+{"id": "F-NSE-1", "url": "https://nsearchives.nseindia.com/content/circulars/FAOP74467.pdf", "http": "ERROR PdfStreamError: Stream has ended unexpectedly", "quote": "\"Normal Market Close Time 15:40 hrs Change in time\"", "result": "FETCH_FAILED", "missing": []}
+{"id": "F-NSE-1", "url": "https://flattrade.in/kosh/wp-content/uploads/2026/05/FAOP74467.pdf", "http": 200, "quote": "\"Normal Market Close Time 15:40 hrs Change in time\"", "result": "OK", "missing": []}
+{"id": "F-WS-8", "result": "SKIPPED_MEASURED", "source": "LIBRARY SOURCE `site-packages/kiteconnect/ticker.py` (5.2.2), lines 138\u2013200, 340\u2013356, 379\u2013402, 631\u2013691"}
+{"id": "F-WS-9", "result": "SKIPPED_MEASURED", "source": "LIBRARY SOURCE ticker.py `_parse_binary` (5.2.2)"}
+{"id": "F-WS-10", "result": "SKIPPED_MEASURED", "source": "MEASURED [phase-1-evidence/live-smoke.txt](phase-1-evidence/live-smoke.txt)"}
+{"id": "F-WS-11", "result": "SKIPPED_MEASURED", "source": "MEASURED live-smoke.txt"}
+{"id": "F-WS-12", "result": "SKIPPED_MEASURED", "source": "MEASURED live-smoke.txt"}
+{"id": "F-INST-4", "result": "SKIPPED_MEASURED", "source": "MEASURED live-smoke.txt"}
+{"id": "F-NSE-2", "result": "SKIPPED_MEASURED", "source": "OFFICIAL FILE (NSE / NSE Indices) + MEASURED nse-sources.txt"}
+{"id": "F-NSE-3", "result": "SKIPPED_MEASURED", "source": "OFFICIAL FILE + MEASURED"}
+{"id": "F-NSE-4", "result": "SKIPPED_MEASURED", "source": "OFFICIAL FILE + MEASURED nse-sources.txt"}
+{"id": "F-NSE-5", "url": "https://nsearchives.nseindia.com/content/circulars/FAOP71777.pdf", "http": 200, "quote": "\"notifies Thursday, January 15, 2026 as a trading holiday in Futures & Options segment\"", "result": "QUOTE_NOT_FOUND", "missing": ["notifies Thursday, January 15, 2026 as a trading holiday in Futures & Options segment"]}
+{"id": "F-NSE-5", "url": "https://nsearchives.nseindia.com/content/circulars/FAOP72262.pdf", "http": 200, "quote": "\"notifies Thursday, January 15, 2026 as a trading holiday in Futures & Options segment\"", "result": "OK", "missing": []}
+{"id": "F-NSE-6", "result": "SKIPPED_MEASURED", "source": "MEASURED nse-sources.txt"}
+{"id": "F-INST-5", "result": "SKIPPED_MEASURED", "source": "MEASURED master 2026-11-05"}
+{"id": "F-INST-6", "result": "SKIPPED_MEASURED", "source": "MEASURED live-api.txt"}
+{"id": "F-WS-13", "result": "SKIPPED_MEASURED", "source": "MEASURED status.json"}
+{"id": "F-WS-14", "result": "SKIPPED_MEASURED", "source": "MEASURED frames.bin"}
+{"id": "F-WS-15", "result": "SKIPPED_MEASURED", "source": "MEASURED buffer.sqlite (last tick 09:03:08, no close event) + pmset log"}
+{"id": "F-HIST-9", "result": "SKIPPED_MEASURED", "source": "MEASURED history.sqlite + a direct 15:00\u201315:40 request"}
+{"id": "F-HIST-10", "result": "SKIPPED_MEASURED", "source": "MEASURED live-backfill.txt"}
+{"id": "F-NSE-7", "result": "SKIPPED_MEASURED", "source": "SEBI circular HO/47/11/11(3)2025-MRD-POD2/I/2765/2026, 16 Jan 2026 (para 4.1, 4.2, 6.1); NSE/CMTR/73362, 18 Mar 2026 (pa"}
+{"id": "F-NSE-8", "result": "SKIPPED_MEASURED", "source": "SEBI 16 Jan 2026 (para 5 / 17.1.2, 6.2)"}
+{"id": "F-NSE-9", "result": "SKIPPED_MEASURED", "source": "SEBI circular HO/47/11/11(3)2025-MRD-POD2/I/23843/2026, 15 Oct 2026 (para 4.2, 6.1, 6.2)"}
+{"id": "F-NSE-10", "url": "https://nsearchives.nseindia.com/content/circulars/FAOP76940.pdf", "http": 200, "quote": "\"Normal Market (Continuous Trading Session - CTS) 14:20 15:40\"", "result": "OK", "missing": []}
+{"id": "F-COST-1", "url": "https://zerodha.com/charges/", "http": 200, "quote": "\"0.03% or Rs. 20/executed order whichever is lower\"; \"Flat Rs. 20 per executed order\"", "result": "OK", "missing": []}
+{"id": "F-COST-2", "url": "https://zerodha.com/marketintel/bulletin/445377/revision-in-stt-securities-transaction-tax-from-1st-april-2026", "http": 200, "quote": "\"Securities Transaction Tax (STT) has been revised from April 1, 2026.\"", "result": "OK", "missing": []}
+{"id": "F-COST-2", "url": "https://zerodha.com/charges/", "http": 200, "quote": "\"Securities Transaction Tax (STT) has been revised from April 1, 2026.\"", "result": "QUOTE_NOT_FOUND", "missing": ["Securities Transaction Tax (STT) has been revised from April 1, 2026."]}
+{"id": "F-COST-3", "url": "https://zerodha.com/charges/", "http": 200, "quote": "\"NSE: 0.00183%\"; \"NSE: 0.03553% (on premium)\"", "result": "OK", "missing": []}
+{"id": "F-COST-3", "url": "https://support.zerodha.com/category/account-opening/resident-individual/ri-charges/articles/exchange-transaction-charges", "http": 200, "quote": "\"NSE: 0.00183%\"; \"NSE: 0.03553% (on premium)\"", "result": "QUOTE_NOT_FOUND", "missing": ["NSE: 0.00183%", "NSE: 0.03553% (on premium)"]}
+{"id": "F-COST-4", "url": "https://zerodha.com/charges/", "http": 200, "quote": "\"\u20b910 / crore\"; \"0.002% or \u20b9200 / crore on buy side\"; \"0.003% or \u20b9300 / crore on buy side\"", "result": "OK", "missing": []}
+{"id": "F-COST-5", "url": "https://zerodha.com/charges/", "http": 200, "quote": "\"18% on (brokerage + SEBI charges + transaction charges)\"", "result": "OK", "missing": []}
+{"id": "F-COST-6", "url": "https://zerodha.com/charges/", "http": 200, "quote": "\"Equity and Futures - \u20b90.01 per crore + GST of the traded value.\"", "result": "OK", "missing": []}
+{"id": "F-MARGIN-1", "url": "https://kite.trade/docs/connect/v3/margins/", "http": 200, "quote": "\"Requests to the above endpoints are JSON POST\"", "result": "OK", "missing": []}
+{"id": "F-QTY-1", "result": "SKIPPED_MEASURED", "source": "MEASURED `data/engine/2026-11-06/buffer.sqlite` \u00d7 `universe.sqlite`"}
+{"id": "F-OPT-1", "url": "https://www.nseindia.com/static/products-services/equity-derivatives-bank-nifty-option-contract-specification-monthly", "http": 200, "quote": "\"The options contracts shall be European styled which can be exercised only on the expiration date\"", "result": "OK", "missing": []}
+{"id": "F-OPT-2", "url": "https://www.nseindia.com/static/products-services/equity-derivatives-individual-securities", "http": 200, "quote": "\"Options contracts are European style and physically settled\"", "result": "OK", "missing": []}
+{"id": "F-RATE-RBI-1", "url": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63918", "http": 200, "quote": "\"98.5511 \u2026 (YTM: 5.8970%)\"", "result": "OK", "missing": []}
+{"id": "F-EVT-1", "result": "SKIPPED_MEASURED", "source": "OFFICIAL NSE endpoint + MEASURED (phase-11-evidence)"}

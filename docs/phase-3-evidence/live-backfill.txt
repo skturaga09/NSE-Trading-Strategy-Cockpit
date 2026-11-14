@@ -1,0 +1,116 @@
+{
+  "from": "2026-09-29 09:00:00",
+  "to": "2026-11-05 23:59:59",
+  "ok": 387,
+  "failed": {},
+  "rows": 2953133,
+  "seconds": 194.0,
+  "tokens": 387
+}
+exit 0
+# checks after the full run
+baselines by kind: [('oi_change_pct', 291, 0, 20), ('volume_by_minute', 387, 0, 20)]
+spot last minute-of-day: Counter({'15:14': 95, '15:29': 1}) first: Counter({'09:15': 96})
+future last minute-of-day: Counter({'15:39': 290})
+oi 5-min change samples per future: min 0 median 7400 max 7600
+sources: [('HISTORICAL_API',)]
+spot ending after 15:14: 193758977 ENRIN [('2026-09-29', '15:29', 375)]
+future with < 20 sessions: 9886722 POLYCAB27JANFUT 3
+future with < 20 sessions: 14015746 NIFTY27JANFUT 7
+future with < 20 sessions: 14016770 ABB27JANFUT 7
+future with < 20 sessions: 14017282 ADANIENSOL27JANFUT 7
+future with < 20 sessions: 14017538 ADANIENT27JANFUT 7
+future with < 20 sessions: 14018306 ADANIGREEN27JANFUT 6
+future with < 20 sessions: 14018562 ADANIPORTS27JANFUT 7
+future with < 20 sessions: 14018818 ADANIPOWER27JANFUT 7
+future with < 20 sessions: 14019586 AMBUJACEM27JANFUT 7
+future with < 20 sessions: 14021122 APOLLOHOSP27JANFUT 7
+future with < 20 sessions: 14021634 ASIANPAINT27JANFUT 7
+future with < 20 sessions: 14022914 AXISBANK27JANFUT 7
+future with < 20 sessions: 14023170 BAJAJ-AUTO27JANFUT 7
+future with < 20 sessions: 14023426 BAJAJFINSV27JANFUT 7
+future with < 20 sessions: 14023682 BAJFINANCE27JANFUT 7
+future with < 20 sessions: 14024194 BANKBARODA27JANFUT 7
+future with < 20 sessions: 14024962 BEL27JANFUT 7
+future with < 20 sessions: 14025474 BHARTIARTL27JANFUT 7
+future with < 20 sessions: 14027522 BOSCHLTD27JANFUT 7
+future with < 20 sessions: 14027778 BPCL27JANFUT 7
+future with < 20 sessions: 14028034 BRITANNIA27JANFUT 6
+future with < 20 sessions: 14028290 BSE27JANFUT 7
+future with < 20 sessions: 14028802 CANBK27JANFUT 7
+future with < 20 sessions: 14050818 CGPOWER27JANFUT 6
+future with < 20 sessions: 14051586 CHOLAFIN27JANFUT 7
+future with < 20 sessions: 14051842 CIPLA27JANFUT 6
+future with < 20 sessions: 14055938 COALINDIA27JANFUT 7
+future with < 20 sessions: 14060034 CUMMINSIND27JANFUT 7
+future with < 20 sessions: 14061826 DIVISLAB27JANFUT 7
+future with < 20 sessions: 14062338 DLF27JANFUT 6
+future with < 20 sessions: 14062594 DMART27JANFUT 7
+future with < 20 sessions: 14062850 DRREDDY27JANFUT 4
+future with < 20 sessions: 14063106 EICHERMOT27JANFUT 5
+future with < 20 sessions: 14063618 ENRIN27JANFUT 3
+future with < 20 sessions: 14063874 ETERNAL27JANFUT 7
+future with < 20 sessions: 14064898 GAIL27JANFUT 6
+future with < 20 sessions: 14065922 GODREJCP27JANFUT 7
+future with < 20 sessions: 14066434 GRASIM27JANFUT 5
+future with < 20 sessions: 14066946 HAL27JANFUT 7
+future with < 20 sessions: 14067714 HCLTECH27JANFUT 7
+future with < 20 sessions: 14068226 HDFCAMC27JANFUT 5
+future with < 20 sessions: 14069250 HDFCBANK27JANFUT 7
+future with < 20 sessions: 14069506 HDFCLIFE27JANFUT 7
+future with < 20 sessions: 14072834 HINDALCO27JANFUT 7
+future with < 20 sessions: 14075394 HINDUNILVR27JANFUT 7
+future with < 20 sessions: 14075650 HINDZINC27JANFUT 7
+future with < 20 sessions: 14083842 HYUNDAI27JANFUT 7
+future with < 20 sessions: 14084098 ICICIBANK27JANFUT 7
+future with < 20 sessions: 14085122 IDEA27JANFUT 7
+future with < 20 sessions: 14086146 INDIGO27JANFUT 7
+future with < 20 sessions: 14086914 INFY27JANFUT 7
+future with < 20 sessions: 14087170 IOC27JANFUT 7
+future with < 20 sessions: 14087682 IRFC27JANFUT 7
+future with < 20 sessions: 14088194 ITC27JANFUT 7
+future with < 20 sessions: 14088450 JINDALSTEL27JANFUT 6
+future with < 20 sessions: 14088706 JIOFIN27JANFUT 7
+future with < 20 sessions: 14089218 JSWSTEEL27JANFUT 7
+future with < 20 sessions: 14092034 KOTAKBANK27JANFUT 7
+future with < 20 sessions: 14093570 LT27JANFUT 7
+future with < 20 sessions: 14094082 LTM27JANFUT 7
+future with < 20 sessions: 14094850 M&M27JANFUT 7
+future with < 20 sessions: 14096386 MARUTI27JANFUT 7
+future with < 20 sessions: 14096642 MAXHEALTH27JANFUT 6
+future with < 20 sessions: 14096898 MAZDOCK27JANFUT 7
+future with < 20 sessions: 14097666 MOTHERSON27JANFUT 7
+future with < 20 sessions: 14098434 MUTHOOTFIN27JANFUT 6
+future with < 20 sessions: 14100738 NESTLEIND27JANFUT 7
+future with < 20 sessions: 14102786 NTPC27JANFUT 7
+future with < 20 sessions: 14104066 ONGC27JANFUT 7
+future with < 20 sessions: 14105858 PFC27JANFUT 7
+future with < 20 sessions: 14106626 PIDILITIND27JANFUT 7
+future with < 20 sessions: 14108418 PNB27JANFUT 7
+future with < 20 sessions: 14109186 POWERGRID27JANFUT 7
+future with < 20 sessions: 14109442 POWERINDIA27JANFUT 7
+future with < 20 sessions: 14110978 RELIANCE27JANFUT 7
+future with < 20 sessions: 14112258 SBILIFE27JANFUT 6
+future with < 20 sessions: 14112514 SBIN27JANFUT 7
+future with < 20 sessions: 14113026 SHRIRAMFIN27JANFUT 7
+future with < 20 sessions: 14113282 SIEMENS27JANFUT 7
+future with < 20 sessions: 14113538 SOLARINDS27JANFUT 7
+future with < 20 sessions: 14115842 SUNPHARMA27JANFUT 7
+future with < 20 sessions: 14117634 TATACONSUM27JANFUT 4
+future with < 20 sessions: 14118146 TATAPOWER27JANFUT 7
+future with < 20 sessions: 14118402 TATASTEEL27JANFUT 7
+future with < 20 sessions: 14118658 TCS27JANFUT 7
+future with < 20 sessions: 14118914 TECHM27JANFUT 6
+future with < 20 sessions: 14119426 TITAN27JANFUT 7
+future with < 20 sessions: 14119682 TMPV27JANFUT 7
+future with < 20 sessions: 14119938 TORNTPHARM27JANFUT 0
+future with < 20 sessions: 14120194 TRENT27JANFUT 6
+future with < 20 sessions: 14120450 TVSMOTOR27JANFUT 7
+future with < 20 sessions: 14120962 ULTRACEMCO27JANFUT 7
+future with < 20 sessions: 14121218 UNIONBANK27JANFUT 7
+future with < 20 sessions: 14122242 VBL27JANFUT 7
+future with < 20 sessions: 14122498 VEDL27JANFUT 7
+future with < 20 sessions: 14124546 WIPRO27JANFUT 7
+future with < 20 sessions: 14129410 ZYDUSLIFE27JANFUT 7
+future with < 20 sessions: 15075330 AMBUJACEM26DECFUT 19
+future with < 20 sessions: 15139074 TORNTPHARM26DECFUT 18

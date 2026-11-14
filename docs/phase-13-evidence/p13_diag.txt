@@ -1,0 +1,5 @@
+NIFTY tick rows 15565 1m candles 384 COMPLETE/EMPTY+OK 251 tick==candle 251 first candle 09:15 tick 0.1 coverage at close 0.652
+RELIANCE tick rows 12087 1m candles 384 COMPLETE/EMPTY+OK 245 tick==candle 245 first candle 09:15 tick 0.1 coverage at close 0.636
+HDFCBANK tick rows 18669 1m candles 384 COMPLETE/EMPTY+OK 251 tick==candle 251 first candle 09:15 tick 0.05 coverage at close 0.652
+INFY tick rows 16100 1m candles 384 COMPLETE/EMPTY+OK 251 tick==candle 251 first candle 09:15 tick 0.1 coverage at close 0.652
+all near futures: usable candles 22328 reconciled tick==candle 22328

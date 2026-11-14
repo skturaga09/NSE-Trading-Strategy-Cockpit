@@ -1,0 +1,93 @@
+test_backfill_labels_source_records_failures_and_builds_baselines (tests.engine_tests.test_backfill.TestBackfill.test_backfill_labels_source_records_failures_and_builds_baselines) ... ok
+test_readers (tests.engine_tests.test_backfill.TestBackfill.test_readers) ... ok
+test_token_bucket_never_exceeds_rate (tests.engine_tests.test_backfill.TestBackfill.test_token_bucket_never_exceeds_rate) ... ok
+test_window_respects_the_measured_range_cap (tests.engine_tests.test_backfill.TestBackfill.test_window_respects_the_measured_range_cap) ... ok
+test_depth_snapshots_for_tier_b_only (tests.engine_tests.test_candles.TestCandles.test_depth_snapshots_for_tier_b_only) ... ok
+test_disconnect_goes_stale_within_threshold_and_ok_only_on_fresh_data (tests.engine_tests.test_candles.TestCandles.test_disconnect_goes_stale_within_threshold_and_ok_only_on_fresh_data) ... /Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/yaml/tokens.py:98: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10d194a90>
+  def __init__(self, value, plain, start_mark, end_mark, style=None):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_gap_inside_candle_is_partial_with_nothing_interpolated (tests.engine_tests.test_candles.TestCandles.test_gap_inside_candle_is_partial_with_nothing_interpolated) ... ok
+test_ohlc_volume_trades_and_rollups (tests.engine_tests.test_candles.TestCandles.test_ohlc_volume_trades_and_rollups) ... ok
+test_oi_age_when_oi_unchanged_for_minutes (tests.engine_tests.test_candles.TestCandles.test_oi_age_when_oi_unchanged_for_minutes) ... ok
+test_out_of_order_late_duplicate_and_backwards (tests.engine_tests.test_candles.TestCandles.test_out_of_order_late_duplicate_and_backwards) ... ok
+test_rollover_combined_oi_is_continuous (tests.engine_tests.test_candles.TestCandles.test_rollover_combined_oi_is_continuous) ... ok
+test_session_edges_holiday_and_non_trading_instrument (tests.engine_tests.test_candles.TestCandles.test_session_edges_holiday_and_non_trading_instrument) ... ok
+test_window_must_exceed_flush_interval (tests.engine_tests.test_candles.TestCandles.test_window_must_exceed_flush_interval) ... ok
+test_expired_token_fails_cleanly_without_leaking_token (tests.engine_tests.test_edges.TestBroker.test_expired_token_fails_cleanly_without_leaking_token) ... ok
+test_session_prefers_env_then_config_file (tests.engine_tests.test_edges.TestBroker.test_session_prefers_env_then_config_file) ... ok
+test_v3_loads_and_missing_key_fails (tests.engine_tests.test_edges.TestConfig.test_v3_loads_and_missing_key_fails) ... ok
+test_engine_never_uses_kiteconnect_rest_class (tests.engine_tests.test_edges.TestNoOrderCode.test_engine_never_uses_kiteconnect_rest_class) ... ok
+test_no_order_methods_in_repo_code (tests.engine_tests.test_edges.TestNoOrderCode.test_no_order_methods_in_repo_code) ... ok
+test_connection_limits_from_config (tests.engine_tests.test_edges.TestProvider.test_connection_limits_from_config) ... ok
+test_near_future_and_spot_resolve (tests.engine_tests.test_edges.TestProvider.test_near_future_and_spot_resolve) ... ok
+test_unknown_symbol_fails_loudly (tests.engine_tests.test_edges.TestProvider.test_unknown_symbol_fails_loudly) ... ok
+test_report_then_compact_snapshots_losslessly (tests.engine_tests.test_phase3_golden.TestFeedReportAndSnapshotCompaction.test_report_then_compact_snapshots_losslessly) ... ok
+test_live_and_replay_identical_golden (tests.engine_tests.test_phase3_golden.TestLiveReplayGolden.test_live_and_replay_identical_golden) ... ok
+test_half_open_socket_becomes_a_stall_gap_once_and_clears_on_reconnect (tests.engine_tests.test_phase3_golden.TestStallWatchdog.test_half_open_socket_becomes_a_stall_gap_once_and_clears_on_reconnect) ... ok
+test_get_latest_never_returns_future_data_property (tests.engine_tests.test_recorder_replay.TestAsOf.test_get_latest_never_returns_future_data_property) ... ok
+test_real_time_speed_sleeps_by_clock_delta (tests.engine_tests.test_recorder_replay.TestAsOf.test_real_time_speed_sleeps_by_clock_delta) ... ok
+test_full_and_index_decode_raw_ints (tests.engine_tests.test_recorder_replay.TestPackets.test_full_and_index_decode_raw_ints) ... ok
+test_heartbeat_has_no_packets (tests.engine_tests.test_recorder_replay.TestPackets.test_heartbeat_has_no_packets) ... ok
+test_unknown_length_is_flagged_not_guessed (tests.engine_tests.test_recorder_replay.TestPackets.test_unknown_length_is_flagged_not_guessed) ... ok
+test_change_only_ticks_and_rate_limited_depth (tests.engine_tests.test_recorder_replay.TestRecorder.test_change_only_ticks_and_rate_limited_depth) ... ok
+test_disconnect_open_at_session_end_is_closed_as_gap (tests.engine_tests.test_recorder_replay.TestRecorder.test_disconnect_open_at_session_end_is_closed_as_gap) ... ok
+test_disconnect_produces_gap_and_no_synthetic_ticks (tests.engine_tests.test_recorder_replay.TestRecorder.test_disconnect_produces_gap_and_no_synthetic_ticks) ... ok
+test_disk_guard_degrades_depth_then_ticks_with_gap_records (tests.engine_tests.test_recorder_replay.TestRecorder.test_disk_guard_degrades_depth_then_ticks_with_gap_records) ... ok
+test_live_consumers_get_same_events_as_replay (tests.engine_tests.test_recorder_replay.TestRecorder.test_live_consumers_get_same_events_as_replay) ... ok
+test_oi_change_log_only_on_change (tests.engine_tests.test_recorder_replay.TestRecorder.test_oi_change_log_only_on_change) ... ok
+test_out_of_order_and_duplicates_stored_as_received_and_replay_deterministic (tests.engine_tests.test_recorder_replay.TestRecorder.test_out_of_order_and_duplicates_stored_as_received_and_replay_deterministic) ... ok
+test_own_shutdown_close_is_not_a_gap (tests.engine_tests.test_recorder_replay.TestRecorder.test_own_shutdown_close_is_not_a_gap) ... ok
+test_queue_overflow_logs_gap_not_crash (tests.engine_tests.test_recorder_replay.TestRecorder.test_queue_overflow_logs_gap_not_crash) ... ok
+test_alert_once_per_day_and_failed_send_is_retried (tests.engine_tests.test_storage.TestAlerts.test_alert_once_per_day_and_failed_send_is_retried) ... [engine] ALERT T: m
+[engine] ALERT T: m
+[engine] ALERT T2: m
+[engine] alert not delivered: OSError('offline')
+[engine] ALERT T2: m
+ok
+test_eod_day_checks (tests.engine_tests.test_storage.TestAlerts.test_eod_day_checks) ... [engine] ALERT Engine: NOTHING recorded today: No recording for today (ignore if NSE was closed). Check dashboard/logs/engine_recorder.err.log
+[engine] ALERT Engine recorder DIED and did not restart: Last data 09:15:20 IST; no clean shutdown logged.
+ok
+test_eod_no_data_alert_suppressed_only_on_verified_holiday (tests.engine_tests.test_storage.TestAlerts.test_eod_no_data_alert_suppressed_only_on_verified_holiday) ... [engine] ALERT Engine: NOTHING recorded today: No recording for today (ignore if NSE was closed). Check dashboard/logs/engine_recorder.err.log
+[engine] ALERT Engine: NOTHING recorded today: No recording for today (ignore if NSE was closed). Check dashboard/logs/engine_recorder.err.log
+ok
+test_unclean_stop_detected_only_without_shutdown (tests.engine_tests.test_storage.TestAlerts.test_unclean_stop_detected_only_without_shutdown) ... ok
+test_eod_compacts_writes_cadence_and_runs_retention (tests.engine_tests.test_storage.TestAutomation.test_eod_compacts_writes_cadence_and_runs_retention) ... [engine] ALERT Engine recorder DIED and did not restart: Last data 09:19:50 IST; no clean shutdown logged.
+ok
+test_restart_records_gap_and_uses_new_connection_id (tests.engine_tests.test_storage.TestAutomation.test_restart_records_gap_and_uses_new_connection_id) ... ok
+test_single_recorder_lock_and_eod_refuses_while_held (tests.engine_tests.test_storage.TestAutomation.test_single_recorder_lock_and_eod_refuses_while_held) ... /Users/turagasanthoshkumar/Clade-NSE-Skills/tests/engine_tests/test_storage.py:251: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/tmpgp13uj5u/recorder.lock' mode='a' encoding='utf-8'>
+  self.assertIsNotNone(acquire_lock(root))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_compacted_replay_identical_to_raw_buffer_and_sizes_reported (tests.engine_tests.test_storage.TestCompaction.test_compacted_replay_identical_to_raw_buffer_and_sizes_reported) ... ok
+test_intervals_from_change_log_excluding_gaps (tests.engine_tests.test_storage.TestOiCadence.test_intervals_from_change_log_excluding_gaps) ... ok
+test_archive_then_delete_only_with_verified_checksum (tests.engine_tests.test_storage.TestRetention.test_archive_then_delete_only_with_verified_checksum) ... ok
+test_mismatch_or_failure_never_deletes (tests.engine_tests.test_storage.TestRetention.test_mismatch_or_failure_never_deletes) ... ok
+test_uncompacted_day_is_skipped (tests.engine_tests.test_storage.TestRetention.test_uncompacted_day_is_skipped) ... ok
+test_assign_keeps_tokens_on_their_connection (tests.engine_tests.test_tiers.TestAllocate.test_assign_keeps_tokens_on_their_connection) ... ok
+test_never_exceeds_limits_for_any_input_size_property (tests.engine_tests.test_tiers.TestAllocate.test_never_exceeds_limits_for_any_input_size_property) ... ok
+test_priority_upgrade_and_drop_reason (tests.engine_tests.test_tiers.TestAllocate.test_priority_upgrade_and_drop_reason) ... ok
+test_promote_ttl_demote_and_executor_ops (tests.engine_tests.test_tiers.TestBookAndExecutor.test_promote_ttl_demote_and_executor_ops) ... ok
+test_grep_logic_modules (tests.engine_tests.test_universe.TestNoHardcodedContractFacts.test_grep_logic_modules) ... ok
+test_parsers_accept_measured_format_only (tests.engine_tests.test_universe.TestSources.test_parsers_accept_measured_format_only) ... ok
+test_ban_list_for_another_trade_date_does_not_verify_today (tests.engine_tests.test_universe.TestUniverse.test_ban_list_for_another_trade_date_does_not_verify_today) ... ok
+test_banned_security_not_tradable (tests.engine_tests.test_universe.TestUniverse.test_banned_security_not_tradable) ... ok
+test_expired_contract_never_active_after_expiry (tests.engine_tests.test_universe.TestUniverse.test_expired_contract_never_active_after_expiry) ... ok
+test_historical_lookup_and_daily_diff (tests.engine_tests.test_universe.TestUniverse.test_historical_lookup_and_daily_diff) ... ok
+test_holidays_weekends_and_unverified_circulars (tests.engine_tests.test_universe.TestUniverse.test_holidays_weekends_and_unverified_circulars) ... ok
+test_index_tradable_without_any_constituent_list (tests.engine_tests.test_universe.TestUniverse.test_index_tradable_without_any_constituent_list) ... ok
+test_missing_ban_list_is_restriction_unverified (tests.engine_tests.test_universe.TestUniverse.test_missing_ban_list_is_restriction_unverified) ... ok
+test_no_duplicate_underlying_and_fno_derived_from_master (tests.engine_tests.test_universe.TestUniverse.test_no_duplicate_underlying_and_fno_derived_from_master) ... ok
+test_provider_subscribes_spot_near_and_next_in_quote_mode (tests.engine_tests.test_universe.TestUniverse.test_provider_subscribes_spot_near_and_next_in_quote_mode) ... ok
+test_refresh_is_idempotent_and_refuses_out_of_order (tests.engine_tests.test_universe.TestUniverse.test_refresh_is_idempotent_and_refuses_out_of_order) ... ok
+test_stale_constituents_flagged_then_blocked (tests.engine_tests.test_universe.TestUniverse.test_stale_constituents_flagged_then_blocked) ... ok
+test_strike_intervals_derived_from_listed_strikes (tests.engine_tests.test_universe.TestUniverse.test_strike_intervals_derived_from_listed_strikes) ... ok
+test_token_reused_for_another_contract_resolves_by_date (tests.engine_tests.test_universe.TestUniverse.test_token_reused_for_another_contract_resolves_by_date) ... ok
+
+----------------------------------------------------------------------
+Ran 69 tests in 7.795s
+
+OK
+
+fixture storage report: {"before_bytes": {"ticks": 20480, "depth": 8192, "oi_changes": 8192, "events": 8192, "gaps": 8192, "meta": 8192, "frames.bin": 21659, "buffer.sqlite(file)": 40960, "instrument_master(csv.gz)": 235}, "A_parquet_bytes": {"ticks": 19537, "depth": 19721, "oi_changes": 4732, "events": 1298, "gaps": 1113, "meta": 481}, "B_frames_zst_bytes": 1300, "replay": {"events_buffer": 202, "events_parquet": 202, "events_frames": 252, "seconds_buffer": 0.0016, "seconds_parquet_A": 0.0044, "seconds_frames_B": 0.0012}}
+exit=0

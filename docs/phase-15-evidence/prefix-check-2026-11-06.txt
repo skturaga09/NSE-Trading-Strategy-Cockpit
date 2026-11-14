@@ -1,0 +1,13 @@
+Prefix check: 2026-11-06 cut at 12:30 IST (as a 12:30 intraday run would see it) vs the full-day run, config v18
+recommendations: partial rows 4, full rows 86, partial rows not identical in full: 0
+lifecycle: partial rows 247, full rows 2681, partial rows not identical in full: 20
+   DIFF ('9b22ccea7c027097', 2, 'v18', 1793948820000000000, 'WATCHING', 'EXPIRED', 'Phase 6 retest plan from 12:07 expired')
+   DIFF ('84fbb0f51d4d8960', 2, 'v18', 1793950140000000000, 'WATCHING', 'EXPIRED', 'Phase 6 retest plan from 12:29 expired')
+   DIFF ('20611716f56878da', 2, 'v18', 1793949720000000000, 'WATCHING', 'EXPIRED', 'Phase 6 retest plan from 12:22 expired')
+observations: partial rows 18, full rows 365, partial rows not identical in full: 0
+full-day v18 statuses: {'REJECTED': 86}
+
+Dashboard export (config v13): 12:30 cut vs full day
+positioning: partial rows 7372, full rows 14744, partial rows not identical in full: 0
+market: partial rows 38, full rows 76, partial rows not identical in full: 0
+candles: partial rows 18818, full rows 37248, partial rows not identical in full: 0

@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-06",
+  "latency_s": {
+    "packets": 120088,
+    "median": 0.784,
+    "p90": 1.171,
+    "p99": 19.641,
+    "note": "exchange_ts is whole seconds: values biased up by 0-1 s"
+  },
+  "staleness": {
+    "incidents_recovered": 5896,
+    "instruments": 388,
+    "median_duration_s": 17.7,
+    "max_duration_s": 8754.4,
+    "still_stale_at_end": 108
+  },
+  "allocator": {
+    "plans": 3,
+    "last_usage": {
+      "A": 388,
+      "dropped": 0,
+      "limit": 9000,
+      "total": 388
+    },
+    "drops": 0
+  },
+  "gaps": [
+    {
+      "kind": "restart",
+      "start_ns": 1793935988194393000,
+      "end_ns": 1793944598462304000,
+      "reason": "recorder process restarted; nothing recorded in between",
+      "count": null
+    },
+    {
+      "kind": "restart",
+      "start_ns": 1793945046206709000,
+      "end_ns": 1793945054584146000,
+      "reason": "recorder process restarted; nothing recorded in between",
+      "count": null
+    }
+  ],
+  "max_frame_gap_s": {
+    "2": 1.227
+  }
+}

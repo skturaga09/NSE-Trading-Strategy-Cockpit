@@ -1,0 +1,161 @@
+test_backfill_labels_source_records_failures_and_builds_baselines (tests.engine_tests.test_backfill.TestBackfill.test_backfill_labels_source_records_failures_and_builds_baselines) ... ok
+test_readers (tests.engine_tests.test_backfill.TestBackfill.test_readers) ... ok
+test_token_bucket_never_exceeds_rate (tests.engine_tests.test_backfill.TestBackfill.test_token_bucket_never_exceeds_rate) ... ok
+test_window_respects_the_measured_range_cap (tests.engine_tests.test_backfill.TestBackfill.test_window_respects_the_measured_range_cap) ... ok
+test_depth_snapshots_for_tier_b_only (tests.engine_tests.test_candles.TestCandles.test_depth_snapshots_for_tier_b_only) ... ok
+test_disconnect_goes_stale_within_threshold_and_ok_only_on_fresh_data (tests.engine_tests.test_candles.TestCandles.test_disconnect_goes_stale_within_threshold_and_ok_only_on_fresh_data) ... ok
+test_gap_inside_candle_is_partial_with_nothing_interpolated (tests.engine_tests.test_candles.TestCandles.test_gap_inside_candle_is_partial_with_nothing_interpolated) ... ok
+test_ohlc_volume_trades_and_rollups (tests.engine_tests.test_candles.TestCandles.test_ohlc_volume_trades_and_rollups) ... ok
+test_oi_age_when_oi_unchanged_for_minutes (tests.engine_tests.test_candles.TestCandles.test_oi_age_when_oi_unchanged_for_minutes) ... ok
+test_out_of_order_late_duplicate_and_backwards (tests.engine_tests.test_candles.TestCandles.test_out_of_order_late_duplicate_and_backwards) ... ok
+test_rollover_combined_oi_is_continuous (tests.engine_tests.test_candles.TestCandles.test_rollover_combined_oi_is_continuous) ... ok
+test_session_edges_holiday_and_non_trading_instrument (tests.engine_tests.test_candles.TestCandles.test_session_edges_holiday_and_non_trading_instrument) ... ok
+test_window_must_exceed_flush_interval (tests.engine_tests.test_candles.TestCandles.test_window_must_exceed_flush_interval) ... ok
+test_pure_modules_do_no_io_and_read_no_clock (tests.engine_tests.test_contracts_risk.ConfigAndPurity.test_pure_modules_do_no_io_and_read_no_clock) ... ok
+test_v9_loads_and_missing_key_fails (tests.engine_tests.test_contracts_risk.ConfigAndPurity.test_v9_loads_and_missing_key_fails) ... /Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/yaml/scanner.py:286: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x10b6733d0>
+  for level in list(self.possible_simple_keys):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_round_trip_matches_hand_computation_from_verified_rates (tests.engine_tests.test_contracts_risk.CostModel.test_round_trip_matches_hand_computation_from_verified_rates) ... ok
+test_slippage_walks_depth_or_is_estimated_without_depth (tests.engine_tests.test_contracts_risk.CostModel.test_slippage_walks_depth_or_is_estimated_without_depth) ... ok
+test_unverified_rate_or_no_rate_in_force_sets_unverified (tests.engine_tests.test_contracts_risk.CostModel.test_unverified_rate_or_no_rate_in_force_sets_unverified) ... ok
+test_empirical_delta_recovered_and_rejected_when_not_defensible (tests.engine_tests.test_contracts_risk.PremiumModel.test_empirical_delta_recovered_and_rejected_when_not_defensible) ... ok
+test_capital_above_limit_rejected (tests.engine_tests.test_contracts_risk.Risk.test_capital_above_limit_rejected) ... ok
+test_daily_loss_breach_rejects_every_candidate_for_the_day (tests.engine_tests.test_contracts_risk.Risk.test_daily_loss_breach_rejects_every_candidate_for_the_day) ... ok
+test_every_check_is_named (tests.engine_tests.test_contracts_risk.Risk.test_every_check_is_named) ... ok
+test_recommendation_requires_an_approval_token_from_risk_check (tests.engine_tests.test_contracts_risk.Risk.test_recommendation_requires_an_approval_token_from_risk_check) ... ok
+test_exclusions_are_named (tests.engine_tests.test_contracts_risk.Selector.test_exclusions_are_named) ... ok
+test_missing_premium_model_option_no_trade_futures_still_evaluated (tests.engine_tests.test_contracts_risk.Selector.test_missing_premium_model_option_no_trade_futures_still_evaluated) ... ok
+test_no_short_option_candidate_is_ever_generated (tests.engine_tests.test_contracts_risk.Selector.test_no_short_option_candidate_is_ever_generated) ... ok
+test_ranking_is_net_rr_times_liquidity_never_cheap_premium (tests.engine_tests.test_contracts_risk.Selector.test_ranking_is_net_rr_times_liquidity_never_cheap_premium) ... ok
+test_risk_measures_options_full_premium_futures_gap (tests.engine_tests.test_contracts_risk.Selector.test_risk_measures_options_full_premium_futures_gap) ... ok
+test_strikes_expiries_and_rollover_come_from_the_registry (tests.engine_tests.test_contracts_risk.Selector.test_strikes_expiries_and_rollover_come_from_the_registry) ... ok
+test_wide_spread_option_excluded (tests.engine_tests.test_contracts_risk.Selector.test_wide_spread_option_excluded) ... ok
+test_expired_token_fails_cleanly_without_leaking_token (tests.engine_tests.test_edges.TestBroker.test_expired_token_fails_cleanly_without_leaking_token) ... ok
+test_session_prefers_env_then_config_file (tests.engine_tests.test_edges.TestBroker.test_session_prefers_env_then_config_file) ... ok
+test_v4_loads_and_missing_key_fails (tests.engine_tests.test_edges.TestConfig.test_v4_loads_and_missing_key_fails) ... ok
+test_engine_never_uses_kiteconnect_rest_class (tests.engine_tests.test_edges.TestNoOrderCode.test_engine_never_uses_kiteconnect_rest_class) ... ok
+test_no_order_methods_in_repo_code (tests.engine_tests.test_edges.TestNoOrderCode.test_no_order_methods_in_repo_code) ... ok
+test_connection_limits_from_config (tests.engine_tests.test_edges.TestProvider.test_connection_limits_from_config) ... ok
+test_near_future_and_spot_resolve (tests.engine_tests.test_edges.TestProvider.test_near_future_and_spot_resolve) ... ok
+test_unknown_symbol_fails_loudly (tests.engine_tests.test_edges.TestProvider.test_unknown_symbol_fails_loudly) ... ok
+test_missing_opportunity_key_fails (tests.engine_tests.test_opportunity.ConfigTest.test_missing_opportunity_key_fails) ... ok
+test_each_recorded_day_once_failures_isolated_and_retried (tests.engine_tests.test_opportunity.EodStep.test_each_recorded_day_once_failures_isolated_and_retried) ... ok
+test_each_flag_individually (tests.engine_tests.test_opportunity.Exhaustion.test_each_flag_individually) ... ok
+test_no_flags_without_evidence_and_skipped_checks_are_noted (tests.engine_tests.test_opportunity.Exhaustion.test_no_flags_without_evidence_and_skipped_checks_are_noted) ... ok
+test_phase4_event_becomes_a_setup_and_its_invalidation_ends_it (tests.engine_tests.test_opportunity.PositioningSetup.test_phase4_event_becomes_a_setup_and_its_invalidation_ends_it) ... ok
+test_append_only_and_idempotent (tests.engine_tests.test_opportunity.Store.test_append_only_and_idempotent) ... ok
+test_invalidation_and_retest_expiry_end_the_setup (tests.engine_tests.test_opportunity.Timeliness.test_invalidation_and_retest_expiry_end_the_setup) ... ok
+test_late_breakout_rr_below_min_creates_retest_plan (tests.engine_tests.test_opportunity.Timeliness.test_late_breakout_rr_below_min_creates_retest_plan) ... ok
+test_missing_level_map_is_unknown_never_timely (tests.engine_tests.test_opportunity.Timeliness.test_missing_level_map_is_unknown_never_timely) ... ok
+test_return_to_zone_is_timely_with_reason_retest (tests.engine_tests.test_opportunity.Timeliness.test_return_to_zone_is_timely_with_reason_retest) ... ok
+test_structural_stop_identical_across_reevaluations (tests.engine_tests.test_opportunity.Timeliness.test_structural_stop_identical_across_reevaluations) ... ok
+test_unavailable_fields_are_explicit (tests.engine_tests.test_opportunity.Timeliness.test_unavailable_fields_are_explicit) ... ok
+test_mfe_mae_not_written_before_horizon_elapses_in_replay_time (tests.engine_tests.test_opportunity.TimingRecorder.test_mfe_mae_not_written_before_horizon_elapses_in_replay_time) ... ok
+test_unusable_bar_makes_the_horizon_unavailable (tests.engine_tests.test_opportunity.TimingRecorder.test_unusable_bar_makes_the_horizon_unavailable) ... ok
+test_report_then_compact_snapshots_losslessly (tests.engine_tests.test_phase3_golden.TestFeedReportAndSnapshotCompaction.test_report_then_compact_snapshots_losslessly) ... ok
+test_live_and_replay_identical_golden (tests.engine_tests.test_phase3_golden.TestLiveReplayGolden.test_live_and_replay_identical_golden) ... ok
+test_half_open_socket_becomes_a_stall_gap_once_and_clears_on_reconnect (tests.engine_tests.test_phase3_golden.TestStallWatchdog.test_half_open_socket_becomes_a_stall_gap_once_and_clears_on_reconnect) ... ok
+test_cadence_parser_takes_the_max_over_dates (tests.engine_tests.test_positioning.Config.test_cadence_parser_takes_the_max_over_dates) ... ok
+test_v5_loads_and_missing_positioning_key_fails (tests.engine_tests.test_positioning.Config.test_v5_loads_and_missing_positioning_key_fails) ... ok
+test_confirmation_evidence_and_invalidation (tests.engine_tests.test_positioning.Events.test_confirmation_evidence_and_invalidation) ... ok
+test_replay_gives_the_same_events_every_run (tests.engine_tests.test_positioning.Events.test_replay_gives_the_same_events_every_run) ... ok
+test_expiry_day_suppresses_every_view (tests.engine_tests.test_positioning.Filters.test_expiry_day_suppresses_every_view) ... ok
+test_illiquid_future (tests.engine_tests.test_positioning.Filters.test_illiquid_future) ... ok
+test_implausible_oi_jump (tests.engine_tests.test_positioning.Filters.test_implausible_oi_jump) ... ok
+test_low_sample_history (tests.engine_tests.test_positioning.Filters.test_low_sample_history) ... ok
+test_rollover_near_falls_next_rises_combined_flat_is_not_long_unwinding (tests.engine_tests.test_positioning.Filters.test_rollover_near_falls_next_rises_combined_flat_is_not_long_unwinding) ... ok
+test_stale_oi_suppressed (tests.engine_tests.test_positioning.Filters.test_stale_oi_suppressed) ... ok
+test_window_shorter_than_measured_cadence_is_disabled (tests.engine_tests.test_positioning.Filters.test_window_shorter_than_measured_cadence_is_disabled) ... ok
+test_no_output_text_says_institution_except_the_disclaimer (tests.engine_tests.test_positioning.Language.test_no_output_text_says_institution_except_the_disclaimer) ... ok
+test_each_quadrant (tests.engine_tests.test_positioning.Quadrants.test_each_quadrant) ... ok
+test_index_itself_uses_raw_price (tests.engine_tests.test_positioning.Quadrants.test_index_itself_uses_raw_price) ... ok
+test_mixed_windows_are_neutral (tests.engine_tests.test_positioning.Quadrants.test_mixed_windows_are_neutral) ... ok
+test_move_with_beta_times_index_is_index_driven (tests.engine_tests.test_positioning.Quadrants.test_move_with_beta_times_index_is_index_driven) ... ok
+test_oi_up_with_flat_price_is_not_a_buildup (tests.engine_tests.test_positioning.Quadrants.test_oi_up_with_flat_price_is_not_a_buildup) ... ok
+test_get_latest_never_returns_future_data_property (tests.engine_tests.test_recorder_replay.TestAsOf.test_get_latest_never_returns_future_data_property) ... ok
+test_real_time_speed_sleeps_by_clock_delta (tests.engine_tests.test_recorder_replay.TestAsOf.test_real_time_speed_sleeps_by_clock_delta) ... ok
+test_full_and_index_decode_raw_ints (tests.engine_tests.test_recorder_replay.TestPackets.test_full_and_index_decode_raw_ints) ... ok
+test_heartbeat_has_no_packets (tests.engine_tests.test_recorder_replay.TestPackets.test_heartbeat_has_no_packets) ... ok
+test_unknown_length_is_flagged_not_guessed (tests.engine_tests.test_recorder_replay.TestPackets.test_unknown_length_is_flagged_not_guessed) ... ok
+test_change_only_ticks_and_rate_limited_depth (tests.engine_tests.test_recorder_replay.TestRecorder.test_change_only_ticks_and_rate_limited_depth) ... ok
+test_disconnect_open_at_session_end_is_closed_as_gap (tests.engine_tests.test_recorder_replay.TestRecorder.test_disconnect_open_at_session_end_is_closed_as_gap) ... ok
+test_disconnect_produces_gap_and_no_synthetic_ticks (tests.engine_tests.test_recorder_replay.TestRecorder.test_disconnect_produces_gap_and_no_synthetic_ticks) ... ok
+test_disk_guard_degrades_depth_then_ticks_with_gap_records (tests.engine_tests.test_recorder_replay.TestRecorder.test_disk_guard_degrades_depth_then_ticks_with_gap_records) ... ok
+test_live_consumers_get_same_events_as_replay (tests.engine_tests.test_recorder_replay.TestRecorder.test_live_consumers_get_same_events_as_replay) ... ok
+test_oi_change_log_only_on_change (tests.engine_tests.test_recorder_replay.TestRecorder.test_oi_change_log_only_on_change) ... ok
+test_out_of_order_and_duplicates_stored_as_received_and_replay_deterministic (tests.engine_tests.test_recorder_replay.TestRecorder.test_out_of_order_and_duplicates_stored_as_received_and_replay_deterministic) ... ok
+test_own_shutdown_close_is_not_a_gap (tests.engine_tests.test_recorder_replay.TestRecorder.test_own_shutdown_close_is_not_a_gap) ... ok
+test_queue_overflow_logs_gap_not_crash (tests.engine_tests.test_recorder_replay.TestRecorder.test_queue_overflow_logs_gap_not_crash) ... ok
+test_alert_once_per_day_and_failed_send_is_retried (tests.engine_tests.test_storage.TestAlerts.test_alert_once_per_day_and_failed_send_is_retried) ... [engine] ALERT T: m
+[engine] ALERT T: m
+[engine] ALERT T2: m
+[engine] alert not delivered: OSError('offline')
+[engine] ALERT T2: m
+ok
+test_eod_day_checks (tests.engine_tests.test_storage.TestAlerts.test_eod_day_checks) ... [engine] ALERT Engine: NOTHING recorded today: No recording for today (ignore if NSE was closed). Check dashboard/logs/engine_recorder.err.log
+[engine] ALERT Engine recorder DIED and did not restart: Last data 09:15:20 IST; no clean shutdown logged.
+ok
+test_eod_no_data_alert_suppressed_only_on_verified_holiday (tests.engine_tests.test_storage.TestAlerts.test_eod_no_data_alert_suppressed_only_on_verified_holiday) ... [engine] ALERT Engine: NOTHING recorded today: No recording for today (ignore if NSE was closed). Check dashboard/logs/engine_recorder.err.log
+[engine] ALERT Engine: NOTHING recorded today: No recording for today (ignore if NSE was closed). Check dashboard/logs/engine_recorder.err.log
+ok
+test_unclean_stop_detected_only_without_shutdown (tests.engine_tests.test_storage.TestAlerts.test_unclean_stop_detected_only_without_shutdown) ... ok
+test_eod_compacts_writes_cadence_and_runs_retention (tests.engine_tests.test_storage.TestAutomation.test_eod_compacts_writes_cadence_and_runs_retention) ... [engine] ALERT Engine recorder DIED and did not restart: Last data 09:19:50 IST; no clean shutdown logged.
+ok
+test_restart_records_gap_and_uses_new_connection_id (tests.engine_tests.test_storage.TestAutomation.test_restart_records_gap_and_uses_new_connection_id) ... ok
+test_single_recorder_lock_and_eod_refuses_while_held (tests.engine_tests.test_storage.TestAutomation.test_single_recorder_lock_and_eod_refuses_while_held) ... /Users/turagasanthoshkumar/Clade-NSE-Skills/tests/engine_tests/test_storage.py:253: ResourceWarning: unclosed file <_io.TextIOWrapper name='/var/folders/d_/gcs_djps3jq3mqfnldp2nt6h0000gn/T/tmpvn6o4iyz/recorder.lock' mode='a' encoding='utf-8'>
+  self.assertIsNotNone(acquire_lock(root))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_compacted_replay_identical_to_raw_buffer_and_sizes_reported (tests.engine_tests.test_storage.TestCompaction.test_compacted_replay_identical_to_raw_buffer_and_sizes_reported) ... ok
+test_intervals_from_change_log_excluding_gaps (tests.engine_tests.test_storage.TestOiCadence.test_intervals_from_change_log_excluding_gaps) ... ok
+test_archive_then_delete_only_with_verified_checksum (tests.engine_tests.test_storage.TestRetention.test_archive_then_delete_only_with_verified_checksum) ... ok
+test_mismatch_or_failure_never_deletes (tests.engine_tests.test_storage.TestRetention.test_mismatch_or_failure_never_deletes) ... ok
+test_uncompacted_day_is_skipped (tests.engine_tests.test_storage.TestRetention.test_uncompacted_day_is_skipped) ... ok
+test_accepted_breakdown_by_hold_when_closes_threshold_is_higher (tests.engine_tests.test_structure.Breakouts.test_accepted_breakdown_by_hold_when_closes_threshold_is_higher) ... ok
+test_consolidation_then_accepted_breakout (tests.engine_tests.test_structure.Breakouts.test_consolidation_then_accepted_breakout) ... ok
+test_failed_breakout_back_inside (tests.engine_tests.test_structure.Breakouts.test_failed_breakout_back_inside) ... ok
+test_missing_structure_key_fails (tests.engine_tests.test_structure.ConfigTest.test_missing_structure_key_fails) ... ok
+test_nearest_obstacles_and_no_lookahead (tests.engine_tests.test_structure.LevelMapTest.test_nearest_obstacles_and_no_lookahead) ... ok
+test_atr_seed_continues_from_the_cut_last_bucket (tests.engine_tests.test_structure.Levels.test_atr_seed_continues_from_the_cut_last_bucket) ... ok
+test_history_and_opening_range_levels (tests.engine_tests.test_structure.Levels.test_history_and_opening_range_levels) ... ok
+test_bearish_sweep_and_rejection (tests.engine_tests.test_structure.Liquidity.test_bearish_sweep_and_rejection) ... ok
+test_bullish_sweep_and_reclaim (tests.engine_tests.test_structure.Liquidity.test_bullish_sweep_and_reclaim) ... ok
+test_equal_lows_cluster (tests.engine_tests.test_structure.Liquidity.test_equal_lows_cluster) ... ok
+test_reclaim_and_loss_of_key_levels (tests.engine_tests.test_structure.Liquidity.test_reclaim_and_loss_of_key_levels) ... ok
+test_sweep_reclaimed_on_second_bar_and_not_after_k (tests.engine_tests.test_structure.Liquidity.test_sweep_reclaimed_on_second_bar_and_not_after_k) ... ok
+test_prefix_equals_batch_filtered_and_nothing_before_confirmed_ts (tests.engine_tests.test_structure.NonRepainting.test_prefix_equals_batch_filtered_and_nothing_before_confirmed_ts)
+Look-ahead + non-repainting: candle-by-candle (every 1m close) == full-day batch cut at confirmed_ts. ... ok
+test_store_is_append_only_and_idempotent (tests.engine_tests.test_structure.NonRepainting.test_store_is_append_only_and_idempotent) ... ok
+test_bos_in_trend_direction (tests.engine_tests.test_structure.Structure.test_bos_in_trend_direction) ... ok
+test_choch_is_first_break_against_structure_and_heuristic (tests.engine_tests.test_structure.Structure.test_choch_is_first_break_against_structure_and_heuristic) ... ok
+test_gap_breaks_the_pivot_window (tests.engine_tests.test_structure.Structure.test_gap_breaks_the_pivot_window) ... ok
+test_swing_confirmed_after_right_bars_with_labels (tests.engine_tests.test_structure.Structure.test_swing_confirmed_after_right_bars_with_labels) ... ok
+test_demand_zone_test_defended_then_invalidated (tests.engine_tests.test_structure.Zones.test_demand_zone_test_defended_then_invalidated) ... ok
+test_assign_keeps_tokens_on_their_connection (tests.engine_tests.test_tiers.TestAllocate.test_assign_keeps_tokens_on_their_connection) ... ok
+test_never_exceeds_limits_for_any_input_size_property (tests.engine_tests.test_tiers.TestAllocate.test_never_exceeds_limits_for_any_input_size_property) ... ok
+test_priority_upgrade_and_drop_reason (tests.engine_tests.test_tiers.TestAllocate.test_priority_upgrade_and_drop_reason) ... ok
+test_promote_ttl_demote_and_executor_ops (tests.engine_tests.test_tiers.TestBookAndExecutor.test_promote_ttl_demote_and_executor_ops) ... ok
+test_grep_logic_modules (tests.engine_tests.test_universe.TestNoHardcodedContractFacts.test_grep_logic_modules) ... ok
+test_parsers_accept_measured_format_only (tests.engine_tests.test_universe.TestSources.test_parsers_accept_measured_format_only) ... ok
+test_ban_list_for_another_trade_date_does_not_verify_today (tests.engine_tests.test_universe.TestUniverse.test_ban_list_for_another_trade_date_does_not_verify_today) ... ok
+test_banned_security_not_tradable (tests.engine_tests.test_universe.TestUniverse.test_banned_security_not_tradable) ... ok
+test_expired_contract_never_active_after_expiry (tests.engine_tests.test_universe.TestUniverse.test_expired_contract_never_active_after_expiry) ... ok
+test_historical_lookup_and_daily_diff (tests.engine_tests.test_universe.TestUniverse.test_historical_lookup_and_daily_diff) ... ok
+test_holidays_weekends_and_unverified_circulars (tests.engine_tests.test_universe.TestUniverse.test_holidays_weekends_and_unverified_circulars) ... ok
+test_index_tradable_without_any_constituent_list (tests.engine_tests.test_universe.TestUniverse.test_index_tradable_without_any_constituent_list) ... ok
+test_missing_ban_list_is_restriction_unverified (tests.engine_tests.test_universe.TestUniverse.test_missing_ban_list_is_restriction_unverified) ... ok
+test_no_duplicate_underlying_and_fno_derived_from_master (tests.engine_tests.test_universe.TestUniverse.test_no_duplicate_underlying_and_fno_derived_from_master) ... ok
+test_provider_subscribes_spot_near_and_next_in_quote_mode (tests.engine_tests.test_universe.TestUniverse.test_provider_subscribes_spot_near_and_next_in_quote_mode) ... ok
+test_refresh_is_idempotent_and_refuses_out_of_order (tests.engine_tests.test_universe.TestUniverse.test_refresh_is_idempotent_and_refuses_out_of_order) ... ok
+test_stale_constituents_flagged_then_blocked (tests.engine_tests.test_universe.TestUniverse.test_stale_constituents_flagged_then_blocked) ... ok
+test_strike_intervals_derived_from_listed_strikes (tests.engine_tests.test_universe.TestUniverse.test_strike_intervals_derived_from_listed_strikes) ... ok
+test_token_reused_for_another_contract_resolves_by_date (tests.engine_tests.test_universe.TestUniverse.test_token_reused_for_another_contract_resolves_by_date) ... ok
+
+----------------------------------------------------------------------
+Ran 136 tests in 36.713s
+
+OK
+
+fixture storage report: {"before_bytes": {"ticks": 20480, "depth": 8192, "oi_changes": 8192, "events": 8192, "gaps": 8192, "meta": 8192, "frames.bin": 21659, "buffer.sqlite(file)": 40960, "instrument_master(csv.gz)": 235}, "A_parquet_bytes": {"ticks": 19537, "depth": 19721, "oi_changes": 4732, "events": 1298, "gaps": 1113, "meta": 481}, "B_frames_zst_bytes": 1300, "replay": {"events_buffer": 202, "events_parquet": 202, "events_frames": 252, "seconds_buffer": 0.0013, "seconds_parquet_A": 0.0047, "seconds_frames_B": 0.0012}}
+exit=0

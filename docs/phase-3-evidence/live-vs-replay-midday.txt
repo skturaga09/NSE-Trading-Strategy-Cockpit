@@ -1,0 +1,5 @@
+# live vs replay on the real 2026-11-06 session, run 11:40 IST (recorder still running)
+events 230723 load 1.2s aggregate 3.8s (60636 events/s)
+rows live 123758 replay 123503 common 123503 changed 107362 {('candle', 'before 11:34:14'): 85748, ('combined_oi', 'before 11:34:14'): 21437, ('quality', 'before 11:34:14'): 177}
+only in live (older than 2 min before the last replayed event): 141 Counter({'quality': 141})
+changed rows timed after the last restart: 0 []

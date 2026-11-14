@@ -1,0 +1,34 @@
+{
+ "config_version": "v14",
+ "seconds": 256,
+ "info": {
+  "setups": 988,
+  "phase4_events": 39,
+  "positioning_states": 37248,
+  "option_bars": "none (V1 empirical premium model unused)",
+  "option_tokens_recorded": 0
+ },
+ "recommendations": 86,
+ "status": {
+  "REJECTED": 86
+ },
+ "options_factor": {
+  "NO_OPTION_CHAIN": 86
+ },
+ "candidates_by_kind_status": {
+  "FUT:EXCLUDED": 81,
+  "OPTION:NO_TRADE": 486
+ },
+ "reasons_by_kind": {
+  "OPTION:EVENT_UNVERIFIED": 486,
+  "OPTION:IV_PERCENTILE_UNAVAILABLE": 486,
+  "OPTION:NO_PREMIUM_MODEL": 486,
+  "OPTION:DATA_NOT_OK": 486,
+  "FUT:CAPITAL_ABOVE_LIMIT": 76,
+  "FUT:RISK_PER_LOT_ABOVE_MAX": 72,
+  "FUT:SPREAD_VS_MOVE_TOO_WIDE": 54,
+  "FUT:SPREAD_TOO_WIDE": 40,
+  "FUT:BAD_GEOMETRY": 4,
+  "FUT:DATA_NOT_OK": 1
+ }
+}

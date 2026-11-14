@@ -1,0 +1,45 @@
+# measured 2026-11-05 19:51:50 IST (market closed)
+instrument master /instruments/NFO columns: ['instrument_token', 'exchange_token', 'tradingsymbol', 'name', 'last_price', 'expiry', 'strike', 'tick_size', 'lot_size', 'instrument_type', 'segment', 'exchange']
+near NIFTY fut: NIFTY26NOVFUT 2026-11-23 lot 65 | near ATM opt: NIFTY26N0924400CE
+
+/quote NSE:NIFTY 50: keys=['indicative_close_price', 'instrument_token', 'last_price', 'net_change', 'ohlc', 'timestamp', 'tradingsymbol']
+  depth levels: {} timestamp: 2026-11-05 17:35:05 last_trade_time: None oi: None
+
+/quote NFO:NIFTY26NOVFUT: keys=['average_price', 'buy_quantity', 'depth', 'high_limit_price_protection', 'indicative_close_price', 'instrument_token', 'last_price', 'last_quantity', 'last_trade_time', 'low_limit_price_protection', 'lower_circuit_limit', 'net_change', 'ohlc', 'oi', 'oi_day_high', 'oi_day_low', 'reference_limit_price', 'sell_quantity', 'timestamp', 'total_imbalance_qty', 'upper_circuit_limit', 'volume']
+  depth levels: {'buy': 5, 'sell': 5} timestamp: 2026-11-05 16:55:07 last_trade_time: 2026-11-05 15:39:59 oi: 12863630
+
+/quote NFO:NIFTY26N0924400CE: keys=['average_price', 'buy_quantity', 'depth', 'high_limit_price_protection', 'indicative_close_price', 'instrument_token', 'last_price', 'last_quantity', 'last_trade_time', 'low_limit_price_protection', 'lower_circuit_limit', 'net_change', 'ohlc', 'oi', 'oi_day_high', 'oi_day_low', 'reference_limit_price', 'sell_quantity', 'timestamp', 'total_imbalance_qty', 'upper_circuit_limit', 'volume']
+  depth levels: {'buy': 5, 'sell': 5} timestamp: 2026-11-05 17:14:16 last_trade_time: 2026-11-05 15:39:59 oi: 2878460
+
+hist FUT minute oi=1: 770 candles, first=['2026-11-04T09:15:00+0530', 23712, 23814.9, 23700.5, 23809.5, 102180, 13748280], last=['2026-11-05T15:39:00+0530', 24581.8, 24582, 24575, 24579.7, 25935, 12863630]
+hist OPT minute oi=1: 770 candles, first=['2026-11-04T09:15:00+0530', 16.75, 22.4, 14.1, 22.4, 975195, 3639480], last=['2026-11-05T15:39:00+0530', 237.5, 237.8, 232.75, 235, 204555, 2878460]
+hist FUT 5minute oi=1: 154 candles, first=['2026-11-04T09:15:00+0530', 23712, 23897.1, 23700.5, 23890, 367965, 13826410], last=['2026-11-05T15:35:00+0530', 24579, 24582, 24575, 24579.7, 92755, 12863630]
+hist OPT 5minute oi=1: 154 candles, first=['2026-11-04T09:15:00+0530', 16.75, 35.1, 14.1, 34.3, 3936140, 3992690], last=['2026-11-05T15:35:00+0530', 236.4, 238.85, 232.75, 235, 595270, 2878460]
+hist FUT day oi=1: 24 candles, first=['2026-10-01T00:00:00+0530', 22720.1, 22823.8, 22427.6, 22638, 591565, 2252640], last=['2026-11-05T00:00:00+0530', 24320, 24641.6, 24311, 24579.7, 6455930, 12863630]
+hist OPT day oi=1: 21 candles, first=['2026-10-07T00:00:00+0530', 50.8, 50.8, 50.8, 50.8, 0, 0], last=['2026-11-05T00:00:00+0530', 108, 285.55, 100.1, 235, 220280125, 2878460]
+hist FUT day continuous=1 oi=1 2024-01-01..2024-12-31: 249 candles, first=['2024-01-01T00:00:00+0530', 21849.8, 22025, 21811.2, 21888.9, 5465450, 12621600], last=['2024-12-31T00:00:00+0530', 23700, 23857.75, 23602, 23805.85, 5152450, 13291200]
+hist FUT day continuous=1 oi=1 2025-01-01..2025-01-31: 23 candles, first=['2025-01-01T00:00:00+0530', 23500, 23964, 23500, 23897.85, 4393225, 13270450], last=['2025-01-31T00:00:00+0530', 23490, 23644, 23411.05, 23620.2, 6668325, 17774775]
+hist FUT minute 61 days window: ERROR InputException: interval exceeds max limit: 60 days
+hist FUT minute 100 days window: ERROR InputException: interval exceeds max limit: 60 days
+
+# second batch 2026-11-05 19:52:16 IST
+hist RELIANCE26NOVFUT day continuous=1 oi=1 2021-01-01..2021-12-31: 248 candles, first=2021-01-01T00:00:00+0530, last=2021-12-31T00:00:00+0530, first_oi=31879500
+hist RELIANCE26NOVFUT day continuous=1 oi=1 2024-01-01..2024-12-31: 249 candles, first=2024-01-01T00:00:00+0530, last=2024-12-31T00:00:00+0530, first_oi=33224250
+hist POLICYBZR26NOVFUT day continuous=1 oi=1 2021-01-01..2021-12-31: 0 candles, first=None, last=None, first_oi=None
+hist POLICYBZR26NOVFUT day continuous=1 oi=1 2024-01-01..2024-12-31: 22 candles, first=2024-11-29T00:00:00+0530, last=2024-12-31T00:00:00+0530, first_oi=187200
+hist NIFTY fut day continuous=1 oi=1 2021-01-01..2021-12-31: 248 candles, first=2021-01-01T00:00:00+0530, last=2021-12-31T00:00:00+0530, first_oi=12168975
+hist NIFTY fut day continuous=1 oi=1 2016-01-01..2016-12-31: 247 candles, first=2016-01-01T00:00:00+0530, last=2016-12-30T00:00:00+0530, first_oi=0
+hist NIFTY fut 3minute from 2026-08-08 to 2026-11-05 (89d): 6321 candles, first=2026-08-26T09:15:00+0530, last=2026-11-05T15:39:00+0530, first_oi=1105
+hist NIFTY fut 3minute from 2026-07-01 to 2026-11-05 (127d): ERROR InputException: interval exceeds max limit: 100 days
+hist NIFTY fut 5minute from 2026-07-28 to 2026-11-05 (100d): 3773 candles, first=2026-08-26T09:15:00+0530, last=2026-11-05T15:35:00+0530, first_oi=1300
+hist NIFTY fut 5minute from 2026-07-01 to 2026-11-05 (127d): ERROR InputException: interval exceeds max limit: 100 days
+hist NIFTY fut 15minute from 2026-06-01 to 2026-11-05 (157d): 1274 candles, first=2026-08-26T09:15:00+0530, last=2026-11-05T15:30:00+0530, first_oi=3575
+hist NIFTY fut 15minute from 2026-05-01 to 2026-11-05 (188d): 1274 candles, first=2026-08-26T09:15:00+0530, last=2026-11-05T15:30:00+0530, first_oi=3575
+hist NIFTY fut 60minute from 2026-01-01 to 2026-11-05 (308d): 343 candles, first=2026-08-26T09:15:00+0530, last=2026-11-05T15:15:00+0530, first_oi=10660
+hist NIFTY fut 60minute from 2025-09-01 to 2026-11-05 (430d): ERROR InputException: interval exceeds max limit: 400 days
+hist NIFTY fut day from 2021-01-01 to 2026-11-05 (2134d): ERROR InputException: interval exceeds max limit: 2000 days
+hist NIFTY fut day from 2015-01-01 to 2026-11-05 (4326d): ERROR InputException: interval exceeds max limit: 2000 days
+
+# third batch — OI change cadence in minute candles 2026-11-05 19:52:40 IST
+NIFTY26NOVFUT: 375 minute candles, OI changed on 369 of them; minutes between OI changes: {1: 363, 2: 5}
+RELIANCE26NOVFUT: 375 minute candles, OI changed on 348 of them; minutes between OI changes: {1: 324, 2: 20, 3: 3}

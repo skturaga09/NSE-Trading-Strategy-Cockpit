@@ -1,0 +1,13 @@
+# sha256 of untracked protected assets, 2026-11-05 19:50:49 IST
+d159082b939e2c2b7a8880ed0ca9b78be37e19848ca381d6a830f9942045069c  dashboard/trade_book.json
+b819ccc9184e0fb3448f22f1dbeae1df1bb534935894c6934152e1044c0f83bc  dashboard/exit_config.json
+1939660dcce7732bf854ccfadb54b03d2b83a44236e189c1d6c97f95a85690fd  dashboard/fno_nav_history.jsonl
+62715be9917687ce3071dba4d613bbd74f9a2d1059b5fb51c8a8e71b3c479189  config/broker_mcx_operations.json
+bb3f41455c7d21d82be0cd22c6f9ca33a539308342cefdde79ad3a8dedc17739  config/mcx_contract_profiles.json
+4e97db042f0f1452ec406f5c70eb3827565e506086810cb0e965d6229443ba83  config/mcx_events.json
+4a9537d201143b306da3814950e3975163532a2ff153993f84c571d1bbed8587  ~/Documents/Codex/2026-08-11/nifty-trading-lab/config/strategies/nifty_0945_one_trade_v1.yaml
+29293fa880ebd6c4df1da0d5a2b4d07d122cc2a5f56ca35f0ca55c42668d7933  ~/Documents/Codex/2026-08-11/nifty-trading-lab/config/execution/execution_validation.yaml
+e88adb87295d34726ba8a40a2be433ab4c4b8410596fc4b5961ee1487d67bdfb  ~/Documents/Codex/2026-08-11/nifty-trading-lab/config/execution/zerodha_charges_2021_2026.yaml
+b8afe5f625af7ebaf58ef537448ee64c0f38c32ba2262812a273881730a4f29e  ~/Documents/Codex/2026-08-11/nifty-trading-lab/data/paper/paper_trading_v1.sqlite3
+926a901a757925958dd0c648a04722037b44f0da7699e8dff1452e1dfb0443c1  ~/Documents/Codex/2026-08-11/nifty-trading-lab/data/processed/nifty50_5m_2021_2026.csv
+dfc7cf744662cafe89c0915c57ea1b6bc70a514b94147a1fc63143ee35de10ef  ~/Documents/Codex/2026-08-11/nifty-trading-lab/data/processed/nifty50_15m_2021_2026.csv

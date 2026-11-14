@@ -1,0 +1,27 @@
+# Phase 7 cost / margin sources (read 2026-11-06 ~21:56 IST)
+
+## https://zerodha.com/charges/  (curl, 55268 bytes, sha256 5f425e2e5be9c553b71822a4656dfd02a08b4f1e4186df189ae14db792cebae5)
+Excerpts of the F&O table (cell text joined with |, page order Futures | Options):
+F&O|F&O - Futures|F&O - Options|Brokerage|0.03% or Rs. 20/executed order whichever is lower|Flat Rs. 20 per executed order|STT/CTT|0.05% on the sell side|0.15% of the intrinsic value on options that are bought and exercised|0.15% on sell side (on premium)|Transaction charges|NSE: 0.00183%|BSE: 0|NSE: 0.03553% (on premium)|BSE: 0.0325% (on premium)|GST|18% on (brokerage + SEBI charges + transaction charges)|18% on (brokerage + SEBI charges + transaction charges)|SEBI charges|₹10 / crore|₹10 / crore|Stamp charges|0.002% or ₹200 / crore on buy side|0.003% or ₹300 / crore on buy side|*SEBI charges will be reduced to ₹15 per crore once the regulator announces a date.|-->|Currency|Currency futures|Currency options|Brokerage|0.03% or ₹ 20/executed order whi
+
+ order.|Charges for Investor's Protection Fund Trust (IPFT) by NSE|Equity and Futures - ₹0.01 per crore + GST of the traded value.|Options - ₹0.01 per crore + GST traded value (premium value).|Currency - ₹0.05 per lakh +
+*SEBI charges will be reduced to ₹15 per crore once the regulator announces a date.|-->|F&
+
+## https://zerodha.com/marketintel/bulletin/445377/revision-in-stt-securities-transaction-tax-from-1st-april-2026
+"Securities Transaction Tax (STT) has been revised from April 1, 2026." F&O Futures: 0.02% -> 0.05% on the sell side; F&O Options: 0.1% -> 0.15% on the sell side (on premium); exercised: 0.125% -> 0.15% of intrinsic value.
+
+## https://support.zerodha.com/category/account-opening/resident-individual/ri-charges/articles/exchange-transaction-charges
+NSE equity futures "0.00183% (₹1.83 per lakh)"; equity options "0.035530% (₹35.53 per lakh)". No effective date or circular number on the page.
+Search for the NSE circular behind 0.00183 / 0.03553: not found (third-party pages list 0.00173 / 0.03503 from 2024-10-01). => Q-COST-1.
+
+## https://kite.trade/docs/connect/v3/margins/
+POST /margins/orders (order margins), POST /margins/basket, POST /charges/orders (virtual contract note); "Requests to the above endpoints are JSON POST". Response: total, span, exposure, charges.
+Installed kiteconnect: /Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/kiteconnect/connect.py
+166:        "order.margins": "/margins/orders",
+168:        "order.contract_note": "/charges/orders",
+824:    def order_margins(self, params):
+830:        return self._post("order.margins", params=params, is_json=True)
+832:    def basket_order_margins(self, params, consider_positions=True, mode=None):
+845:    def get_virtual_contract_note(self, params):
+850:        return self._post("order.contract_note",
+These exist only on the KiteConnect REST class, which the engine must not use (tests/engine_tests/test_edges.py). Not called.

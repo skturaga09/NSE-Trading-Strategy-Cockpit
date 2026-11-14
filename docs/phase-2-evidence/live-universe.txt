@@ -1,0 +1,84 @@
+# python3 -m engine.universe  (live, 2026-11-05 ~22:16 IST, market closed; read-only)
+{
+  "master": {
+    "date": "2026-11-05",
+    "previous": null,
+    "registered": 47537,
+    "diff": "baseline"
+  },
+  "constituents:NIFTY50": "OK 50 symbols",
+  "constituents:NIFTY100": "OK 100 symbols",
+  "ban_list": "FAILED ValueError: file is for trade date 2026-11-06, not 2026-11-05 (stored for 2026-11-06)",
+  "holiday:NSE/FAOP/71777": "OK sha256 matches the verified circular",
+  "holiday:NSE/FAOP/72262": "OK sha256 matches the verified circular"
+}
+{
+  "date": "2026-11-05",
+  "flags": [],
+  "constituents_date": "2026-11-05",
+  "universe_count": 97,
+  "by_family": {
+    "STOCK": 96,
+    "INDEX": 1
+  },
+  "excluded": [
+    [
+      "BAJAJHLDNG",
+      "NO_NFO_FUTURES"
+    ],
+    [
+      "TATACAP",
+      "NO_NFO_FUTURES"
+    ],
+    [
+      "TMCV",
+      "NO_NFO_FUTURES"
+    ],
+    [
+      "VAML",
+      "NO_NFO_FUTURES"
+    ]
+  ],
+  "restrictions_for_derivatives": [
+    "RESTRICTION_UNVERIFIED:ban_list (none fetched for trade date 2026-11-05)"
+  ],
+  "banned": [],
+  "master_diff": {},
+  "fetches": [
+    {
+      "source": "constituents:NIFTY50",
+      "url": "https://nsearchives.nseindia.com/content/indices/ind_nifty50list.csv",
+      "fetched_ts": "2026-11-05T22:16:33+05:30",
+      "ok": 1,
+      "detail": "50 symbols"
+    },
+    {
+      "source": "constituents:NIFTY100",
+      "url": "https://nsearchives.nseindia.com/content/indices/ind_nifty100list.csv",
+      "fetched_ts": "2026-11-05T22:16:33+05:30",
+      "ok": 1,
+      "detail": "100 symbols"
+    },
+    {
+      "source": "ban_list",
+      "url": "https://nsearchives.nseindia.com/content/fo/fo_secban.csv",
+      "fetched_ts": "2026-11-05T22:16:33+05:30",
+      "ok": 0,
+      "detail": "ValueError: file is for trade date 2026-11-06, not 2026-11-05 (stored for 2026-11-06)"
+    },
+    {
+      "source": "holiday:NSE/FAOP/71777",
+      "url": "https://nsearchives.nseindia.com/content/circulars/FAOP71777.pdf",
+      "fetched_ts": "2026-11-05T22:16:33+05:30",
+      "ok": 1,
+      "detail": "sha256 matches the verified circular"
+    },
+    {
+      "source": "holiday:NSE/FAOP/72262",
+      "url": "https://nsearchives.nseindia.com/content/circulars/FAOP72262.pdf",
+      "fetched_ts": "2026-11-05T22:16:34+05:30",
+      "ok": 1,
+      "detail": "sha256 matches the verified circular"
+    }
+  ]
+}

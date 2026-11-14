@@ -1,0 +1,7 @@
+config v7 sha256 e75656b5
+NIFTY     : 7 setups; 3 cut times, 13 setup-runs; cut times differing: 0 (0.4s)
+RELIANCE  : 25 setups; 3 cut times, 30 setup-runs; cut times differing: 0 (0.4s)
+HDFCBANK  : 12 setups; 3 cut times, 20 setup-runs; cut times differing: 0 (0.5s)
+ICICIBANK : 11 setups; 3 cut times, 16 setup-runs; cut times differing: 0 (0.3s)
+INFY      : 20 setups; 3 cut times, 32 setup-runs; cut times differing: 0 (0.5s)
+TCS       : 20 setups; 3 cut times, 23 setup-runs; cut times differing: 0 (0.5s)

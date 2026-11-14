@@ -1,0 +1,995 @@
+{
+ "label": "AFTER_HOURS REST snapshot (market closed; Friday 2026-11-06 close books)",
+ "config_version": "v14",
+ "registry_day": "2026-11-06",
+ "underlyings": {
+  "NIFTY": {
+   "expiry": "2026-11-23",
+   "spot_ltp_paise": 2503035,
+   "underlying_ref": "spot LTP (future book empty)",
+   "exchange_ts": "2026-11-06T16:52:05+05:30",
+   "received": "2026-11-07T16:35:48.906062+05:30",
+   "rows": 22,
+   "iv_coverage": "0/22",
+   "iv_unavailable_reasons": {
+    "NO_VALID_BOOK": 22
+   },
+   "book_levels": {
+    "bids=0 asks=0": 23
+   },
+   "hypotheses": {
+    "UNCERTAIN": 22
+   },
+   "pcr_oi": 0.5498016762205441,
+   "pcr_volume": {
+    "UNAVAILABLE": "CE volume_day total is 0"
+   },
+   "concentration": {
+    "CE": [
+     25000.0,
+     0.531327130559253
+    ],
+    "PE": [
+     25000.0,
+     0.6057277029575289
+    ]
+   },
+   "atm_strike": 25050.0,
+   "table": [
+    {
+     "kind": "CE",
+     "strike": 24800.0,
+     "oi": 934635,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 24800.0,
+     "oi": 949780,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 24850.0,
+     "oi": 147290,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 24850.0,
+     "oi": 114465,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 24900.0,
+     "oi": 639990,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 24900.0,
+     "oi": 596440,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 24950.0,
+     "oi": 143585,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 24950.0,
+     "oi": 81055,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 25000.0,
+     "oi": 5163275,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 25000.0,
+     "oi": 3236285,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 25050.0,
+     "oi": 231465,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 25050.0,
+     "oi": 31980,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 25100.0,
+     "oi": 613535,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 25100.0,
+     "oi": 115895,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 25150.0,
+     "oi": 78975,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 25150.0,
+     "oi": 12805,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 25200.0,
+     "oi": 892645,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 25200.0,
+     "oi": 155415,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 25250.0,
+     "oi": 91910,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 25250.0,
+     "oi": 6110,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 25300.0,
+     "oi": 780390,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 25300.0,
+     "oi": 42575,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    }
+   ]
+  },
+  "RELIANCE": {
+   "expiry": "2026-11-23",
+   "spot_ltp_paise": 132000,
+   "underlying_ref": "spot LTP (future book empty)",
+   "exchange_ts": "2026-11-06T16:57:04+05:30",
+   "received": "2026-11-07T16:35:50.729123+05:30",
+   "rows": 22,
+   "iv_coverage": "0/22",
+   "iv_unavailable_reasons": {
+    "NO_VALID_BOOK": 22
+   },
+   "book_levels": {
+    "bids=0 asks=0": 23
+   },
+   "hypotheses": {
+    "UNCERTAIN": 22
+   },
+   "pcr_oi": 0.33248203579111174,
+   "pcr_volume": {
+    "UNAVAILABLE": "CE volume_day total is 0"
+   },
+   "concentration": {
+    "CE": [
+     1300.0,
+     0.21566204402947503
+    ],
+    "PE": [
+     1300.0,
+     0.4080997742415065
+    ]
+   },
+   "atm_strike": 1320.0,
+   "table": [
+    {
+     "kind": "CE",
+     "strike": 1270.0,
+     "oi": 2840000,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 1270.0,
+     "oi": 1739500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 1280.0,
+     "oi": 4326000,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 1280.0,
+     "oi": 2018000,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 1290.0,
+     "oi": 5787000,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 1290.0,
+     "oi": 1889000,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 1300.0,
+     "oi": 11780000,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 1300.0,
+     "oi": 7411500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 1310.0,
+     "oi": 2483500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 1310.0,
+     "oi": 1457500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 1320.0,
+     "oi": 10357000,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 1320.0,
+     "oi": 1406000,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 1330.0,
+     "oi": 2602500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 1330.0,
+     "oi": 848000,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 1340.0,
+     "oi": 2535500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 1340.0,
+     "oi": 457000,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 1350.0,
+     "oi": 8962500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 1350.0,
+     "oi": 520500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 1360.0,
+     "oi": 2303000,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 1360.0,
+     "oi": 394500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 1370.0,
+     "oi": 645500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 1370.0,
+     "oi": 19500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    }
+   ]
+  },
+  "HDFCBANK": {
+   "expiry": "2026-11-23",
+   "spot_ltp_paise": 78825,
+   "underlying_ref": "spot LTP (future book empty)",
+   "exchange_ts": "2026-11-06T16:54:42+05:30",
+   "received": "2026-11-07T16:35:52.694139+05:30",
+   "rows": 22,
+   "iv_coverage": "0/22",
+   "iv_unavailable_reasons": {
+    "NO_VALID_BOOK": 22
+   },
+   "book_levels": {
+    "bids=0 asks=0": 23
+   },
+   "hypotheses": {
+    "UNCERTAIN": 22
+   },
+   "pcr_oi": 0.5823821191657205,
+   "pcr_volume": {
+    "UNAVAILABLE": "CE volume_day total is 0"
+   },
+   "concentration": {
+    "CE": [
+     800.0,
+     0.2486802525946732
+    ],
+    "PE": [
+     750.0,
+     0.2214811014195314
+    ]
+   },
+   "atm_strike": 790.0,
+   "table": [
+    {
+     "kind": "CE",
+     "strike": 740.0,
+     "oi": 7491900,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 740.0,
+     "oi": 7676500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 750.0,
+     "oi": 7460700,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 750.0,
+     "oi": 8417500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 760.0,
+     "oi": 6190600,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 760.0,
+     "oi": 6301750,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 770.0,
+     "oi": 5682300,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 770.0,
+     "oi": 5502900,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 780.0,
+     "oi": 6390150,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 780.0,
+     "oi": 3896100,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 790.0,
+     "oi": 7229950,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 790.0,
+     "oi": 1803750,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 800.0,
+     "oi": 16228550,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 800.0,
+     "oi": 2075450,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 810.0,
+     "oi": 1943500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 810.0,
+     "oi": 289250,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 820.0,
+     "oi": 2966600,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 820.0,
+     "oi": 1602250,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 830.0,
+     "oi": 975650,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 830.0,
+     "oi": 30550,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "CE",
+     "strike": 840.0,
+     "oi": 2698800,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    },
+    {
+     "kind": "PE",
+     "strike": 840.0,
+     "oi": 409500,
+     "volume": 0,
+     "premium": {
+      "UNAVAILABLE": "NO_MID"
+     },
+     "iv": {
+      "UNAVAILABLE": "NO_VALID_BOOK: NO_TWO_SIDED_BOOK (IV is never computed from LTP)"
+     },
+     "hypothesis": "UNCERTAIN"
+    }
+   ]
+  }
+ },
+ "event_calendar": {
+  "stored": "data/engine/events/2026-11-07.json",
+  "status": "VERIFIED",
+  "reason": "NSE event calendar fetched 2026-11-07 16:35 IST",
+  "events": 610,
+  "sha256": "3dde522506be3a0d8df3a017c1a2e5a9b861a478769ff7473863b01118956333",
+  "gate_for_long_options_on": "2026-11-09",
+  "universe_counts": {
+   "EVENT_IV_RISK": 9,
+   "NO_KNOWN_EVENT": 87,
+   "INDEX (not gated on constituents)": 1
+  },
+  "event_iv_risk": [
+   "ABB: board meeting 2026-11-13 (Financial Results) within 5 trading days of 2026-11-09",
+   "BAJFINANCE: board meeting 2026-11-10 (Other business matters) within 5 trading days of 2026-11-09",
+   "EICHERMOT: board meeting 2026-11-13 (Financial Results) within 5 trading days of 2026-11-09",
+   "GRASIM: board meeting 2026-11-13 (Financial Results) within 5 trading days of 2026-11-09",
+   "HAL: board meeting 2026-11-12 (Financial Results) within 5 trading days of 2026-11-09",
+   "IDEA: board meeting 2026-11-12 (Financial Results) within 5 trading days of 2026-11-09",
+   "POWERINDIA: board meeting 2026-11-12 (Financial Results) within 5 trading days of 2026-11-09",
+   "TATAPOWER: board meeting 2026-11-11 (Financial Results/Other business matters) within 5 trading days of 2026-11-09",
+   "TMPV: board meeting 2026-11-13 (Financial Results) within 5 trading days of 2026-11-09"
+  ],
+  "window_end": "2026-11-16"
+ }
+}

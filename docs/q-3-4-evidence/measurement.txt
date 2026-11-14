@@ -1,0 +1,63 @@
+# Q-3-4 measurement, 2026-11-06 (run 2026-11-07T10:42:42+05:30)
+candles by (segment, time_basis): {('NSE', 'receive'): 21922, ('NFO-FUT', 'exchange'): 33350}
+tokens with COMPLETE 1m candles: 384; historical fetched: 384; failed: {}
+## same minute, all COMPLETE candles
+NFO-FUT: minutes=32114 hist_zero=6 exact_equal=32047 (99.8%) within_1pct=32051/32108 ratio tick/hist p05=1.0 p25=1.0 median=1.0 p75=1.0 p95=1.0 | sum tick=676054035 sum hist=676053135 sum ratio=1.0000
+NSE: minutes=21790 hist_zero=0 exact_equal=17327 (79.5%) within_1pct=19442/21790 ratio tick/hist p05=0.9881706801858893 p25=1.0 median=1.0 p75=1.0 p95=1.012708913649025 | sum tick=555832377 sum hist=555538122 sum ratio=1.0005
+## same minute, COMPLETE and quality OK
+NFO-FUT: minutes=26133 hist_zero=2 exact_equal=26070 (99.8%) within_1pct=26074/26131 ratio tick/hist p05=1.0 p25=1.0 median=1.0 p75=1.0 p95=1.0 | sum tick=583556557 sum hist=583557682 sum ratio=1.0000
+NSE: minutes=21790 hist_zero=0 exact_equal=17327 (79.5%) within_1pct=19442/21790 ratio tick/hist p05=0.9881706801858893 p25=1.0 median=1.0 p75=1.0 p95=1.012708913649025 | sum tick=555832377 sum hist=555538122 sum ratio=1.0005
+## alignment check: tick minute vs historical minute -1
+NFO-FUT: minutes=32237 hist_zero=6861 exact_equal=2425 (7.5%) within_1pct=2435/25376 ratio tick/hist p05=0.16470588235294117 p25=0.5 median=1.0 p75=2.0 p95=6.5 | sum tick=679877638 sum hist=627644522 sum ratio=1.0832
+NSE: minutes=21866 hist_zero=2 exact_equal=9 (0.0%) within_1pct=209/21864 ratio tick/hist p05=0.19284787420807573 p25=0.5582092222371304 median=0.9837067209775967 p75=1.7521126760563381 p95=5.335213776722091 | sum tick=556086565 sum hist=557097952 sum ratio=0.9982
+## alignment check: tick minute vs historical minute +1
+NFO-FUT: minutes=31882 hist_zero=6717 exact_equal=2413 (7.6%) within_1pct=2422/25165 ratio tick/hist p05=0.15384615384615385 p25=0.5 median=1.0 p75=2.0 p95=6.0 | sum tick=672012545 sum hist=620229417 sum ratio=1.0835
+NSE: minutes=21694 hist_zero=2 exact_equal=8 (0.0%) within_1pct=197/21692 ratio tick/hist p05=0.18743391396293616 p25=0.5668777943368107 median=1.0134715025906735 p75=1.7891231964483907 p95=4.977582550742199 | sum tick=548855573 sum hist=553472190 sum ratio=0.9917
+## per-token sum ratio (COMPLETE+OK minutes), lowest 5 / highest 5
+RELIANCE26NOVFUT: 0.9989
+HAL: 0.9999
+ADANIPOWER: 1.0000
+CUMMINSIND: 1.0000
+SBIN: 1.0000
+...
+MAZDOCK26NOVFUT: 1.0009
+JINDALSTEL26NOVFUT: 1.0012
+JSWSTEEL26NOVFUT: 1.0014
+ENRIN26NOVFUT: 1.0023
+PFC: 1.0766
+## BOSCHLTD27JANFUT 14:30-14:40 tick vs hist
+2026-11-06T14:30 tick=None hist=0
+2026-11-06T14:31 tick=None hist=0
+2026-11-06T14:32 tick=None hist=0
+2026-11-06T14:33 tick=None hist=None
+2026-11-06T14:34 tick=None hist=0
+2026-11-06T14:35 tick=None hist=0
+2026-11-06T14:36 tick=(135, 'OK', 'exchange') hist=135
+2026-11-06T14:37 tick=(45, 'STALE', 'exchange') hist=45
+2026-11-06T14:38 tick=None hist=0
+2026-11-06T14:39 tick=(15, 'OK', 'exchange') hist=15
+2026-11-06T14:40 tick=(30, 'OK', 'exchange') hist=30
+## BOSCHLTD26DECFUT 14:30-14:40 tick vs hist
+2026-11-06T14:30 tick=None hist=0
+2026-11-06T14:31 tick=None hist=0
+2026-11-06T14:32 tick=(25, 'OK', 'exchange') hist=25
+2026-11-06T14:33 tick=None hist=0
+2026-11-06T14:34 tick=None hist=0
+2026-11-06T14:35 tick=(275, 'OK', 'exchange') hist=275
+2026-11-06T14:36 tick=(175, 'OK', 'exchange') hist=175
+2026-11-06T14:37 tick=(250, 'OK', 'exchange') hist=250
+2026-11-06T14:38 tick=(100, 'OK', 'exchange') hist=100
+2026-11-06T14:39 tick=(150, 'OK', 'exchange') hist=150
+2026-11-06T14:40 tick=(350, 'OK', 'exchange') hist=350
+## BOSCHLTD26NOVFUT 14:30-14:40 tick vs hist
+2026-11-06T14:30 tick=(175, 'OK', 'exchange') hist=175
+2026-11-06T14:31 tick=(25, 'OK', 'exchange') hist=25
+2026-11-06T14:32 tick=(250, 'OK', 'exchange') hist=250
+2026-11-06T14:33 tick=(125, 'OK', 'exchange') hist=125
+2026-11-06T14:34 tick=(50, 'OK', 'exchange') hist=50
+2026-11-06T14:35 tick=(5100, 'OK', 'exchange') hist=5100
+2026-11-06T14:36 tick=(4550, 'OK', 'exchange') hist=4550
+2026-11-06T14:37 tick=(9975, 'OK', 'exchange') hist=9975
+2026-11-06T14:38 tick=(5450, 'OK', 'exchange') hist=5450
+2026-11-06T14:39 tick=(4600, 'OK', 'exchange') hist=4600
+2026-11-06T14:40 tick=(7100, 'OK', 'exchange') hist=7100

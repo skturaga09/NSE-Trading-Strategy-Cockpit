@@ -1,0 +1,6 @@
+v7 setups 961 at confirmation {'EXHAUSTED': '245 (25.5%)', 'INVALIDATED_AT_CONFIRMATION': '2 (0.2%)', 'TIMELY': '190 (19.8%)', 'UNKNOWN': '6 (0.6%)', 'VALID_BUT_LATE': '518 (53.9%)'}
+   ever TIMELY 395 by retest 114 ended {'ACTIVE': 167, 'INVALIDATED': 588, 'RETEST_EXPIRED': 206}
+   flags over evaluations {'VWAP_EXTENSION': 14029, 'REPEATED_FAILURE': 703, 'RVOL_DECLINING_WHILE_EXTENDING': 350} | VWAP distance median 6.09
+v8 setups 961 at confirmation {'EXHAUSTED': '154 (16.0%)', 'INVALIDATED_AT_CONFIRMATION': '2 (0.2%)', 'TIMELY': '209 (21.7%)', 'UNKNOWN': '6 (0.6%)', 'VALID_BUT_LATE': '590 (61.4%)'}
+   ever TIMELY 439 by retest 124 ended {'ACTIVE': 127, 'INVALIDATED': 582, 'RETEST_EXPIRED': 252}
+   flags over evaluations {'VWAP_EXTENSION': 8599, 'REPEATED_FAILURE': 648, 'RVOL_DECLINING_WHILE_EXTENDING': 305} | VWAP distance median 3.47

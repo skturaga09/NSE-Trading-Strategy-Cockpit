@@ -1,0 +1,7 @@
+{
+ "2026-11-06": {
+  "signals": "done",
+  "paper": "done",
+  "dashboard": "ok"
+ }
+}

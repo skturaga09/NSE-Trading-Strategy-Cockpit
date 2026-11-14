@@ -1,0 +1,19 @@
+MUTATION single-position gate ignored: exit=1 -> 1 failing
+    FAIL: test_high_score_with_a_failed_gate_is_rejected_never_entry_eligible
+MUTATION price age not checked in DATA_QUALITY: exit=1 -> 2 failing
+    FAIL: test_all_twelve_state_labels_exist_and_are_reachable
+    FAIL: test_stale_critical_data_cannot_reach_entry_eligible
+MUTATION lifecycle transition table not enforced: exit=1 -> 1 failing
+    FAIL: test_illegal_transitions_raise_and_rows_are_appended
+MUTATION missing option factor counted as available: exit=1 -> 1 failing
+    FAIL: test_missing_option_data_scores_zero_listed_missing_and_max_available_reported
+MUTATION family A without the RVOL check: exit=1 -> 2 failing
+    FAIL: test_A_fresh_long_buildup_breakout
+    FAIL: test_B_fresh_short_buildup_breakdown
+MUTATION family E without structure confirmation: exit=1 -> 1 failing
+    ERROR: test_E_F_liquidity_sweep_reversals
+MUTATION risk_check approval not required: exit=1 -> 1 failing
+    ERROR: test_high_score_with_a_failed_gate_is_rejected_never_entry_eligible
+MUTATION stored inputs differ from the ones used: exit=1 -> 1 failing
+    FAIL: test_replaying_stored_inputs_regenerates_an_identical_object
+restored: OK

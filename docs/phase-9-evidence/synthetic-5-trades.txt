@@ -1,0 +1,57 @@
+SYNTHETIC FIXTURES — NOT MARKET DATA. Five fixture trades run through the real Phase 9 code (paper_fill, run_trades,
+ledger.store_result in a temporary ledger). The real-data run produced 0 paper trades (run-all-sessions.json).
+Command: PYTHONPATH=. python3 <scratchpad>/synth5.py (config v11; fixtures from tests/engine_tests/test_paper.py)
+
+=== S1 stop breach on a tick  [SIMULATED, SYNTHETIC FIXTURE]  FUT BUY qty 100  stop 99000  T1 103000
+  entry fill: BUY 100/100 @ 100010 paise (DEPTH_5_LEVELS, quote rx 10:59:59.000)
+  decisions: 1
+  ALERT 11:00:37.000 EXIT_REQUIRED          HARD_STOP_UNDERLYING     stop=99000 net=-1128.22
+        [SIMULATED] EXIT_REQUIRED (HARD_STOP_UNDERLYING) — ltp=98990 @ 2026-11-06T11:00:37.000+05:30; stop=99000 @ —
+  exit fill: SELL 100 @ 98985 paise at 11:00:37.000
+  lifecycle: ENTRY_ELIGIBLE → TRIGGERED → ACTIVE → EXIT_REQUIRED
+
+=== S2 option premium dip, structure intact  [SIMULATED, SYNTHETIC FIXTURE]  CE BUY qty 100  stop 99000  T1 103000
+  entry fill: BUY 100/100 @ 1500 paise (DEPTH_5_LEVELS, quote rx 10:59:59.000)
+  decisions: 2
+  ALERT 11:05:00.000 HOLD                   NO_EXIT_RULE             stop=99000 net=-65.73
+        [SIMULATED] HOLD (NO_EXIT_RULE) — ltp=100100 @ 2026-11-06T11:04:59.000+05:30; close_1m=100200 @ 2026-11-06T11:04:45.000+05:30; bid=1485 @ 2026-11-06T11:04:59.000+05:30; ask=1495 @ 2026-11-06T11:04:59.
+        warnings: POSITIONING_UNAVAILABLE: fixture; CONTRACT_BELOW_STOP_ESTIMATE: premium 1350 at 2026-11-06T11:02:01.000+05:30 vs 1400 (APPROXIMATE premium model); no structural invalidation
+  lifecycle: ENTRY_ELIGIBLE → TRIGGERED → ACTIVE
+
+=== S3 T1, trail to a confirmed swing, exit at the trailed stop  [SIMULATED, SYNTHETIC FIXTURE]  FUT BUY qty 100  stop 99000  T1 103000
+  entry fill: BUY 100/100 @ 100010 paise (DEPTH_5_LEVELS, quote rx 10:59:59.000)
+  decisions: 3
+  ALERT 11:05:00.000 TIGHTEN_STOP           TRAIL_CONFIRMED_SWING    stop=100500 net=980.67
+        [SIMULATED] TIGHTEN_STOP (TRAIL_CONFIRMED_SWING) — ltp=101100 @ 2026-11-06T11:04:59.000+05:30; close_1m=100200 @ 2026-11-06T11:04:45.000+05:30; bid=101095 @ 2026-11-06T11:04:59.000+05:30; ask=101105 @
+        warnings: POSITIONING_UNAVAILABLE: fixture
+  ALERT 11:05:03.000 PARTIAL_EXIT_CANDIDATE T1_REACHED               stop=100500 net=980.67
+        [SIMULATED] PARTIAL_EXIT_CANDIDATE (T1_REACHED) — ltp=103000 @ 2026-11-06T11:05:03.000+05:30; t1=103000 @ —
+  ALERT 11:05:31.000 EXIT_REQUIRED          HARD_STOP_UNDERLYING     stop=100500 net=380.99
+        [SIMULATED] EXIT_REQUIRED (HARD_STOP_UNDERLYING) — ltp=100500 @ 2026-11-06T11:05:31.000+05:30; stop=100500 @ —
+  exit fill: SELL 100 @ 100495 paise at 11:05:31.000
+  lifecycle: ENTRY_ELIGIBLE → TRIGGERED → ACTIVE → EXIT_REQUIRED
+
+=== S4 feed disconnect  [SIMULATED, SYNTHETIC FIXTURE]  FUT BUY qty 100  stop 99000  T1 103000
+  entry fill: BUY 100/100 @ 100010 paise (DEPTH_5_LEVELS, quote rx 10:59:59.000)
+  decisions: 2
+  ALERT 11:01:30.000 DATA_UNAVAILABLE       FEED_GAP                 stop=99000 net=UNAVAILABLE
+        [SIMULATED] DATA_UNAVAILABLE (FEED_GAP) — gap={'start_ns': 1793943031000000000, 'end_ns': 1793943090000000000, 'conn': -1, 'kind': 'disconnect', 'reason': 'socket closed', 'count': None} @ 2026-11-06T
+        warnings: FEED_GAP: disconnect 2026-11-06T11:00:31.000+05:30 → 2026-11-06T11:01:30.000+05:30: socket closed
+  ALERT 11:05:00.000 HOLD                   NO_EXIT_RULE             stop=99000 net=-18.81
+        [SIMULATED] HOLD (NO_EXIT_RULE) — ltp=100100 @ 2026-11-06T11:04:59.000+05:30; close_1m=100200 @ 2026-11-06T11:04:45.000+05:30; bid=100095 @ 2026-11-06T11:04:59.000+05:30; ask=100105 @ 2026-11-06T11:04
+        warnings: POSITIONING_UNAVAILABLE: fixture
+  lifecycle: ENTRY_ELIGIBLE → TRIGGERED → ACTIVE
+
+=== S5 square-off cutoff  [SIMULATED, SYNTHETIC FIXTURE]  FUT BUY qty 100  stop 99000  T1 103000
+  entry fill: BUY 100/100 @ 100010 paise (DEPTH_5_LEVELS, quote rx 15:03:19.000)
+  decisions: 2
+  ALERT 15:08:20.000 HOLD                   NO_EXIT_RULE             stop=99000 net=-18.81
+        [SIMULATED] HOLD (NO_EXIT_RULE) — ltp=100100 @ 2026-11-06T15:08:19.000+05:30; close_1m=100200 @ 2026-11-06T15:08:05.000+05:30; bid=100095 @ 2026-11-06T15:08:19.000+05:30; ask=100105 @ 2026-11-06T15:08
+        warnings: POSITIONING_UNAVAILABLE: fixture
+  ALERT 15:10:00.000 EXIT_REQUIRED          SQUAREOFF_CUTOFF         stop=99000 net=-18.81
+        [SIMULATED] EXIT_REQUIRED (SQUAREOFF_CUTOFF) — clock=2026-11-06T15:10:00.000+05:30 @ 2026-11-06T15:10:00.000+05:30
+  exit fill: SELL 100 @ 100095 paise at 15:10:00.000
+  lifecycle: ENTRY_ELIGIBLE → TRIGGERED → ACTIVE → EXIT_REQUIRED
+
+ledger summary SIMULATED: {'ledger': 'SIMULATED', 'label': 'SIMULATED', 'trades': 5, 'closed': 3, 'open': 2, 'realized_gross_inr': -455.0}
+ledger summary ACTUAL:    {'ledger': 'ACTUAL', 'label': 'ACTUAL', 'trades': 0, 'closed': 0, 'open': 0, 'realized_gross_inr': 0}

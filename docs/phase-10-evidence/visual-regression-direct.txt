@@ -1,0 +1,22 @@
+Direct capture, pre-Phase-10 build vs Phase 10 build, every visible existing tab (1440x900 viewport, full page).
+nav strip = y 85..144 (TabNav, measured). Differences inside it are the new '09 F&O Engine' entry.
+
+tab          size          px differ total  inside nav strip  outside  max ch. diff outside  nav-diff bbox
+Today        (1440, 2977)              900               900        0                     0  (1037, 13, 1144, 45)
+Radar        (1440, 900)               900               900        0                     0  (1037, 13, 1144, 45)
+Swing        (1440, 900)               912               900       12                     2  (1037, 13, 1144, 45)
+Exits        (1440, 995)               900               900        0                     0  (1037, 13, 1144, 45)
+Journal      (1440, 900)               900               900        0                     0  (1037, 13, 1144, 45)
+Ideas        (1440, 900)               900               900        0                     0  (1037, 13, 1144, 45)
+Screener     (1440, 900)               900               900        0                     0  (1037, 13, 1144, 45)
+Commodities  (1440, 900)               900               900        0                     0  (1037, 13, 1144, 45)
+
+Repeat: 3 captures of each build. Pixels differing OUTSIDE the nav strip for every pair of runs:
+Today        same-build pairs: [0]  before~after pairs: [0]
+Radar        same-build pairs: [0, 12]  before~after pairs: [0, 12]
+Swing        same-build pairs: [0, 12]  before~after pairs: [0, 12]
+Exits        same-build pairs: [0]  before~after pairs: [0]
+Journal      same-build pairs: [0]  before~after pairs: [0]
+Ideas        same-build pairs: [0]  before~after pairs: [0]
+Screener     same-build pairs: [0]  before~after pairs: [0]
+Commodities  same-build pairs: [0, 12]  before~after pairs: [0, 12]

@@ -1,0 +1,7 @@
+config v8 sha256 8626c7c3
+NIFTY     : 7 setups; cut times differing: 0 of 3
+RELIANCE  : 25 setups; cut times differing: 0 of 3
+HDFCBANK  : 12 setups; cut times differing: 0 of 3
+ICICIBANK : 11 setups; cut times differing: 0 of 3
+INFY      : 20 setups; cut times differing: 0 of 3
+TCS       : 20 setups; cut times differing: 0 of 3

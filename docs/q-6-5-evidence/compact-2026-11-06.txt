@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-06",
+  "before_bytes": {
+    "ticks": 238751744,
+    "depth": 145264640,
+    "oi_changes": 1183744,
+    "events": 114688,
+    "gaps": 8192,
+    "meta": 57344,
+    "frames.bin": 445989271,
+    "buffer.sqlite(file)": 385359872,
+    "instrument_master(csv.gz)": 1571846
+  },
+  "A_parquet_bytes": {
+    "ticks": 63303173,
+    "depth": 49386595,
+    "oi_changes": 659286,
+    "events": 7870,
+    "gaps": 2086,
+    "meta": 4181
+  },
+  "B_frames_zst_bytes": 74933457,
+  "replay": {
+    "events_buffer": 3984271,
+    "events_parquet": 3984271,
+    "events_frames": 5516093,
+    "seconds_buffer": 15.6072,
+    "seconds_parquet_A": 7.9285,
+    "seconds_frames_B": 17.9868,
+    "method": "streamed passes (Q-6-5); no event list is built"
+  },
+  "verified": {
+    "parquet_replay_identical": true,
+    "frames_zst_roundtrip": true,
+    "row_counts_match": true
+  },
+  "buffer_deleted": false
+}
+exit=0

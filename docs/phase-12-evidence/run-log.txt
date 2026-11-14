@@ -1,0 +1,16 @@
+  v16:HIST(cash session, index 5m/15m) 2021-01-01 (1/1375)
+  v16:HIST(cash session, index 5m/15m) 2021-06-02 (101/1375)
+  v16:HIST(cash session, index 5m/15m) 2021-10-26 (201/1375)
+  v16:HIST(cash session, index 5m/15m) 2022-03-23 (301/1375)
+  v16:HIST(cash session, index 5m/15m) 2022-08-17 (401/1375)
+  v16:HIST(cash session, index 5m/15m) 2023-01-11 (501/1375)
+  v16:HIST(cash session, index 5m/15m) 2023-06-09 (601/1375)
+  v16:HIST(cash session, index 5m/15m) 2023-11-03 (701/1375)
+  v16:HIST(cash session, index 5m/15m) 2024-04-02 (801/1375)
+  v16:HIST(cash session, index 5m/15m) 2024-08-29 (901/1375)
+  v16:HIST(cash session, index 5m/15m) 2025-01-23 (1001/1375)
+  v16:HIST(cash session, index 5m/15m) 2025-06-20 (1101/1375)
+  v16:HIST(cash session, index 5m/15m) 2025-11-17 (1201/1375)
+  v16:HIST(cash session, index 5m/15m) 2026-04-15 (1301/1375)
+{"run_dir": "/Users/turagasanthoshkumar/Clade-NSE-Skills/data/engine/backtest/20261107T173514", "runtime_s": 167.3, "half_life_file": "config/engine/half_life/v1.json", "recorded_stage": "BELOW_SYSTEM_CHECK"}
+python3 -m engine.backtest_report all --pipeline-check 2026-11-06  164.17s user 1.93s system 98% cpu 2:47.94 total

@@ -1,0 +1,29 @@
+### order methods in engine/, scripts/, fo-engine/ (must be 0 code hits; docstrings saying 'not used' are listed)
+-> 0 hit(s)
+
+### KiteConnect REST class in engine/ (only KiteTicker may be imported)
+engine/broker.py:9: The KiteConnect REST class from the kiteconnect library is deliberately NOT used (it carries order
+-> 1 hit(s)
+
+### order-shaped legacy routes elsewhere (protected; ledger Q-0-6 / Q-0-7)
+dashboard/api_server.py:761: @app.post("/api/trade/place")
+dashboard/app.py:872: elif url_path == "/api/trade/place":
+dashboard/app.py:873: self.handle_place_trade()
+dashboard/app.py:1289: def handle_place_trade(self):
+-> 4 hit(s)
+
+### token/secret printed or logged in engine/
+-> 0 hit(s)
+
+### fresh build of current source
+scanned 42 files, 1,375,653 bytes
+credential values from kite_config.json checked: ['access_token', 'api_key', 'token_refreshed_at'] -> found in bundle: none
+credential keywords found: none
+exit 0
+### live dashboard/web/dist (as deployed)
+scanned 42 files, 1,375,653 bytes
+credential values from kite_config.json checked: ['access_token', 'api_key', 'token_refreshed_at'] -> found in bundle: none
+credential keywords found: none
+exit 0
+### credential values from kite_config.json searched in logs, data, config, docs, engine, scripts, tests: ['access_token', 'api_key']
+scanned 430 files -> hits: none

@@ -1,0 +1,55 @@
+vite v5.4.21 building for production...
+transforming...
+✓ 525 modules transformed.
+rendering chunks...
+computing gzip size...
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/index.html                                                   0.60 kB │ gzip:   0.39 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/jetbrains-mono-greek-400-normal-C190GLew.woff2        4.23 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-vietnamese-400-normal-DMkecbls.woff2            4.97 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-vietnamese-600-normal-Cc8MFFhd.woff2            5.10 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-greek-ext-400-normal-DGGRlc-M.woff2             5.26 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/jetbrains-mono-cyrillic-400-normal-BEIGL1Tu.woff2     5.33 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/jetbrains-mono-vietnamese-400-normal-CqNFfHCs.woff    5.37 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-greek-ext-600-normal-DRtmH8MT.woff2             5.43 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/jetbrains-mono-greek-400-normal-B9oWc5Lo.woff         5.66 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-vietnamese-400-normal-Bbgyi5SW.woff             6.50 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-vietnamese-600-normal-BuLX-rYi.woff             6.64 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/jetbrains-mono-cyrillic-400-normal-ugxPyKxw.woff      6.98 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-greek-ext-400-normal-KugGGMne.woff              7.06 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-greek-ext-600-normal-B8X0CLgF.woff              7.21 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/jetbrains-mono-latin-ext-400-normal-Bc8Ftmh3.woff2    7.34 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-cyrillic-400-normal-obahsSVq.woff2              7.71 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-greek-400-normal-B4URO6DV.woff2                 7.78 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-greek-600-normal-plRanbMR.woff2                 7.94 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-cyrillic-600-normal-CWCymEST.woff2              7.97 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-cyrillic-400-normal-HOLc17fK.woff               9.78 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-greek-400-normal-q2sYcFCs.woff                  9.92 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-cyrillic-600-normal-4D_pXhcN.woff               9.94 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-greek-600-normal-BZpKdvQh.woff                 10.03 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/jetbrains-mono-latin-ext-400-normal-fXTG6kC5.woff    10.13 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-cyrillic-ext-400-normal-BQZuk6qB.woff2         10.23 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-cyrillic-ext-600-normal-Dfes3d0z.woff2         10.48 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-cyrillic-ext-400-normal-DQukG94-.woff          13.34 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-cyrillic-ext-600-normal-Bcila6Z-.woff          13.46 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/jetbrains-mono-latin-400-normal-V6pRDFza.woff2       21.17 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-latin-400-normal-C38fXH4l.woff2                23.66 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-latin-600-normal-LgqL8muc.woff2                24.45 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/jetbrains-mono-latin-400-normal-6-qcROiO.woff        27.50 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-latin-400-normal-CyCys3Eg.woff                 30.70 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-latin-600-normal-CiBQ2DWP.woff                 31.26 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-latin-ext-400-normal-C1nco2VV.woff2            35.00 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-latin-ext-600-normal-D2bJ5OIk.woff2            36.26 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-latin-ext-400-normal-77YHD8bZ.woff             47.56 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/inter-latin-ext-600-normal-CIVaiw4L.woff             48.67 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/index-hfPMMTDg.css                                   23.17 kB │ gzip:   5.42 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/FoEngineTab-LBJ9e8NA.css                             25.45 kB │ gzip:  10.39 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/FoEngineTab-DcFd-KYF.js                             212.42 kB │ gzip:  66.13 kB
+../../../../../private/tmp/claude-501/-Users-turagasanthoshkumar-Clade-NSE-Skills/7df62b6d-409b-4f58-9bab-2bcc9aa656f4/scratchpad/dist-after/assets/index-BN8U9C8t.js                                   569.81 kB │ gzip: 165.86 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.52s
+tsc(app)+tsc(module, strict)+build exit=0
+25dad8986851c36ceefbe28f252bdcfdce135ba231b3faaaa2bc52a750ec036b  index-hfPMMTDg.css

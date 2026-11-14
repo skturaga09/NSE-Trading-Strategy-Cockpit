@@ -1,0 +1,8 @@
+test_eod_compacts_writes_cadence_and_runs_retention (tests.engine_tests.test_storage.TestAutomation.test_eod_compacts_writes_cadence_and_runs_retention) ... [engine] ALERT Engine recorder DIED and did not restart: Last data 09:19:50 IST; no clean shutdown logged.
+ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.492s
+
+OK
+weekday-pinned result: PASS
