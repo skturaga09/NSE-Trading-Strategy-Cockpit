@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.clade.supertrend</string>
+    <!-- Every minute, ask the running server for the Supertrend board check (dashboard/supertrend.py).
+         It scans once per new closed 5-minute candle in market hours and sends one phone alert
+         listing every flip; otherwise it returns at once, so a 24/7 interval is harmless. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/curl</string>
+        <string>-s</string>
+        <string>-m</string>
+        <string>280</string>
+        <string>-X</string>
+        <string>POST</string>
+        <string>http://127.0.0.1:8080/api/supertrend/check</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>60</integer>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/supertrend.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/supertrend.err.log</string>
+</dict>
+</plist>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.clade.engine-supertrend-journal</string>
+    <!-- Supertrend paper-trade journal, weekdays 16:30 IST (scripts/supertrend_journal.py): records the day's candidate
+         trades on real option prices, re-prices open ones, replays the owner's ₹50,000 account -> data/engine/
+         supertrend_journal.json (Supertrend tab, Journal view). Paper only: no orders. Holidays: replay only.
+         If the Mac is asleep at 16:30, launchd runs it on the next wake (same evening's data is still there). -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Frameworks/Python.framework/Versions/3.13/bin/python3</string>
+        <string>scripts/supertrend_journal.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills</string>
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>30</integer></dict>
+    </array>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/supertrend_journal.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/turagasanthoshkumar/Clade-NSE-Skills/dashboard/logs/supertrend_journal.err.log</string>
+</dict>
+</plist>
