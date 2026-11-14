@@ -19,5 +19,7 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
+    // two separate apps: the stock/F&O cockpit at / and the MCX commodity desk at /mcx/
+    rollupOptions: { input: { main: "index.html", mcx: "mcx/index.html" } },
   },
 });

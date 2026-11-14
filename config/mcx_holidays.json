@@ -1,0 +1,6 @@
+{
+  "_README": "MCX trading holidays for the MCX desk (dashboard/mcx_desk.session). Each entry: date, morning (09:00-17:00) and evening (17:00-close) = open|closed. NOT VERIFIED: fill from the official MCX holiday circular for the year (2026: MCX/TRD/636/2025, 15 Dec 2025, per HDFC Securities) and set verified=true. Until then the desk shows a warning and treats every weekday as a trading day.",
+  "verified": false,
+  "source": null,
+  "holidays": []
+}
