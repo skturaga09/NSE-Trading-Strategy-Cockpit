@@ -184,3 +184,96 @@ def compute() -> Dict[str, Any]:
 if __name__ == "__main__":
     import json
     print(json.dumps(compute(), indent=2, default=str))
+
+
+def estimate(spot: float, target: float, K: float, T: float, premium: float, is_call: bool, lot: int,
+             stop_line: Optional[float] = None) -> Optional[Dict[str, Any]]:
+    """Premium if the stock moves to `target` soon, at the volatility implied by today's live premium; plus, when a
+    stop line is given, the premium there and the reward : risk in rupees per lot. None if no volatility fits the price."""
+    iv = _implied_vol(premium, spot, K, T, is_call)
+    if iv is None:
+        return None
+    at_target = _bs(target, K, T, iv, is_call)
+    out = {"iv_pct": round(iv * 100, 1), "delta": round(_delta(spot, K, T, iv, is_call), 2),
+           "est_premium": round(at_target, 2), "gain_per_lot": round((at_target - premium) * lot),
+           "at_expiry": round(max(0.0, (target - K) if is_call else (K - target)), 2)}
+    if stop_line:
+        at_stop = _bs(stop_line, K, T, iv, is_call)
+        loss = (premium - at_stop) * lot
+        out.update({"premium_at_stop": round(at_stop, 2), "loss_per_lot": round(loss),
+                    "reward_risk": round(out["gain_per_lot"] / loss, 1) if loss > 0 else None})
+    return out
+
+
+def position_figures(premium: float, est: Dict[str, Any], qty: int, avg: float) -> Dict[str, Any]:
+    """Your own P&L in rupees (qty as Kite reports it, so a short position works too): now, at the target, at the stop."""
+    out = {"pnl_now": round((premium - avg) * qty), "pnl_at_target": round((est["est_premium"] - avg) * qty)}
+    if "premium_at_stop" in est:
+        out["pnl_at_stop"] = round((est["premium_at_stop"] - avg) * qty)
+    return out
+
+
+def _quote(key: str) -> Dict[str, Any]:
+    return (requests.get("https://api.kite.trade/quote", params=[("i", key)], headers=_headers(), timeout=10).json()
+            .get("data") or {}).get(key) or {}
+
+
+def forward(symbol: str, target: float) -> Dict[str, Any]:
+    """Stock target -> option premium, live Kite prices. Which option (owner 2026-11-14: "show MY option"):
+    an option name typed in -> that option; a stock you hold an option on -> your option, with your buy price and qty;
+    otherwise the one the Supertrend rules would buy for that direction (1 strike in the money, nearest expiry).
+    Stop line from the last Supertrend scan when the option is on the side of the 5-minute trend."""
+    from dashboard.fno_scanner import fno_universe
+    from dashboard.option_chain import INDEX_SYM
+    from dashboard.supertrend import board
+    from dashboard.supertrend_trades import pick_option
+    symbol = symbol.strip().upper()
+    if not target or target <= 0:
+        return {"error": "enter a target price above 0"}
+    nfo = _instruments()
+    by_ts = {r["tradingsymbol"]: r for r in nfo if r.get("instrument_type") in ("CE", "PE")}
+    opt = by_ts.get(symbol)
+    und = opt["name"] if opt else symbol
+    if und not in fno_universe() and und not in INDEX_SYM:
+        return {"error": f"{symbol} is not an F&O stock, index or option"}
+    if not _connected():
+        return {"error": "Kite not connected: connect on System Check"}
+    spot_key = INDEX_SYM.get(und, f"NSE:{und}")
+    spot = _quote(spot_key).get("last_price")
+    if not spot:
+        return {"error": f"no live price for {und}"}
+    pj = requests.get("https://api.kite.trade/portfolio/positions", headers=_headers(), timeout=10).json()
+    held = [p for p in ((pj.get("data") or {}).get("net") or []) if p.get("quantity")
+            and p.get("tradingsymbol") in by_ts and by_ts[p["tradingsymbol"]]["name"] == und]
+    if opt is None and held:
+        opt = by_ts[held[0]["tradingsymbol"]]
+    if opt is None:
+        opt = pick_option(nfo, und, "CE" if target > spot else "PE", spot, date.today().isoformat())
+        if opt is None:
+            return {"error": f"no 1-strike-in-the-money option listed for {und}"}
+    pos = next((p for p in held if p["tradingsymbol"] == opt["tradingsymbol"]), None)
+    oq = _quote(f"NFO:{opt['tradingsymbol']}")
+    depth = oq.get("depth") or {}
+    bid, ask = ((depth.get(x) or [{}])[0].get("price") for x in ("buy", "sell"))
+    premium = (bid + ask) / 2 if bid and ask else oq.get("last_price")
+    if not premium:
+        return {"error": f"no live price for {opt['tradingsymbol']}"}
+    is_call = opt["instrument_type"] == "CE"
+    K, lot = float(opt["strike"]), int(opt["lot_size"])
+    T = max((date.fromisoformat(str(opt["expiry"])) - date.today()).days, 1) / 365
+    row = next((r for r in board().get("rows", []) if r["symbol"] == und), None)
+    with_trend = row is not None and row["trend"] == ("UP" if is_call else "DOWN")
+    est = estimate(spot, target, K, T, premium, is_call, lot, row["line"] if with_trend else None)
+    if est is None:
+        return {"error": f"could not fit a volatility to the live premium ₹{premium}"}
+    out = {"symbol": und, "spot": spot, "target": target, "move_pct": round((target / spot - 1) * 100, 2),
+           "option": opt["tradingsymbol"], "which": "yours" if pos else "typed" if symbol == opt["tradingsymbol"] else "rules",
+           "kind": opt["instrument_type"], "strike": K, "expiry": str(opt["expiry"]), "days": round(T * 365), "lot": lot,
+           "premium": round(premium, 2), "bid": bid or None, "ask": ask or None,
+           "quote_at": str(oq.get("last_trade_time") or oq.get("timestamp") or ""),
+           "trend": row["trend"] if row else None, "with_trend": with_trend,
+           "stop_line": row["line"] if with_trend else None, **est}
+    if pos:
+        qty, avg = int(pos["quantity"]), float(pos.get("average_price") or 0.0)
+        out.update({"qty": qty, "avg": avg, **position_figures(premium, est, qty, avg)})
+    return out

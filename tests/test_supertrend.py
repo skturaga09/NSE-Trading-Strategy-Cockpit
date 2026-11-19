@@ -81,11 +81,14 @@ class Row(unittest.TestCase):
         closed = datetime.fromisoformat(cs[-2][0])
         r = ST.row("ABC", cs, closed)
         self.assertEqual((r["trend"], r["since"], r["since_close"], r["close"]), ("DOWN", cs[30][0], 90.0, 89.0))
+        # flip candle body 129 -> 90 = 39; the 14 candles before it each range 3 (prev close inside), so 13x a normal candle
+        self.assertEqual(r["since_strength"], 13.0)
+        self.assertTrue(r["since_strong"])                 # 13x a normal candle is above STRONG_MIN
 
     def test_no_flip_in_history_says_so(self):
         cs = bars([100 + i for i in range(30)])
         r = ST.row("ABC", cs, datetime.fromisoformat(cs[-1][0]))
-        self.assertEqual((r["trend"], r["since"]), ("UP", None))   # the only "flip" is away from the starting assumption
+        self.assertEqual((r["trend"], r["since"], r["since_strength"]), ("UP", None, None))   # the only "flip" is away from the starting assumption
         self.assertEqual(r["since_at_least"], cs[ST.supertrend(cs).index(next(x for x in ST.supertrend(cs) if x and x[0] == 1))][0])
 
 

@@ -12,11 +12,14 @@ agree; next day the line stop sells on the flip), "depends_ps" (the same + sell 
 Candidates are SAVED (data/engine/supertrend_journal.sqlite) because Kite keeps minute history only for listed contracts
 (F-HIST-7): once a contract expires its trades can no longer be re-priced. Open ones are re-priced each evening.
 
-Account (owner 2026-11-13): ₹50,000 to start; a trade may use the whole cash balance (no per-trade cap); profits are
-reused and losses shrink it. Signals in time order, same candle -> strongest volume first; max 4 open, 5 trades a day.
+Universe and account match the live paper account (owner 2026-11-16): the Supertrend board's stocks and indices
+(dashboard.supertrend._tokens, ~222) and its ₹1,00,000 start (supertrend_paper.START_CASH); a trade may use the whole
+cash balance; profits are reused and losses shrink it. Signals in time order, same candle -> strongest volume first;
+max 4 open, 5 trades a day.
 Versions replayed side by side from the same candidates:
-  MAIN  the owner's rules: line stop, daily loss stop 10 % of the balance, 2 losses in a row -> done for the day
-  NO_DAY_LIMITS   MAIN without the daily loss stop and the 2-loss rule (do they help?)
+  MAIN  the owner's rules: line stop, the live day loss budget (10 % of the day's opening balance + today's closed P&L,
+        each open lot counting RISK = 30 % of its premium; supertrend_trades.view), 2 losses in a row -> done for the day
+  NO_DAY_LIMITS   MAIN without the day loss budget and the 2-loss rule (do they help?)
   PREMIUM_STOP    MAIN + sell if the option trades 25 % below entry (does it help?)
 Output for the dashboard: data/engine/supertrend_journal.json.
 
@@ -42,19 +45,23 @@ from engine.backfill import TokenBucket                             # noqa: E402
 from engine.broker import KiteSession                               # noqa: E402
 from engine.candles import IST                                      # noqa: E402
 from engine.costs import round_trip                                 # noqa: E402
-from engine.universe import Registry                                # noqa: E402
+from dashboard.option_chain import _instruments                     # noqa: E402
+from dashboard.supertrend import _tokens                            # noqa: E402
+from dashboard.supertrend_paper import START_CASH                   # noqa: E402
+from dashboard.supertrend_trades import LIMITS as LIVE, RISK        # noqa: E402
 from supertrend_options_test import (CUT, HALF, LAST_ENTRY, NO_FILL_MIN, PREMIUM_STOP, _trend_at, account,  # noqa: E402
                                      exit_depends, exits, fill)
 from supertrend_research import to15                                # noqa: E402
 
-CAPITAL = 50_000
+CAPITAL = START_CASH                 # the live paper account's start, so the replay's budget is the same
 NO_CAP = float("inf")
 VERSIONS = (
-    ("MAIN", "Your rules: line stop · daily loss stop 10% of balance · 2 losses in a row = done for the day", "depends",
-     {"max_premium": NO_CAP, "day_stop_pct": 0.10, "cooldown": 2}),
-    ("NO_DAY_LIMITS", "Without the daily loss stop and the 2-loss rule", "depends", {"max_premium": NO_CAP}),
+    ("MAIN", "Your rules: line stop · day loss budget 10% of balance (each lot counts 30% of its premium) · "
+             "2 losses in a row = done for the day", "depends",
+     {"max_premium": NO_CAP, "risk_budget": (LIVE["day_loss_pct"], RISK), "cooldown": 2}),
+    ("NO_DAY_LIMITS", "Without the day loss budget and the 2-loss rule", "depends", {"max_premium": NO_CAP}),
     ("PREMIUM_STOP", "Your rules + sell if the option trades 25% below entry", "depends_ps",
-     {"max_premium": NO_CAP, "day_stop_pct": 0.10, "cooldown": 2}),
+     {"max_premium": NO_CAP, "risk_budget": (LIVE["day_loss_pct"], RISK), "cooldown": 2}),
 )
 EXIT_KEYS = ("depends", "depends_ps", "intraday")
 WARMUP_DAYS = 14                     # calendar days of 5-minute candles before the day: Supertrend 5m/15m fully settled
@@ -136,28 +143,34 @@ def is_trading_day(cfg, d: date) -> bool:
     return d.weekday() < 5 and all(h["date"] != d for h in cfg.get("restrictions.holidays"))
 
 
-def run_day(cfg, db, kite, reg, day: date, ref: date) -> dict:
-    """Record `day`'s candidates and re-price every open one with data through `day`. `ref` = the date whose exchange
-    master gives the universe and option chain (today: a backfill only reaches back while those contracts are listed)."""
-    uni = reg.get_universe(ref)
-    nifty_u = cfg.get("positioning.beta.index_underlying")
+def universe() -> tuple:
+    """The live board's symbols -> spot token, and each one's option chain from TODAY's NFO master (a backfill only
+    reaches back while those contracts are listed: Kite keeps minute history only for listed contracts, F-HIST-7)."""
+    chains = defaultdict(list)
+    for r in _instruments():
+        if r["instrument_type"] in ("CE", "PE"):
+            chains[r["name"]].append((date.fromisoformat(r["expiry"]), float(r["strike"]), r["instrument_type"],
+                                      int(r["instrument_token"]), int(r["lot_size"])))
+    return {s: int(t) for s, t in _tokens().items()}, chains
+
+
+def run_day(cfg, db, kite, uni: dict, chains: dict, day: date) -> dict:
+    """Record `day`'s candidates and re-price every open one with data through `day`. `uni`, `chains`: universe()."""
     open_by_sym = defaultdict(list)
     for c in load(db, "WHERE final = 0"):
         if c["t"].date() < day:
             open_by_sym[c["sym"]].append(c)
     stats = defaultdict(int)
-    for m in sorted(uni.members, key=lambda m: m.underlying):
-        if m.underlying == nifty_u or not m.spot_token:
-            continue
-        olds = open_by_sym.get(m.underlying, [])
+    for sym, spot_token in sorted(uni.items()):
+        olds = open_by_sym.get(sym, [])
         first = min([c["t"].date() for c in olds] + [day])
-        cs5 = [c[:6] for c in kite.bars(m.spot_token, "5minute", first - timedelta(days=WARMUP_DAYS), day)]
+        cs5 = [c[:6] for c in kite.bars(spot_token, "5minute", first - timedelta(days=WARMUP_DAYS), day)]
         if not cs5:
             continue
         st, ends5 = supertrend(cs5), [c[0] + timedelta(minutes=5) for c in cs5]
         c15 = to15(cs5)
         st15, ends15 = supertrend(c15), [c[0] + timedelta(minutes=15) for c in c15]
-        m1 = [c[:5] for c in kite.bars(m.spot_token, "minute", first, day)]
+        m1 = [c[:5] for c in kite.bars(spot_token, "minute", first, day)]
         slot, rvol = defaultdict(list), []
         for c in cs5:
             h = slot[(c[0].hour, c[0].minute)]
@@ -167,8 +180,7 @@ def run_day(cfg, db, kite, reg, day: date, ref: date) -> dict:
             ob = [b[:5] for b in kite.bars(c["token"], "minute", c["t"].date(), day)]
             c.update(price_exits(c, st, ends5, st15, ends15, cs5, m1, ob, cfg))
             save(db, c)
-        chain = [(cc.expiry, float(cc.strike), cc.instrument_type, cc.token, cc.lot_size)
-                 for cc in reg.get_contracts(m.underlying, ref) if cc.instrument_type in ("CE", "PE")]
+        chain = chains.get(sym, [])
         for k in range(1, len(cs5)):
             t0 = cs5[k][0]
             if t0.date() != day or not (st[k] and st[k - 1]) or st[k][0] == st[k - 1][0]:
@@ -199,8 +211,8 @@ def run_day(cfg, db, kite, reg, day: date, ref: date) -> dict:
             if e is None:
                 stats["option not traded within 5 min of the flip"] += 1
                 continue
-            c = {"id": f"{t.isoformat()}|{m.underlying}", "sym": m.underlying, "t": t, "side": side, "kind": kind,
-                 "contract": f"{m.underlying} {strike:g} {kind} {exp}", "token": tok, "lot": lot, "expiry": str(exp),
+            c = {"id": f"{t.isoformat()}|{sym}", "sym": sym, "t": t, "side": side, "kind": kind,
+                 "contract": f"{sym} {strike:g} {kind} {exp}", "token": tok, "lot": lot, "expiry": str(exp),
                  "rvol": rvol[k], "entry_t": e[0].isoformat(), "entry_px": e[1], "premium": e[1] * (1 + HALF) * lot}
             c.update(price_exits(c, st, ends5, st15, ends15, cs5, m1, ob, cfg))
             save(db, c)
@@ -278,11 +290,11 @@ def _main(cfg, args: list) -> int:
         if start == now.date() and now.time() < dtime(15, 35):
             print("today's session is not over yet; nothing recorded", file=sys.stderr)
         else:
-            kite, reg = Kite(cfg), Registry(cfg)
+            kite, (uni, chains) = Kite(cfg), universe()
             d = start
             while d <= now.date():
                 if is_trading_day(cfg, d) and (d < now.date() or now.time() >= dtime(15, 35)):
-                    print(d, run_day(cfg, db, kite, reg, d, now.date()), flush=True)
+                    print(d, run_day(cfg, db, kite, uni, chains, d), flush=True)
                 d += timedelta(days=1)
     data = replay(db)
     (cfg.root / "supertrend_journal.json").write_text(json.dumps(data))

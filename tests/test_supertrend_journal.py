@@ -38,24 +38,51 @@ class Journal(unittest.TestCase):
         back = J.load(self.db)
         self.assertEqual((back[0]["sym"], back[0]["depends"]["net"], back[0]["t"]), ("A", 500, T0))
 
-    def test_replay_uses_the_whole_balance_reuses_profit_and_reports_skips(self):
-        # 50k: A (45k premium) fits alone; B must wait; after A closes +10k, C (55k) fits in the 60k balance
-        for c in (cand("A", 0, 10_000, prem=45_000, out_min=30), cand("B", 5, 4_000, prem=20_000),
-                  cand("C", 40, -1_000, prem=55_000)):
+    def replay(self, *cands, versions=("MAIN",)):
+        for c in cands:
             J.save(self.db, c)
-        self.db.execute("INSERT INTO days VALUES ('2026-11-02', '{}')")
-        main = next(v for v in J.replay(self.db)["versions"] if v["id"] == "MAIN")
-        self.assertEqual([t["sym"] for t in main["trades"]], ["C", "A"])
-        self.assertEqual((main["summary"]["balance"], main["summary"]["trades"]), (59_000, 2))
-        self.assertEqual(main["skipped"], [{"reason": "not enough cash", "count": 1, "would_have_made": 4_000}])
-        self.assertEqual(main["curve"], [{"day": "2026-11-02", "pnl": 9_000, "balance": 59_000}])
-
-    def test_daily_stop_is_ten_percent_of_the_balance(self):
-        for c in (cand("A", 0, -5_000, out_min=5), cand("B", 10, 1_000)):
-            J.save(self.db, c)
+        self.db.execute("INSERT OR REPLACE INTO days VALUES ('2026-11-02', '{}')")
         v = {x["id"]: x for x in J.replay(self.db)["versions"]}
-        self.assertEqual([s["reason"] for s in v["MAIN"]["skipped"]], ["daily loss stop (10% of the balance) hit"])
-        self.assertEqual(len(v["NO_DAY_LIMITS"]["trades"]), 2)
+        return [v[k] for k in versions] if len(versions) > 1 else v[versions[0]]
+
+    def test_whole_balance_usable_and_profit_reused_without_day_limits(self):
+        # 1L: A (90k premium) fits alone; B must wait; after A closes +10k, C (1.05L) fits in the 1.1L balance
+        v = self.replay(cand("A", 0, 10_000, prem=90_000, out_min=30), cand("B", 5, 4_000, prem=20_000),
+                        cand("C", 40, -1_000, prem=105_000), versions=("NO_DAY_LIMITS",))
+        self.assertEqual(J.CAPITAL, 100_000)                                   # the paper account's start
+        self.assertEqual([t["sym"] for t in v["trades"]], ["C", "A"])
+        self.assertEqual((v["summary"]["balance"], v["summary"]["trades"]), (109_000, 2))
+        self.assertEqual(v["skipped"], [{"reason": "not enough cash", "count": 1, "would_have_made": 4_000}])
+
+    def test_main_uses_the_live_day_loss_budget_as_at_0921_on_16_nov(self):
+        # the 09:20 signals the paper account saw, in its order; 10% of 1L = 10k, each lot counts 30% of its premium
+        sigs = [("VEDL", 10_500), ("UNIONBANK", 26_506), ("TATASTEEL", 12_733), ("PIIND", 8_479), ("BANKBARODA", 16_965)]
+        cs = []
+        for i, (sym, prem) in enumerate(sigs):
+            c = cand(sym, 0, 100, prem=prem)
+            c["rvol"] = 10 - i
+            cs.append(c)
+        main = self.replay(*cs)
+        self.assertEqual(sorted(t["sym"] for t in main["trades"]), ["PIIND", "TATASTEEL", "VEDL"])   # what paper bought
+        self.assertEqual(main["skipped"], [{"reason": "day loss budget (10% of the balance) used up", "count": 2,
+                                            "would_have_made": 200}])
+
+    def test_closed_losses_shrink_the_budget(self):
+        # A loses 9k -> 10k - 9k = 1k left; B's lot counts 6k -> skipped. Without day limits both trade.
+        main, free = self.replay(cand("A", 0, -9_000, out_min=5), cand("B", 10, 1_000), versions=("MAIN", "NO_DAY_LIMITS"))
+        self.assertEqual([s["reason"] for s in main["skipped"]], ["day loss budget (10% of the balance) used up"])
+        self.assertEqual(len(free["trades"]), 2)
+
+    def test_universe_is_the_live_board_with_todays_option_chain(self):
+        nfo = [{"name": "PIIND", "instrument_type": "PE", "expiry": "2026-11-24", "strike": "1720", "instrument_token": "7",
+                "lot_size": "175"}, {"name": "PIIND", "instrument_type": "FUT", "expiry": "2026-11-24", "strike": "0",
+                "instrument_token": "8", "lot_size": "175"}]
+        with mock.patch.object(J, "_tokens", return_value={"PIIND": "123", "NIFTY": "256265"}), \
+                mock.patch.object(J, "_instruments", return_value=nfo):
+            uni, chains = J.universe()
+        from datetime import date
+        self.assertEqual(uni, {"PIIND": 123, "NIFTY": 256265})
+        self.assertEqual(dict(chains), {"PIIND": [(date(2026, 11, 24), 1720.0, "PE", 7, 175)]})
 
     def test_expiry_day_forces_the_exit(self):
         from datetime import date

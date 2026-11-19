@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
    sells on your exit rules and keeps a 25 % stop-loss in Zerodha. OFF = it only logs what it would send. */
 
 interface Act { at: string; option: string; action: string; why: string; armed: boolean; order_id?: string }
-interface Status { armed: boolean; managed: Record<string, { since: string }>; log: Act[] }
+interface Status { armed: boolean; entries: boolean; managed: Record<string, { since: string }>; log: Act[] }
 
 export function SupertrendAuto() {
   const [s, setS] = useState<Status | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [confirmBuy, setConfirmBuy] = useState(false);
   const [err, setErr] = useState("");
   const load = () => fetch(`/api/supertrend/auto?_t=${Date.now()}`).then((r) => r.json()).then(setS).catch(() => {});
   useEffect(() => {
@@ -16,11 +17,12 @@ export function SupertrendAuto() {
     const id = setInterval(load, 20000);
     return () => clearInterval(id);
   }, []);
-  const flip = async (armed: boolean) => {
+  const flip = async (body: { armed: boolean } | { entries: boolean }) => {
     setErr("");
     setConfirming(false);
+    setConfirmBuy(false);
     try {
-      const r = await fetch("/api/supertrend/auto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ armed }) });
+      const r = await fetch("/api/supertrend/auto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error((await r.json()).error || `switch refused (${r.status})`);
       await load();
     } catch (e) {
@@ -38,11 +40,11 @@ export function SupertrendAuto() {
         </h2>
         <div className="flex items-center gap-2 font-mono text-[11px]">
           {s.armed ? (
-            <button onClick={() => void flip(false)} className="rounded border border-line px-3 py-1 font-bold text-ink hover:bg-line/30">Switch off</button>
+            <button onClick={() => void flip({ armed: false })} className="rounded border border-line px-3 py-1 font-bold text-ink hover:bg-line/30">Switch off</button>
           ) : confirming ? (
             <>
               <span className="text-[var(--red)]">Real SELL and stop-loss orders will go to Kite.</span>
-              <button onClick={() => void flip(true)} className="rounded border border-[var(--red)] px-3 py-1 font-bold text-[var(--red)] hover:bg-[var(--red)]/10">Yes, switch on</button>
+              <button onClick={() => void flip({ armed: true })} className="rounded border border-[var(--red)] px-3 py-1 font-bold text-[var(--red)] hover:bg-[var(--red)]/10">Yes, switch on</button>
               <button onClick={() => setConfirming(false)} className="rounded border border-line px-3 py-1 text-muted hover:text-ink">Cancel</button>
             </>
           ) : (
@@ -51,8 +53,23 @@ export function SupertrendAuto() {
         </div>
       </div>
       <p className="font-mono text-[10px] text-muted">
-        Only options bought with the Buy in Kite button above. On a SELL it cancels the stop-loss in Zerodha first, then sells at the best bid; while holding it keeps the 25 % stop-loss in Zerodha. Entries stay with you.
+        Only options bought with the Buy in Kite button above. On a SELL it cancels the stop-loss in Zerodha first, then sells at the best bid; while holding it keeps the 25 % stop-loss in Zerodha. Auto entries (below) buy 1 lot of each TAKE signal at the ask; an unfilled buy is cancelled after 5 minutes.
       </p>
+      <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
+        <span className="font-bold text-ink">Auto entries</span>
+        <span className={`rounded px-2 py-0.5 ${s.entries && s.armed ? "bg-[var(--red)]/15 text-[var(--red)]" : "bg-line/40 text-muted"}`}>{s.entries && s.armed ? "ON: buys TAKE signals itself, 1 lot" : s.entries ? "waiting: needs auto exits ON" : "OFF: logs WOULD BUY only"}</span>
+        {s.entries ? (
+          <button onClick={() => void flip({ entries: false })} className="rounded border border-line px-3 py-1 font-bold text-ink hover:bg-line/30">Switch off</button>
+        ) : confirmBuy ? (
+          <>
+            <span className="text-[var(--red)]">Real BUY orders will go to Kite without asking you.</span>
+            <button onClick={() => void flip({ entries: true })} className="rounded border border-[var(--red)] px-3 py-1 font-bold text-[var(--red)] hover:bg-[var(--red)]/10">Yes, switch on</button>
+            <button onClick={() => setConfirmBuy(false)} className="rounded border border-line px-3 py-1 text-muted hover:text-ink">Cancel</button>
+          </>
+        ) : (
+          <button onClick={() => setConfirmBuy(true)} className="rounded border border-line px-3 py-1 text-muted hover:text-ink">Switch on…</button>
+        )}
+      </div>
       {err && <p className="font-mono text-[11px] text-[var(--red)]">⚠ {err}</p>}
       <p className="font-mono text-[11px] text-muted">Managing: {managed.length ? <span className="text-ink">{managed.join(", ")}</span> : "nothing yet"}</p>
       {s.log.length > 0 && (

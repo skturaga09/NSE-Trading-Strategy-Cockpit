@@ -6,7 +6,8 @@ import { useEffect, useState } from "react";
 interface Pos { option: string; qty: number; entry: number; entry_at: string; ltp: number }
 interface Closed extends Pos { exit: number; exit_at: string; exit_why: string; net: number; costs: number }
 interface Order { at: string; tradingsymbol: string; transaction_type: string; quantity: number; price: number }
-interface Paper { start: number; cash: number; open: Pos[]; closed: Closed[]; orders: Order[]; shadow?: { open: Pos[]; closed: Closed[] } }
+interface Book { start: number; cash: number; open: Pos[]; closed: Closed[] }
+interface Paper extends Book { orders: Order[]; shadow?: { open: Pos[]; closed: Closed[] }; strong?: Book }
 
 const inr = (x: number) => `${x < 0 ? "−" : ""}₹${Math.abs(Math.round(x)).toLocaleString("en-IN")}`;
 const hm = (iso: string) => `${iso.slice(5, 10)} ${iso.slice(11, 16)}`;
@@ -32,6 +33,16 @@ export function SupertrendPaper() {
   const both = p.closed.filter((c) => shClosed.has(key(c)));
   const touchNet = both.reduce((a, c) => a + c.net, 0);
   const closeNet = both.reduce((a, c) => a + shClosed.get(key(c))!.net, 0);
+  // strong-candle test book (own ₹1L): compared with the main book's trades bought since the test's first buy
+  const s = p.strong;
+  const since = s ? [...s.open, ...s.closed].map((x) => x.entry_at).sort()[0] : undefined;
+  const sum = (b: { open: Pos[]; closed: Closed[] }, from: string) => {
+    const c = b.closed.filter((x) => x.entry_at >= from);
+    const o = b.open.filter((x) => x.entry_at >= from);
+    return { n: c.length, won: c.filter((x) => x.net > 0).length, booked: c.reduce((a, x) => a + x.net, 0),
+             open: o.length, mtm: o.reduce((a, x) => a + (x.ltp - x.entry) * x.qty, 0) };
+  };
+  const line = (r: ReturnType<typeof sum>) => <>{r.n} closed, {r.won} won, booked <span className={tone(r.booked)}>{inr(r.booked)}</span>{r.open > 0 && <> · {r.open} open <span className={tone(r.mtm)}>{inr(r.mtm)}</span></>}</>;
   return (
     <div className="panel space-y-3 rounded-lg p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -45,6 +56,12 @@ export function SupertrendPaper() {
         <p className="font-mono text-[11px] text-muted">
           Exit test, same trades: sell on line touch (used) vs wait for a 5-min candle to close against you (shadow).{" "}
           {both.length === 0 ? "No trade closed in both yet." : <>On {both.length} closed in both: touch <span className={tone(touchNet)}>{inr(touchNet)}</span> · candle close <span className={tone(closeNet)}>{inr(closeNet)}</span>{shOpen.size > 0 && ` · ${shOpen.size} still held by the candle-close exit`}</>}
+        </p>
+      )}
+      {s && (
+        <p className="font-mono text-[11px] text-muted">
+          Strong-candle test (own ₹1L, buys only flips whose candle is 1.9× a normal 5-min candle or bigger).{" "}
+          {!since ? "No strong signal bought yet." : <>Since {hm(since)} — strong: {line(sum(s, since))} · this book: {line(sum(p, since))}</>}
         </p>
       )}
       {p.open.length === 0 && p.closed.length === 0 && <p className="font-mono text-[11px] text-muted">No paper trade yet: the first one is taken at the next signal that fits your rules (market hours, Mac awake).</p>}

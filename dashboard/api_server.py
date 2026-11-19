@@ -279,6 +279,16 @@ def exits_target_calc() -> Dict[str, Any]:
     return target_calc.compute()
 
 
+@app.get("/api/supertrend/target")
+def supertrend_target_ep(symbol: str, target: float) -> Dict[str, Any]:
+    """Stock target -> premium of the 1-strike-OTM option, live Kite prices; reward : risk against the Supertrend stop."""
+    from dashboard import target_calc
+    try:
+        return target_calc.forward(symbol, target)
+    except Exception as e:   # Kite down / token expired: say so on the panel
+        return {"error": f"Kite request failed: {e}"[:200]}
+
+
 @app.get("/api/exits/levels")
 def exits_levels_get() -> Dict[str, Any]:
     """Your per-position custom exit levels (stop/target the monitor alerts on)."""
@@ -376,7 +386,7 @@ def supertrend_trades_ep() -> Dict[str, Any]:
 def supertrend_paper_ep() -> Dict[str, Any]:
     """Live paper trading of the Supertrend rules (supertrend_paper.py): paper account, its orders and P&L. No Kite call."""
     from dashboard import supertrend_paper
-    return supertrend_paper.load()
+    return {**supertrend_paper.load(), "strong": supertrend_paper.load(supertrend_paper.STRONG_STATE)}
 
 
 @app.get("/api/supertrend/auto")
@@ -398,8 +408,10 @@ async def supertrend_auto_switch_ep(request: Request) -> JSONResponse:
     if origin and origin not in _DASHBOARD_ORIGINS:
         return JSONResponse({"error": "refused: not the dashboard"}, status_code=403)
     body = await request.json()
+    if isinstance(body.get("entries"), bool):     # stage 3 auto entries: its own switch
+        return JSONResponse(supertrend_auto.set_entries(body["entries"]), status_code=200)
     if not isinstance(body.get("armed"), bool):
-        return JSONResponse({"error": "send {\"armed\": true} or {\"armed\": false}"}, status_code=400)
+        return JSONResponse({"error": "send {\"armed\": true|false} or {\"entries\": true|false}"}, status_code=400)
     return JSONResponse(supertrend_auto.set_armed(body["armed"]), status_code=200)
 
 
@@ -445,6 +457,10 @@ def supertrend_check_ep() -> JSONResponse:
                 out["auto"] = supertrend_auto.step(v=v)   # stage 2: sends orders only when switched on
             except Exception as e:
                 out["auto_error"] = str(e)[:200]
+            try:
+                out["auto_entries"] = supertrend_auto.enter(v=v)   # stage 3: buys only when both switches are on
+            except Exception as e:
+                out["auto_entries_error"] = str(e)[:200]
         try:
             from dashboard import supertrend_paper
             out["paper"] = supertrend_paper.step()

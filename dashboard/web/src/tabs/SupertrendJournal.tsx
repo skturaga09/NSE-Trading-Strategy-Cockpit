@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 /* =============================================================================
    SUPERTREND JOURNAL — paper trades of the owner's Supertrend rules on REAL option
-   prices (scripts/supertrend_journal.py, every weekday 16:30). ₹50,000 start, the whole
+   prices (scripts/supertrend_journal.py, every weekday 16:30). ₹1,00,000 start as the paper account, the whole
    balance usable, profits reused. Each version is the same signals under different
    risk rules, so the rules can be judged on our own trades. Paper only: no orders.
 ============================================================================= */

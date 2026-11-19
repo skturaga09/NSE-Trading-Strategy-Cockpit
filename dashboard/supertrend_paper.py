@@ -20,6 +20,11 @@ SHADOW BOOK (owner 2026-11-13): every paper buy is copied into st["shadow"] at t
 a 5-minute candle CLOSES with the opposite Supertrend signal (no line-touch stop); premium stop, 15:15 and expiry rules
 are the same. It never touches the main book's cash, budget or entries: the two differ only in the exit.
 Backtest 2 Sep-12 Nov (751 signals): touch +₹848 / trade, candle close +₹676 / trade.
+
+STRONG BOOK (owner 2026-11-19): a second, separate ₹1,00,000 paper account (STRONG_STATE) run by the same rules, except
+it buys only signals whose flip candle's body is at least STRONG_MIN x the average 5-minute range (ATR of the 14 candles
+before it). Own cash, 4-open / order / day-loss limits and 2-losses rule, no shadow, no phone alerts. Replay 28 Oct-17 Nov
+(1,310 signals, cut fixed at the top tercile): ₹6.7 -> ₹11.1 per ₹100 trending, -₹0.5 -> +₹3.0 sideways. Paper decides.
 """
 
 import json
@@ -27,16 +32,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from dashboard.supertrend import IST
+from dashboard.supertrend import IST, STRONG_MIN
 
 START_CASH, HALF = 100_000.0, 0.01
 MAX_LOTS = 1          # owner 2026-11-13: 1 lot per signal (backtest 2 Sep-12 Nov: more trades, smaller falls than flexible lots)
 STATE = Path(__file__).resolve().parents[1] / "data" / "engine" / "supertrend_paper.json"
+STRONG_STATE = STATE.with_name("supertrend_paper_strong.json")
 
 
-def load() -> Dict[str, Any]:
+def load(path: Optional[Path] = None) -> Dict[str, Any]:
     try:
-        return json.loads(STATE.read_text())
+        return json.loads((path or STATE).read_text())
     except (OSError, ValueError):
         return {"start": START_CASH, "cash": START_CASH, "open": [], "closed": [], "orders": [], "day": None}
 
@@ -73,20 +79,34 @@ def _day_blocked(st: Dict[str, Any], today: str) -> Optional[str]:
 
 
 def step(now: Optional[datetime] = None, notify=None, view=None) -> Dict[str, Any]:
-    """One minute of paper trading. -> {bought, sold, balance, errors}."""
+    """One minute of paper trading, main book then the strong-candle book. -> {bought, sold, balance, errors, strong}."""
     from dashboard import supertrend_trades as T
     now = now or datetime.now(IST)
     view = view or T.view
-    today, at = now.date().isoformat(), now.isoformat(timespec="seconds")
-    st = load()
-    if st.get("day") != today:
-        st.update(day=today, keys=[], day_open=st["cash"] + sum(p["qty"] * p["entry"] for p in st["open"]))  # booked only
-    buys = [{"exchange": "NFO", "transaction_type": "BUY", "status": "COMPLETE"}
-            for p in st["open"] + st["closed"] if p["entry_at"][:10] == today]
-    v = view(now, account=(st["cash"], _net(st["open"]), buys, st["day_open"]), max_lots=MAX_LOTS,
-             peaks={p["option"]: p.get("peak", p["entry"]) for p in st["open"]})
     if notify is None:
         from dashboard.exit_monitor import notify
+    out = _book(STATE, now, view, notify, shadow=True)
+    try:                                             # the test book never stops the main one
+        s = _book(STRONG_STATE, now, view, lambda *a, **k: None, shadow=False, strong_min=STRONG_MIN)
+        out["strong"] = {k: s[k] for k in ("bought", "sold", "balance")}
+        out["errors"] += [f"strong book: {e}" for e in s["errors"] if "not bought" in e]
+    except Exception as e:
+        out["errors"].append(f"strong book: {str(e)[:120]}")
+    return out
+
+
+def _book(path: Path, now: datetime, view, notify, shadow: bool, strong_min: Optional[float] = None) -> Dict[str, Any]:
+    """One minute of one paper account: exits, then entries for the TAKE signals (strong_min: see view())."""
+    today, at = now.date().isoformat(), now.isoformat(timespec="seconds")
+    st = load(path)
+    if st.get("day") != today:
+        st.update(day=today, keys=[], day_open=st["cash"] + sum(p["qty"] * p["entry"] for p in st["open"]))  # booked only
+    buys = [{"exchange": "NFO", "transaction_type": side, "status": "COMPLETE"}      # today's paper buys and sells
+            for side, k, ps in (("BUY", "entry_at", st["open"] + st["closed"]), ("SELL", "exit_at", st["closed"]))
+            for p in ps if p[k][:10] == today]
+    kw = {"strong_min": strong_min} if strong_min is not None else {}     # main book: view() exactly as before
+    v = view(now, account=(st["cash"], _net(st["open"]), buys, st["day_open"]), max_lots=MAX_LOTS,
+             peaks={p["option"]: p.get("peak", p["entry"]) for p in st["open"]}, **kw)
     out = {"bought": [], "sold": [], "errors": v["errors"]}
 
     # exits first: they free cash and slots for this minute's entries
@@ -104,7 +124,7 @@ def step(now: Optional[datetime] = None, notify=None, view=None) -> Dict[str, An
         notify(f"PAPER SELL {p['option']}: {'+' if c['net'] >= 0 else ''}₹{c['net']:,.0f}", d["why"],
                tags=["memo"], priority=3)
 
-    sh = st.setdefault("shadow", {"open": [], "closed": []})
+    sh = st.setdefault("shadow", {"open": [], "closed": []}) if shadow else {"open": []}
     blocked = _day_blocked(st, today)
     for s in v["signals"]:
         key = f"{s['symbol']}|{today}|{s['signal_at']}"
@@ -119,9 +139,10 @@ def step(now: Optional[datetime] = None, notify=None, view=None) -> Dict[str, An
         st["cash"] -= entry * o["quantity"]
         st["keys"].append(key)
         pos = {"option": s["option"], "underlying": s["symbol"], "qty": o["quantity"], "entry": entry,
-               "entry_at": at, "signal_at": s["signal_at"], "ltp": s["ltp"]}
+               "entry_at": at, "signal_at": s["signal_at"], "ltp": s["ltp"], "delta": s.get("delta")}
         st["open"].append(pos)
-        sh["open"].append(dict(pos))
+        if shadow:
+            sh["open"].append(dict(pos))
         st["orders"].append({"at": at, **o})
         out["bought"].append(s["option"])
         notify(f"PAPER BUY {s['option']} ({o['quantity']} qty)", f"Supertrend {s['trend']} at {s['signal_at']}; "
@@ -141,7 +162,7 @@ def step(now: Optional[datetime] = None, notify=None, view=None) -> Dict[str, An
             if d["action"] == "SELL" and d["ltp"]:
                 out.setdefault("shadow_sold", []).append(_close(sh, p, d, at, now)["option"])
 
-    STATE.parent.mkdir(parents=True, exist_ok=True)
-    STATE.write_text(json.dumps(st, indent=1))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(st, indent=1))
     out["balance"] = round(st["cash"] + sum(p["qty"] * p["ltp"] for p in st["open"]))
     return out

@@ -141,8 +141,10 @@ def account(cands: list, exit_key: str, capital: float | None = None, rules: dic
     `capital`: also a cash account: a trade needs its premium <= capital + closed P&L - premium tied up in open trades.
     `rules` overrides LIMITS; "cooldown": that many losses in a row today -> no new trade until tomorrow;
     "max_premium_pct" / "day_stop_pct": the premium cap / daily loss stop as a share of the balance (needs `capital`;
-    the balance = capital + closed P&L, so profits raise them and losses lower them). `log` gets (candidate, decision)."""
-    R = {**LIMITS, "cooldown": None, "max_premium_pct": None, "day_stop_pct": None, **(rules or {})}
+    the balance = capital + closed P&L, so profits raise them and losses lower them). `log` gets (candidate, decision).
+    "risk_budget": (day_pct, risk) = the live view's day loss budget (supertrend_trades.view): day_pct of the day's opening
+    balance + today's closed P&L - risk x the premium of open trades; a new lot needs risk x its premium within it."""
+    R = {**LIMITS, "cooldown": None, "max_premium_pct": None, "day_stop_pct": None, "risk_budget": None, **(rules or {})}
     taken, skipped = [], defaultdict(int)
     for c in sorted(cands, key=lambda c: (c["t"], -(c["rvol"] or 0), c["sym"])):
         x = c[exit_key]
@@ -163,12 +165,18 @@ def account(cands: list, exit_key: str, capital: float | None = None, rules: dic
         cap_prem = R["max_premium"] if R["max_premium_pct"] is None else R["max_premium_pct"] * (capital + closed_before(t))
         day_stop = R["day_stop"] if R["day_stop_pct"] is None else \
             -R["day_stop_pct"] * (capital + closed_before(datetime.combine(day, dtime(9, 0), IST)))
+        if R["risk_budget"]:
+            pct, risk = R["risk_budget"]
+            budget = pct * (capital + closed_before(datetime.combine(day, dtime(9, 0), IST))) + realized \
+                - risk * sum(o["premium"] for o in open_)
         why = ((f"premium above ₹{cap_prem:,.0f} for 1 lot" if R["max_premium_pct"] is None else
                 f"premium above {R['max_premium_pct']:.0%} of the balance") if c["premium"] > cap_prem else
                "not enough cash" if cash is not None and c["premium"] > cash else
                "already holding this stock" if any(o["sym"] == c["sym"] for o in open_) else
                f"{R['max_open']} positions already open" if len(open_) >= R["max_open"] else
                f"{R['max_per_day']} trades already today" if sum(o["t"].date() == day for o in taken) >= R["max_per_day"] else
+               f"day loss budget ({R['risk_budget'][0]:.0%} of the balance) used up" if R["risk_budget"] and
+               R["risk_budget"][1] * c["premium"] > budget else
                (f"daily loss stop (−₹{-day_stop:,.0f}) hit" if R["day_stop_pct"] is None else
                 f"daily loss stop ({R['day_stop_pct']:.0%} of the balance) hit") if realized <= day_stop else
                f"{n} losses in a row today" if n and len(closed_today) >= n and all(x <= 0 for x in closed_today[-n:]) else None)

@@ -14,6 +14,8 @@ Supertrend "Buy in Kite" ticket (Kite order tag STREND, kept in REG so overnight
                           LIMIT 5 % under the trigger. A GTT on an NFO
                           contract lives until the contract expires (Zerodha GTT terms, NRML on NFO allowed), so it
                           covers overnight and a sleeping Mac; a day SL order would lapse at each close.
+Leftover stop: an active single-leg SELL GTT on an NFO option no longer held (sold by hand) is deleted (owner
+2026-11-18: an orphan ICICIBANK stop 16 % from its trigger could have sold short). Positions unreadable -> nothing.
 Positions not bought with the STREND tag are never touched, unless the owner hands one over with manage() (the
 "Auto-manage" button). A two-leg GTT the owner placed (stop + target) is never modified, so its target is not lost;
 it is still deleted before an auto SELL, since a leftover leg could later sell short.
@@ -41,7 +43,8 @@ ENTRY_TAG, EXIT_TAG = "STREND", "STRENDX"
 LIVE = {"OPEN", "TRIGGER PENDING", "OPEN PENDING", "PUT ORDER REQ RECEIVED", "VALIDATION PENDING",
         "MODIFY VALIDATION PENDING", "MODIFY PENDING", "CANCEL PENDING", "AMO REQ RECEIVED"}   # not yet final
 REPRICE_AFTER_S, MAX_REPRICES, RESEND_WAIT_S = 60, 3, 180
-TRAIL_STEP = 0.02     # raise the GTT trigger only when the trailing stop has moved up >= 2 % (fewer modifications)
+_ORPHANS_SAID: set = set()   # leftover-stop GTT ids already logged in this server process (log/alert once, retry quietly)
+TRAIL_STEP = 0.02    # raise the GTT trigger only when the trailing stop has moved up >= 2 % (fewer modifications)
 
 
 def _read(path: Path, default):
@@ -130,6 +133,35 @@ def step(now: Optional[datetime] = None, v: Optional[Dict[str, Any]] = None, not
             f.write(json.dumps(rec) + "\n")
         if out["armed"]:
             notify(f"AUTO {what}: {tsym}", why, tags=["robot"], priority=5 if "FAILED" in what or "ALERT" in what else 4)
+
+    # A SELL GTT on an option you no longer hold (sold by hand, outside auto exits) could later sell short: delete it.
+    # Positions read raw (not view()'s F&O-stock list) so a held index option keeps its stop; unreadable -> touch nothing.
+    try:
+        owned = {p.get("tradingsymbol") for p in (T._get("/portfolio/positions") or {}).get("net") or []
+                 if int(p.get("quantity") or 0) != 0}
+    except Exception as e:
+        owned = None
+        out["errors"].append(f"positions not readable, leftover stops not checked: {e}")
+    for g in gtts if owned is not None else []:
+        c, legs = g.get("condition") or {}, g.get("orders") or []
+        if g.get("type") != "single" or c.get("exchange") != "NFO" or c.get("tradingsymbol") in owned \
+                or not legs or any(o.get("transaction_type") != "SELL" for o in legs):
+            continue                                   # the owner's two-leg GTT is never touched here
+        tsym = c.get("tradingsymbol")
+        why = (f"SELL {legs[0].get('quantity')} qty, trigger ₹{(c.get('trigger_values') or ['?'])[0]}: "
+               "you no longer hold this option, so it could sell short")
+        if not out["armed"]:
+            if g["id"] not in _ORPHANS_SAID:
+                _ORPHANS_SAID.add(g["id"])
+                act(tsym, "WOULD DELETE LEFTOVER STOP", why, delete_gtt=[g["id"]])
+            continue
+        try:
+            send("DELETE", f"/gtt/triggers/{g['id']}")
+            act(tsym, "LEFTOVER STOP DELETED", why, trigger_id=g["id"])
+        except Exception as e:                         # retried every minute, alerted once
+            if g["id"] not in _ORPHANS_SAID:
+                _ORPHANS_SAID.add(g["id"])
+                act(tsym, "LEFTOVER STOP DELETE FAILED", f"{str(e)[:120]}: delete this GTT in Kite yourself")
 
     for tsym, r in reg.items():
         p = held[tsym]
@@ -238,9 +270,100 @@ def step(now: Optional[datetime] = None, v: Optional[Dict[str, Any]] = None, not
     return out
 
 
+ENTRY_SWITCH, BOUGHT = DATA / "supertrend_auto_entries.json", DATA / "supertrend_auto_buys.json"
+BUY_WAIT_S = 300      # stage 3: a buy not filled in 5 minutes is cancelled (the price has moved on)
+
+
+def entries_armed() -> bool:
+    return bool(_read(ENTRY_SWITCH, {}).get("armed"))
+
+
+def set_entries(on: bool) -> Dict[str, Any]:
+    DATA.mkdir(parents=True, exist_ok=True)
+    ENTRY_SWITCH.write_text(json.dumps({"armed": bool(on), "changed": datetime.now(IST).isoformat(timespec="seconds")}))
+    return {"entries": bool(on)}
+
+
+def enter(now: Optional[datetime] = None, v: Optional[Dict[str, Any]] = None, notify: Optional[Callable] = None,
+          send: Callable = _send) -> Dict[str, Any]:
+    """STAGE 3 AUTO ENTRIES: buy what view() marks TAKE — 1 lot, LIMIT at the ask, tag STREND — and cancel our own buy if
+    it is not filled within BUY_WAIT_S. step() then manages the filled buy (GTT stop, exits) like a ticket buy.
+    Sends only when BOTH switches are on (an entry without auto exits would have no stop). Off = WOULD BUY in the log.
+    Never twice per signal (marked before the send, so a timeout is never resent); one pending buy at a time;
+    nothing on any Kite read error; a failed send switches entries off (kill switch) and alerts the phone."""
+    from dashboard import supertrend_trades as T
+    now = now or datetime.now(IST)
+    v = v or T.view(now)
+    out: Dict[str, Any] = {"armed": entries_armed() and is_armed(), "actions": [], "errors": []}
+    if "account" not in v or v.get("errors"):
+        out["errors"] = v.get("errors") or ["Kite account not readable"]
+        return out
+    if notify is None:
+        from dashboard.exit_monitor import notify
+    day = now.date().isoformat()
+    book = _read(BOUGHT, {})
+    if book.get("day") != day:
+        book = {"day": day, "signals": [], "orders": {}}
+    at = now.isoformat(timespec="seconds")
+
+    def act(tsym: str, what: str, why: str, data: Optional[dict] = None, **extra) -> None:
+        rec = {"at": at, "option": tsym, "action": what, "why": why, "armed": out["armed"], **extra}
+        if data:
+            rec["order"] = data
+        out["actions"].append(rec)
+        with LOG.open("a") as f:
+            f.write(json.dumps(rec) + "\n")
+        if out["armed"]:
+            notify(f"AUTO {what}: {tsym}", why, tags=["robot"], priority=5)
+
+    orders = T._get("/orders") or []
+    pending = [o for o in orders if o.get("order_id") in book["orders"] and o.get("status") in LIVE]
+    for o in pending:                                  # our buy still unfilled after 5 min: cancel it
+        r = book["orders"][o["order_id"]]
+        if out["armed"] and not r.get("cancel_sent") and (now - _when(o)).total_seconds() >= BUY_WAIT_S:
+            r["cancel_sent"] = True
+            try:
+                send("DELETE", f"/orders/regular/{o['order_id']}")
+                act(o["tradingsymbol"], "BUY CANCELLED", f"not filled in {BUY_WAIT_S // 60} min at ₹{o.get('price')}")
+            except Exception as e:
+                act(o["tradingsymbol"], "CANCEL FAILED", f"{str(e)[:120]}: cancel the buy in Kite yourself")
+    ordered = {o.get("tradingsymbol") for o in orders if o.get("transaction_type") == "BUY"}
+    for s in v["signals"]:
+        key = f"{s['symbol']}|{s['signal_at']}"
+        if s["verdict"] != "TAKE" or key in book["signals"] or s["option"] in ordered:
+            continue                                   # already sent, or you bought / tried it yourself today
+        if pending and out["armed"]:
+            break                                      # one buy at a time; a fresh signal is retried next minute
+        # shortcut: always 1 lot (paper sizing, D-80); use s["lots"] once live fills match paper for 10+ days
+        data = {"tradingsymbol": s["option"], "exchange": "NFO", "transaction_type": "BUY", "order_type": "LIMIT",
+                "quantity": int(s["lot"]), "product": "NRML", "price": s["ask"], "validity": "DAY", "tag": ENTRY_TAG}
+        book["signals"].append(key)
+        why = f"{s['symbol']} turned {s['trend']} at {s['signal_at']}: 1 lot = {data['quantity']} qty at ₹{s['ask']}"
+        if s.get("strength") is not None:
+            why += f" · {'STRONG' if s.get('strong') else 'WEAK'} candle {s['strength']:.1f}x normal"
+        if not out["armed"]:
+            act(s["option"], "WOULD BUY", why, data)
+            continue
+        try:
+            oid = send("POST", "/orders/regular", data).get("order_id")
+            book["orders"][oid] = {"key": key}
+            pending = [data]
+            act(s["option"], "BUY", why, data, order_id=oid)
+        except Exception as e:
+            set_entries(False)
+            out["armed"] = False
+            act(s["option"], "BUY FAILED", f"{str(e)[:120]}. Auto entries switched OFF: check Kite", data)
+            notify(f"AUTO BUY FAILED: {s['option']}", "Auto entries switched off. Check Kite.", tags=["robot"], priority=5)
+            break
+    DATA.mkdir(parents=True, exist_ok=True)
+    BOUGHT.write_text(json.dumps(book, indent=1))
+    return out
+
+
 def status(n: int = 50) -> Dict[str, Any]:
     try:
         lines = LOG.read_text().splitlines()[-n:]
     except OSError:
         lines = []
-    return {"armed": is_armed(), "managed": _read(REG, {}), "log": [json.loads(x) for x in reversed(lines)]}
+    return {"armed": is_armed(), "entries": entries_armed(), "managed": _read(REG, {}),
+            "log": [json.loads(x) for x in reversed(lines)]}

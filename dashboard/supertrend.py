@@ -38,6 +38,7 @@ LAST_ALERT = "14:00"
 HISTORY_DAYS = 7          # calendar days of 5-minute candles: ~4-5 sessions, ATR(10) fully settled
 REQ_GAP_S = 0.34          # Kite historical API: 3 requests / second
 IST = ZoneInfo("Asia/Kolkata")
+STRONG_MIN = 1.9         # flip candle body / ATR(14) at or above this = STRONG: top third of signals in the 28 Oct-17 Nov replay
 _STATE = Path(__file__).parent / "supertrend_state.json"
 _BUSY = threading.Lock()
 
@@ -149,10 +150,15 @@ def _trend(cs: List[list]) -> Optional[Dict[str, Any]]:
             k -= 1
         return k
     i = seg_start(len(st) - 1)
+    # flip candle's body vs the average true range of the 14 candles before it (paper test 2026-11-19: strong flips only)
+    trs = [max(float(c[2]), float(p[4])) - min(float(c[3]), float(p[4])) for p, c in zip(cs[i - 15:i - 1], cs[i - 14:i])]
+    strength = round(abs(float(cs[i][4]) - float(cs[i][1])) / (sum(trs) / len(trs)), 2) if len(trs) == 14 and sum(trs) else None
     # a real flip needs a real trend before it: the first run only reflects the starting assumption (DOWN), not a trend
     flipped = i > 0 and st[i - 1] is not None and seg_start(i - 1) > 0 and st[seg_start(i - 1) - 1] is not None
     return {"trend": "UP" if d == 1 else "DOWN", "line": round(line, 2),
             "since": cs[i][0] if flipped else None, "since_close": float(cs[i][4]) if flipped else None,
+            "since_strength": strength if flipped else None,
+            "since_strong": None if strength is None or not flipped else strength >= STRONG_MIN,
             "since_at_least": None if flipped else cs[i][0]}
 
 

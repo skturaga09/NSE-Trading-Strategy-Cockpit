@@ -9,8 +9,9 @@ import { useEffect, useState } from "react";
 interface KiteOrder { [k: string]: string | number | boolean }
 interface Signal {
   symbol: string; trend: "UP" | "DOWN"; signal_at: string; age_min: number; stop_line: number;
-  option?: string; lot?: number; lots?: number; ltp?: number | null; ask?: number | null; bid?: number | null; premium?: number | null;
+  option?: string; lot?: number; lots?: number; ltp?: number | null; ask?: number | null; bid?: number | null; premium?: number | null; delta?: number | null;
   verdict: "TAKE" | "SKIP"; why: string; orders?: KiteOrder[];
+  strength?: number | null; strong?: boolean | null;   // flip candle body vs a normal 5-min candle
 }
 interface Position {
   option: string; underlying: string; qty: number; avg: number; ltp: number | null; pnl: number;
@@ -18,8 +19,8 @@ interface Position {
   sl_in_zerodha: boolean; sell: KiteOrder[]; backstop: KiteOrder[]; managed?: boolean;
 }
 interface View {
-  api_key?: string; account?: { cash: number; balance: number; day_open: number; budget: number; open: number; buys_today: number };
-  limits: { max_open: number; max_buys_per_day: number }; signals: Signal[]; positions: Position[]; errors: string[];
+  api_key?: string; account?: { cash: number; balance: number; day_open: number; budget: number; open: number; orders_today: number };
+  limits: { max_open: number; max_orders_per_day: number }; signals: Signal[]; positions: Position[]; errors: string[];
 }
 
 declare global { interface Window { KiteConnect?: new (apiKey: string) => { add: (o: KiteOrder) => void; connect: () => void; finished: (cb: () => void) => void } } }
@@ -40,7 +41,11 @@ function loadPublisher(): Promise<void> {
 export function SupertrendTrade() {
   const [v, setV] = useState<View | null>(null);
   const [err, setErr] = useState("");
-  const load = () => fetch(`/api/supertrend/trades?_t=${Date.now()}`).then((r) => r.json()).then(setV).catch(() => {});
+  const [autoBuys, setAutoBuys] = useState(false);     // auto entries buys TAKE itself: a Buy button here would buy twice
+  const load = () => {
+    fetch(`/api/supertrend/trades?_t=${Date.now()}`).then((r) => r.json()).then(setV).catch(() => {});
+    fetch("/api/supertrend/auto").then((r) => r.json()).then((a) => setAutoBuys(!!(a.armed && a.entries))).catch(() => {});
+  };
   useEffect(() => {
     void load();
     const id = setInterval(load, 20000);
@@ -74,6 +79,23 @@ export function SupertrendTrade() {
 
   if (!v) return null;
   const take = v.signals.filter((s) => s.verdict === "TAKE");
+  const skipped = v.signals.filter((s) => s.verdict !== "TAKE");
+  const row = (s: Signal) => (
+    <tr key={s.symbol + s.signal_at} className="border-t border-line/50">
+      <td className="py-1.5 pr-3 text-muted">{s.signal_at}</td>
+      <td className="pr-3 font-semibold text-ink">{s.trend === "UP" ? "▲" : "▼"} {s.symbol} <Strength v={s.strength} strong={s.strong} /></td>
+      <td className="pr-3 text-ink">{s.option ?? "—"}</td>
+      <td className="pr-3 text-right text-muted">{s.lots && s.lot ? `${s.lots} lot${s.lots > 1 ? "s" : ""} · ${s.lots * s.lot} qty` : s.lot ? `lot ${s.lot}` : ""}</td>
+      <td className="pr-3 text-right text-ink" title={`best seller ₹${s.ask ?? "—"} · best buyer ₹${s.bid ?? "—"} · last trade ₹${s.ltp ?? "—"}`}>{s.ask ? `ask ₹${s.ask.toFixed(2)}` : "no seller"}{s.ltp && s.ask && Math.abs(s.ltp - s.ask) / s.ask > 0.03 ? <span className="text-muted"> (last ₹{s.ltp.toFixed(2)})</span> : null}</td>
+      <td className="pr-3 text-right text-ink" title="delta: how many ₹ the option moves for ₹1 of stock move (worked out from the option's own price)">{s.delta != null ? `Δ ${s.delta.toFixed(2)}` : "Δ —"}</td>
+      <td className="pr-3 text-right text-ink" title="what the lot(s) cost at the ask">{inr(s.premium != null && s.lots ? s.premium * s.lots : s.premium)}</td>
+      <td className="pr-3 text-muted">stop: stock {s.trend === "UP" ? "below" : "above"} ₹{s.stop_line.toFixed(2)}</td>
+      <td className="text-right">{s.verdict === "TAKE" && autoBuys
+        ? <span className="font-bold text-[var(--green)]">auto mode buys this</span>
+        : s.verdict === "TAKE" && s.orders
+        ? <button onClick={() => void openInKite(s.orders!)} className="rounded border border-[var(--green)] px-3 py-1 font-bold text-[var(--green)] hover:bg-[var(--green)]/10">Buy in Kite</button>
+        : <span className="text-muted">{s.why}</span>}</td>
+    </tr>);
   return (
     <div className="panel space-y-3 rounded-lg p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -81,7 +103,7 @@ export function SupertrendTrade() {
         {v.account && (
           <span className="font-mono text-[11px] text-muted">
             cash <span className="text-ink">{inr(v.account.cash)}</span> · day loss budget left <span className="text-ink" title="Balance (cash + what you paid for open options) minus 90 % of this morning's balance, minus 30 % of what the open options cost. Lots are sized to fit it.">{inr(v.account.budget)}</span> · open <span className="text-ink">{v.account.open}/{v.limits.max_open}</span> ·
-            buys today <span className="text-ink">{v.account.buys_today}/{v.limits.max_buys_per_day}</span>
+            orders today <span className="text-ink">{v.account.orders_today}/{v.limits.max_orders_per_day}</span>
           </span>
         )}
       </div>
@@ -89,25 +111,19 @@ export function SupertrendTrade() {
       {err && <p className="font-mono text-[11px] text-[var(--red)]">⚠ {err}</p>}
 
       <div>
-        <h3 className="mb-1 font-mono text-[11px] font-bold uppercase tracking-wide text-muted">Entries (flip before 14:00, 15m agreeing, 1-strike ITM, lots that fit your cash and day loss budget, LIMIT at the best ask)</h3>
-        {v.signals.length === 0 ? <p className="font-mono text-[11px] text-muted">No signal for your rules yet today.</p> : (
+        <h3 className="mb-1 font-mono text-[11px] font-bold uppercase tracking-wide text-muted">Entries (flip before 14:00, 15m agreeing, 1-strike OTM, lots that fit your cash and day loss budget, LIMIT at the best ask)</h3>
+        {take.length === 0 ? <p className="font-mono text-[11px] text-muted">Nothing to take right now.{autoBuys ? " Auto entries will buy the next one itself." : ""}</p> : (
           <table className="w-full font-mono text-[11px]">
-            <tbody>{v.signals.map((s) => (
-              <tr key={s.symbol + s.signal_at} className={`border-t border-line/50 ${s.verdict === "TAKE" ? "" : "opacity-50"}`}>
-                <td className="py-1.5 pr-3 text-muted">{s.signal_at}</td>
-                <td className="pr-3 font-semibold text-ink">{s.trend === "UP" ? "▲" : "▼"} {s.symbol}</td>
-                <td className="pr-3 text-ink">{s.option ?? "—"}</td>
-                <td className="pr-3 text-right text-muted">{s.lots && s.lot ? `${s.lots} lot${s.lots > 1 ? "s" : ""} · ${s.lots * s.lot} qty` : s.lot ? `lot ${s.lot}` : ""}</td>
-                <td className="pr-3 text-right text-ink" title={`best seller ₹${s.ask ?? "—"} · best buyer ₹${s.bid ?? "—"} · last trade ₹${s.ltp ?? "—"}`}>{s.ask ? `ask ₹${s.ask.toFixed(2)}` : "no seller"}{s.ltp && s.ask && Math.abs(s.ltp - s.ask) / s.ask > 0.03 ? <span className="text-muted"> (last ₹{s.ltp.toFixed(2)})</span> : null}</td>
-                <td className="pr-3 text-right text-ink">{inr(s.premium != null && s.lots ? s.premium * s.lots : s.premium)}</td>
-                <td className="pr-3 text-muted">stop: stock {s.trend === "UP" ? "below" : "above"} ₹{s.stop_line.toFixed(2)}</td>
-                <td className="text-right">{s.verdict === "TAKE" && s.orders
-                  ? <button onClick={() => void openInKite(s.orders!)} className="rounded border border-[var(--green)] px-3 py-1 font-bold text-[var(--green)] hover:bg-[var(--green)]/10">Buy in Kite</button>
-                  : <span className="text-muted">{s.why}</span>}</td>
-              </tr>))}</tbody>
+            <tbody>{take.map(row)}</tbody>
           </table>
         )}
-        {take.length > 1 && <p className="mt-1 font-mono text-[9px] text-muted">Several fit your limits: take them newest first; each button is one order.</p>}
+        {take.length > 1 && !autoBuys && <p className="mt-1 font-mono text-[9px] text-muted">Several fit your limits: take them newest first; each button is one order.</p>}
+        {skipped.length > 0 && (
+          <details className="mt-2 font-mono text-[10px] text-muted">
+            <summary className="cursor-pointer">Today's signals your rules skipped ({skipped.length}), newest first: price is live now, not at the signal. A manual buy here is outside the rules and auto exits won't manage it unless you press Auto-manage after.</summary>
+            <table className="mt-1 w-full font-mono text-[11px]"><tbody>{skipped.map(row)}</tbody></table>
+          </details>
+        )}
       </div>
 
       <div>
@@ -142,4 +158,11 @@ export function SupertrendTrade() {
       </div>
     </div>
   );
+}
+
+export function Strength({ v, strong }: { v?: number | null; strong?: boolean | null }) {
+  if (v == null || strong == null) return null;
+  return <span className={`ml-1 rounded px-1 text-[10px] font-bold ${strong ? "bg-gold/20 text-gold" : "bg-line/60 text-muted"}`}
+    title={`flip candle ${v.toFixed(1)}x a normal 5-minute candle (STRONG from 1.9x; on paper test since 19 Nov, not a live rule yet)`}>
+    {strong ? "STRONG" : "WEAK"}</span>;
 }

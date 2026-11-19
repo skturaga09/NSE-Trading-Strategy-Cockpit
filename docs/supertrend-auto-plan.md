@@ -8,18 +8,18 @@
 | Stage | What | Status |
 |---|---|---|
 | 0 | Talk to Zerodha | Done. Login works (account QIA511, NFO enabled). Kite traffic pinned to IPv4 so it leaves from the whitelisted 106.51.226.2 (`KITE` session, `dashboard/supertrend_trades.py`). Whitelist for *orders* not yet proven: the first real order is the proof. |
-| 1 | Live paper trading | Built. Starts Mon 16 Nov 09:15. `dashboard/supertrend_paper.py`, panel on the Supertrend tab. ₹1,00,000, 1 lot per signal, plus a candle-close shadow book. |
+| 1 | Live paper trading | Built. Starts Mon 16 Nov 09:15. `dashboard/supertrend_paper.py`, panel on the Supertrend tab. ₹1,00,000, 1 lot per signal, plus a candle-close shadow book. From 19 Nov a second ₹1,00,000 **strong-candle book** buys only flips whose candle body is ≥ 1.9× ATR(14) (replay 28 Oct–17 Nov: better in both halves); live rules unchanged until paper shows it. |
 | 2 | Automatic **exits** | Built, switched **OFF**. `dashboard/supertrend_auto.py`, "Auto exits" panel. Owner switches it on after watching the dry-run log. |
-| 3 | Automatic **entries** | Not started. After ≥ 10 trading days of paper data and stage 2 running clean. |
+| 3 | Automatic **entries** | Built 2026-11-16, switched **OFF** (owner asked to go live 17 Nov, after 1 paper day instead of the planned 10). `supertrend_auto.enter()`, "Auto entries" switch in the Auto exits panel. 1 lot per TAKE, LIMIT at the ask, tag `STREND`, cancelled if unfilled in 5 min, one pending buy at a time, needs auto exits ON too, a failed send switches it off. |
 
 ## The rules all stages share (frozen)
 
 `dashboard/supertrend_trades.view()` decides; paper, tickets and auto exits all call it.
 
-- **Entry:** 5-minute Supertrend(10,3) flip on the stock, candle closed before 14:00, 15-minute trend agreeing, signal ≤ 15 min old. UP → 1-strike-ITM CE, DOWN → 1-strike-ITM PE, nearest expiry after today, product NRML.
+- **Entry:** 5-minute Supertrend(10,3) flip on the stock, candle closed before 14:00, 15-minute trend agreeing, signal ≤ 15 min old. UP → 1-strike-OTM CE, DOWN → 1-strike-OTM PE (owner changed from 1-strike ITM on 17 Nov, without a backtest; the 10-week test and the 25 % premium stop were measured on ITM), nearest expiry after today, product NRML.
 - **Buy price:** best ask from Kite depth (D-79). Skip if no seller, bid-ask gap > 3 %, or < 1 lot offered at the ask.
 - **Size:** paper 1 lot per signal (D-80). Tickets: as many lots as fit cash and the day budget (D-78).
-- **Day loss budget:** balance − 90 % of the morning balance − 30 % of what open options cost (D-78). Max 4 open, 5 buys a day, one position per stock; paper also stops after 2 losses in a row.
+- **Day loss budget:** balance − 90 % of the morning balance − 30 % of what open options cost (D-78). Max 4 open, 20 filled orders a day counting buys and sells, cancelled/rejected not counted (owner 18 Nov; was 7 buys, 5 before 17 Nov). A buy is skipped unless it, its sell and the sell still due on every held option fit in the 20, one position per stock; paper also stops after 2 losses in a row.
 - **Exit (first that applies):** option 25 % below its highest price since the buy (trailing premium stop, D-81) · 5-minute trend turned against the position · stock touches the Supertrend line · 15:15 with 5m and 15m not both agreeing (else hold overnight) · expiry day from 15:00.
 
 ## Stage 2 — automatic exits (built)

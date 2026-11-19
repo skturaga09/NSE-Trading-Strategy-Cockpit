@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { SupertrendJournal } from "./SupertrendJournal";
-import { SupertrendTrade } from "./SupertrendTrade";
+import { Strength, SupertrendTrade } from "./SupertrendTrade";
 import { SupertrendPaper } from "./SupertrendPaper";
 import { SupertrendAuto } from "./SupertrendAuto";
+import { SupertrendTarget } from "./SupertrendTarget";
 
 interface SupertrendRow {
   symbol: string;
@@ -14,6 +15,8 @@ interface SupertrendRow {
   bar: string;
   since: string | null;          // start of the candle the trend flipped on
   since_close: number | null;
+  since_strength?: number | null; // flip candle body vs a normal 5-min candle
+  since_strong?: boolean | null;
   since_at_least: string | null; // no flip inside the fetched history: the trend holds at least since then
   trend_15m: "UP" | "DOWN" | null; // same indicator on 15-minute candles (null: too little history)
   since_15m: string | null;
@@ -71,7 +74,7 @@ export function Supertrend() {
           </button>
         ))}
       </div>
-      {view === "board" ? <><SupertrendTrade /><SupertrendAuto /><SupertrendPaper /><Board /></> : <SupertrendJournal />}
+      {view === "board" ? <><SupertrendTrade /><SupertrendTarget /><SupertrendAuto /><SupertrendPaper /><Board /></> : <SupertrendJournal />}
     </div>
   );
 }
@@ -233,7 +236,7 @@ function Row({ r, today, open }: { r: SupertrendRow; today: string; open?: numbe
     <tr className={`border-t border-line/50 ${late ? "opacity-40" : fresh ? "bg-gold/[0.04]" : ""}`}
       title={late ? `5-minute flip at ${closeTime(r.since!)}: after ${LAST_ENTRY}, no new entry` : undefined}>
       <td className="py-1.5 pr-3 font-semibold text-ink">{r.symbol}</td>
-      <td className="pr-3 text-muted">{since}</td>
+      <td className="pr-3 text-muted">{since}<Strength v={r.since_strength} strong={r.since_strong} /></td>
       <td className="pr-3 text-muted"><span className="font-bold" style={{ color: tint(r.trend_15m) }}>
         {r.trend_15m === "UP" ? "▲" : r.trend_15m === "DOWN" ? "▼" : "–"}</span> {since15}</td>
       <td className={`pr-3 ${fresh ? "text-gold" : r.agree ? "text-ink" : "text-muted"}`}>{agree}</td>

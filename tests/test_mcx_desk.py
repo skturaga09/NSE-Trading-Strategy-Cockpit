@@ -361,7 +361,7 @@ class NoMixing(Isolated):
                 mock.patch("dashboard.option_chain.ensure_fresh_config", lambda: None):
             v = supertrend_trades.view(datetime(2026, 11, 13, 12, 0, tzinfo=IST),
                                        account=(100000.0, [mcx_pos], [mcx_buy], 100000.0))
-        self.assertEqual((v["account"]["open"], v["account"]["buys_today"], v["positions"]), (0, 0, []))
+        self.assertEqual((v["account"]["open"], v["account"]["orders_today"], v["positions"]), (0, 0, []))
 
     def test_mcx_book_rows_are_tagged_and_desk_ignores_non_mcx_positions(self):
         self.assertEqual(D.DESK, "MCX")
