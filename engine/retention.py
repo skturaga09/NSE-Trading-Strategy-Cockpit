@@ -49,6 +49,9 @@ class LocalTarget:
         p = self.root / rel
         return sha256_file(p) if p.exists() else None
 
+    def get(self, rel: str, dst: Path) -> None:
+        shutil.copyfile(self.root / rel, dst)
+
 
 class S3Target:
     def __init__(self, url: str, client=None):
@@ -64,6 +67,9 @@ class S3Target:
 
     def put(self, src: Path, rel: str) -> None:
         self.s3.upload_file(str(src), self.bucket, self._key(rel))
+
+    def get(self, rel: str, dst: Path) -> None:
+        self.s3.download_file(self.bucket, self._key(rel), str(dst))
 
     def sha256(self, rel: str) -> str | None:
         """Re-reads the stored object and hashes it (ETags are not content hashes for multipart uploads)."""
@@ -138,6 +144,40 @@ def archive_day(day_dir: Path, target, dry_run: bool = False) -> dict:
         if not any(sub.iterdir()):
             sub.rmdir()
     return out
+
+
+ARCHIVE_CONFIG = Path(__file__).resolve().parents[1] / "config" / "engine" / "v24.yaml"   # D-76: the config that names the cloud archive
+CACHE = "_from_cloud"   # archived files read back land in <root>/_from_cloud/<day>/..., never in the day folder itself
+
+
+def fetch(path: Path, target=None) -> Path | None:
+    """A day file that retention moved to the archive -> a local, checksum-verified copy of it (downloaded once);
+    None when the file was never archived (archived.json of its day does not list it) or the download fails.
+    shortcut: the cache under <root>/_from_cloud is never pruned; delete it by hand if it grows."""
+    path = Path(path)
+    day_dir = next((p for p in path.parents if DAY.match(p.name)), None)
+    if day_dir is None:
+        return None
+    rel = path.relative_to(day_dir.parent).as_posix()
+    manifest_p = day_dir / "archived.json"
+    entry = json.loads(manifest_p.read_text()).get(rel) if manifest_p.exists() else None
+    if entry is None:
+        return None
+    local = day_dir.parent / CACHE / rel
+    if local.exists() and sha256_file(local) == entry["sha256"]:
+        return local
+    local.parent.mkdir(parents=True, exist_ok=True)
+    tmp = local.with_name(local.name + ".part")
+    try:
+        (target or make_target(load_config(ARCHIVE_CONFIG).get("retention.archive_target"))).get(rel, tmp)
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        return None
+    if sha256_file(tmp) != entry["sha256"]:
+        tmp.unlink()
+        return None
+    tmp.replace(local)
+    return local
 
 
 def run(cfg: EngineConfig, target=None, dry_run: bool = False) -> dict:

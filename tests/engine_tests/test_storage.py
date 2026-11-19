@@ -103,6 +103,20 @@ class TestRetention(unittest.TestCase):
             self.assertTrue((self.arch / day / "instruments.csv.gz").exists())
         self.assertTrue((self.root / "2026-11-04" / "frames.bin.zst").exists())
 
+    def test_archived_file_is_read_back_from_the_archive_verified(self):
+        from engine.retention import CACHE, fetch
+        self._days(2)
+        run(make_config(self.root, **{"retention.raw_sessions_local": 1}), target=LocalTarget(self.arch))
+        gone = self.root / "2026-11-02" / "instruments.csv.gz"
+        self.assertFalse(gone.exists())
+        got = fetch(gone, target=LocalTarget(self.arch))
+        self.assertEqual(got, self.root / CACHE / "2026-11-02" / "instruments.csv.gz")
+        self.assertEqual(got.read_bytes(), (self.arch / "2026-11-02" / "instruments.csv.gz").read_bytes())
+        self.assertIsNone(fetch(self.root / "2026-11-02" / "never.sqlite", target=LocalTarget(self.arch)))
+        (self.arch / "2026-11-02" / "frames.bin.zst").write_bytes(b"corrupted")   # archive copy no longer matches
+        self.assertIsNone(fetch(self.root / "2026-11-02" / "frames.bin.zst", target=LocalTarget(self.arch)))
+        self.assertFalse((self.root / CACHE / "2026-11-02" / "frames.bin.zst").exists())
+
     def test_gs_target_uses_the_gcs_endpoint_and_an_hmac_key(self):
         from unittest import mock
         from engine import retention as RT

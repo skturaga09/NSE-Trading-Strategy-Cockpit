@@ -74,7 +74,10 @@ def _day_dir(d: str) -> Path:
 
 def _ro(path: Path) -> sqlite3.Connection | None:
     if not path.exists():
-        return None
+        from .retention import fetch
+        path = fetch(path)   # a past day moved to the cloud archive: read it back from there
+        if path is None:
+            return None
     db = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     db.row_factory = sqlite3.Row
     return db
