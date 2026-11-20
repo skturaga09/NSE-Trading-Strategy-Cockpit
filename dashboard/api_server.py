@@ -384,9 +384,15 @@ def supertrend_trades_ep() -> Dict[str, Any]:
 
 @app.get("/api/supertrend/paper")
 def supertrend_paper_ep() -> Dict[str, Any]:
-    """Live paper trading of the Supertrend rules (supertrend_paper.py): paper account, its orders and P&L. No Kite call."""
-    from dashboard import supertrend_paper
-    return {**supertrend_paper.load(), "strong": supertrend_paper.load(supertrend_paper.STRONG_STATE)}
+    """Live paper trading of the Supertrend rules (supertrend_paper.py): paper accounts, orders and P&L, plus fresh
+    last prices of the open options (one Kite /quote/ltp call per 5 s at most; display only)."""
+    from dashboard import supertrend_paper as P
+    out = {**P.load(), "strong": P.load(P.STRONG_STATE), "rules": P.load(P.RULES_STATE)}
+    try:
+        out["live"] = P.live_prices([out, out["strong"], out["rules"]])
+    except Exception as e:                       # Kite down / token expired: the panel falls back to the minute prices
+        out["live"] = {"at": None, "px": {}, "error": str(e)[:120]}
+    return out
 
 
 @app.get("/api/supertrend/auto")

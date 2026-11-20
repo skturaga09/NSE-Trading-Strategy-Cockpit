@@ -18,6 +18,7 @@ class Paper(unittest.TestCase):
         d = tempfile.mkdtemp()
         self.p = [mock.patch.object(PP, "STATE", Path(d) / "paper.json"), mock.patch.object(PP, "_costs", return_value=40.0),
                   mock.patch.object(PP, "STRONG_STATE", Path(d) / "strong.json"),
+                  mock.patch.object(PP, "RULES_STATE", Path(d) / "rules.json"),
                   mock.patch("dashboard.option_chain._instruments", return_value=MASTER),
                   mock.patch("dashboard.option_chain.ensure_fresh_config"), mock.patch("dashboard.app.KITE_CONFIG", {"api_key": "k"})]
         for x in self.p:
@@ -94,16 +95,46 @@ class Paper(unittest.TestCase):
         out = self.minute([weak, strong], q, NOW.replace(minute=1))
         self.assertEqual(out["strong"]["bought"], [])                                         # never the same signal twice
 
-    def test_two_losses_in_a_row_stop_new_buys(self):
-        st = PP.load()
-        st.update(day=NOW.date().isoformat(), keys=[], day_open=50_000.0, closed=[
-            {"option": "X", "entry_at": NOW.isoformat(), "exit_at": NOW.isoformat(), "net": -100.0},
-            {"option": "Y", "entry_at": NOW.isoformat(), "exit_at": NOW.isoformat(), "net": -100.0}])
-        PP.STATE.write_text(__import__("json").dumps(st))
+    def _two_losses(self, day_open):
+        losses = [{"option": "X", "entry_at": NOW.isoformat(), "exit_at": NOW.isoformat(), "net": -100.0},
+                  {"option": "Y", "entry_at": NOW.isoformat(), "exit_at": NOW.isoformat(), "net": -100.0}]
+        for path in (PP.STATE, PP.RULES_STATE):
+            st = PP.load()
+            st.update(day=NOW.date().isoformat(), keys=[], day_open=day_open, closed=losses)
+            path.write_text(__import__("json").dumps(st))
+
+    def test_rules_book_stops_after_two_losses_main_book_does_not(self):
+        self._two_losses(50_000.0)                                             # budget fine: only the 2-losses rule bites
         up = [row("PNB", "UP", "2026-11-16T09:50:00+05:30", 124.1, close=126.3)]
         out = self.minute(up, {"NFO:PNB26NOV128CE": 3.6}, NOW)
-        self.assertEqual(out["bought"], [])
-        self.assertIn("2 losses in a row", out["errors"][-1])
+        self.assertEqual(out["rules"]["bought"], [])
+        self.assertEqual(out["bought"], ["PNB26NOV128CE"])
+        self.assertEqual(len(self.sent), 1)                                    # alerts: main book only
+
+    def test_main_book_buys_past_the_day_loss_budget_rules_book_does_not(self):
+        self._two_losses(120_000.0)                                            # down past 10 % of the morning balance
+        up = [row("PNB", "UP", "2026-11-16T09:50:00+05:30", 124.1, close=126.3)]
+        out = self.minute(up, {"NFO:PNB26NOV128CE": 3.6}, NOW)
+        self.assertEqual(out["rules"]["bought"], [])
+        st = PP.load()
+        self.assertEqual((out["bought"], st["open"][0]["qty"]), (["PNB26NOV128CE"], 500))   # still 1 lot
+
+    def test_open_trade_keeps_the_systems_last_check_and_live_prices_are_cached(self):
+        up = [row("PNB", "UP", "2026-11-16T09:50:00+05:30", 124.1, close=126.3)]
+        self.minute(up, {"NFO:PNB26NOV128CE": 3.6, "NSE:PNB": 126.3}, NOW)
+        self.minute(up, {"NFO:PNB26NOV128CE": 3.8, "NSE:PNB": 126.5}, NOW.replace(minute=1))
+        o = PP.load()["open"][0]
+        self.assertEqual((o["stock"], o["line"], o["checked"][11:16]), (126.5, 124.1, "10:01"))
+        self.assertIn("sell if the stock trades below", o["plan"])
+        calls = []
+        def get(path, params):
+            calls.append(params)
+            return {"NFO:PNB26NOV128CE": {"last_price": 3.9}, "NSE:PNB": {"last_price": 126.6}}
+        PP._LIVE.update(at=0.0, syms=[], px={})
+        with mock.patch.object(T, "_get", side_effect=get):
+            a = PP.live_prices([PP.load()])
+            b = PP.live_prices([PP.load()])                    # within 5 s: no second Kite call
+        self.assertEqual((a["px"]["NFO:PNB26NOV128CE"], b, len(calls)), (3.9, a, 1))
 
 
 if __name__ == "__main__":

@@ -151,10 +151,11 @@ def _day_open(balance: float, today: str) -> float:
 
 def view(now: Optional[datetime] = None, account: Optional[tuple] = None, touch: bool = True,
          max_lots: Optional[int] = None, peaks: Optional[Dict[str, float]] = None,
-         strong_min: Optional[float] = None) -> Dict[str, Any]:
+         strong_min: Optional[float] = None, day_loss: bool = True) -> Dict[str, Any]:
     """account = (cash, net positions, today's orders, the morning balance) in Kite's shapes; None reads the real Kite account.
     supertrend_paper passes its paper account here, so paper and real go through the very same decisions.
-    strong_min (paper strong book only): skip flips whose candle body is under this many ATRs, before cash and slots are shared."""
+    strong_min (paper strong book only): skip flips whose candle body is under this many ATRs, before cash and slots are shared.
+    day_loss=False (paper main book only, since 2026-11-20): the 10 % day loss budget never limits a buy."""
     from dashboard import app as core
     from dashboard.option_chain import INDEX_SYM, _instruments, ensure_fresh_config
     spot = lambda u: INDEX_SYM.get(u, f"NSE:{u}")   # noqa: E731  an index quotes as "NSE:NIFTY 50", not "NSE:NIFTY"
@@ -198,6 +199,8 @@ def view(now: Optional[datetime] = None, account: Optional[tuple] = None, touch:
     budget = balance - (1 - LIMITS["day_loss_pct"]) * day_open - RISK * paid
     out["account"] = {"cash": round(cash), "blocked": round(blocked), "balance": round(balance), "day_open": round(day_open),
                       "budget": round(max(budget, 0)), "open": len(held), "orders_today": orders_today}
+    if not day_loss:
+        budget = float("inf")
 
     # entries: today's eligible flips
     sig = []
