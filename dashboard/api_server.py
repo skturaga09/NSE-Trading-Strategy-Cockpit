@@ -416,6 +416,8 @@ async def supertrend_auto_switch_ep(request: Request) -> JSONResponse:
     body = await request.json()
     if isinstance(body.get("entries"), bool):     # stage 3 auto entries: its own switch
         return JSONResponse(supertrend_auto.set_entries(body["entries"]), status_code=200)
+    if isinstance(body.get("no_limits"), bool):   # the real account's strategy (owner 2026-11-20)
+        return JSONResponse(supertrend_auto.set_no_limits(body["no_limits"]), status_code=200)
     if not isinstance(body.get("armed"), bool):
         return JSONResponse({"error": "send {\"armed\": true|false} or {\"entries\": true|false}"}, status_code=400)
     return JSONResponse(supertrend_auto.set_armed(body["armed"]), status_code=200)

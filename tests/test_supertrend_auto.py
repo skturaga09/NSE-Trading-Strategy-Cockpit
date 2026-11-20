@@ -50,6 +50,7 @@ class Auto(unittest.TestCase):
         self.p = [mock.patch.object(A, "SWITCH", d / "sw.json"), mock.patch.object(A, "REG", d / "reg.json"),
                   mock.patch.object(A, "LOG", d / "log.jsonl"), mock.patch.object(A, "DATA", d),
                   mock.patch.object(A, "ENTRY_SWITCH", d / "en.json"), mock.patch.object(A, "BOUGHT", d / "buys.json"),
+                  mock.patch.object(A, "STRATEGY", d / "strategy.json"),
                   mock.patch.object(A, "_ORPHANS_SAID", set())]
         for x in self.p:
             x.start()
@@ -299,6 +300,19 @@ class Entries(Auto):
         self.assertTrue(any("FAILED" in a for a in self.alerts))
         self.run_buy([take("SBIN", option="SBIN26NOV800CE")], now=NOW + timedelta(minutes=1))
         self.assertEqual(len(self.calls), 1)
+
+    def test_physical_delivery_refusal_stops_stock_buys_today_not_index_buys_and_keeps_entries_on(self):
+        A.set_armed(True), A.set_entries(True)
+        refused = RuntimeError("Fresh buy orders are not allowed for OTM stock options due to compulsory physical delivery.")
+        self.send = lambda m, p, d=None: (self.calls.append((m, p, d)), (_ for _ in ()).throw(refused)) if m == "POST" and \
+            d["tradingsymbol"] == OPT else (self.calls.append((m, p, d)) or {"order_id": "N2"})
+        out = self.run_buy([take()])
+        self.assertTrue(A.entries_armed())                                    # not a fault: entries stay on
+        self.assertEqual(out["actions"][0]["action"], "BUY REFUSED")
+        self.run_buy([take("SBIN", option="SBIN26NOV800CE")], now=NOW + timedelta(minutes=1))
+        self.assertEqual(len(self.calls), 1)                                  # stock: skipped for the day
+        self.run_buy([take("NIFTY", option="NIFTY26NOV25550CE")], now=NOW + timedelta(minutes=2))
+        self.assertEqual(self.calls[-1][2]["tradingsymbol"], "NIFTY26NOV25550CE")   # index: still bought
 
     def test_press_buy_alert_is_silenced_when_auto_entries_buys(self):
         A.set_armed(True), A.set_entries(True)

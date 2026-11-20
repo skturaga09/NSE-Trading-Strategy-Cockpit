@@ -82,12 +82,12 @@ class Pieces(unittest.TestCase):
 class View(unittest.TestCase):
     def setUp(self):
         self.peaks = Path(tempfile.mkdtemp()) / "peaks.json"            # the real account's highs, kept between calls
-        for name in ("SWITCH", "ENTRY_SWITCH"):                          # never the live auto switches
+        for name in ("SWITCH", "ENTRY_SWITCH", "STRATEGY"):              # never the live auto switches
             p = mock.patch(f"dashboard.supertrend_auto.{name}", self.peaks.parent / f"{name}.json")
             p.start()
             self.addCleanup(p.stop)
 
-    def run_view(self, rows, positions=(), orders=(), cash=50_000, quotes=None, depth=None, gtts=(), blocked=0, **kw):
+    def run_view(self, rows, positions=(), orders=(), cash=50_000, quotes=None, depth=None, gtts=(), blocked=0, at=NOW, **kw):
         data = {"/user/margins": {"equity": {"available": {"live_balance": cash}, "utilised": {"delivery": blocked}}},
                 "/portfolio/positions": {"net": list(positions)}, "/orders": list(orders), "/gtt/triggers": list(gtts)}
         get = quote_get(quotes or {}, depth or {}, data)
@@ -98,7 +98,7 @@ class View(unittest.TestCase):
                 mock.patch.object(T, "_DAY", Path(tempfile.mkdtemp()) / "day.json"), \
                 mock.patch.object(T, "_PEAKS", self.peaks), \
                 mock.patch("dashboard.supertrend_auto.REG", self.peaks.parent / "reg.json"):
-            return T.view(NOW, **kw)
+            return T.view(at, **kw)
 
     def test_fresh_signal_gets_a_buy_ticket_and_limits_decide(self):
         rows = [row("PNB", "UP", "2026-11-16T09:50:00+05:30", 124.1, close=126.3),       # closed 09:55: fresh
@@ -224,6 +224,53 @@ class View(unittest.TestCase):
         p = self.run_view(rows, positions=held, quotes={"NFO:NIFTY26NOV25550CE": 90.0, "NSE:NIFTY 50": 25420.0})["positions"][0]
         self.assertEqual(p["action"], "SELL")
         self.assertIn("crossed the Supertrend line ₹25,424.21", p["why"])
+
+    def test_open_cap_can_be_lifted_so_cash_decides(self):
+        held = [{"exchange": "NFO", "tradingsymbol": s, "quantity": 500, "average_price": 1.0, "pnl": 0}
+                for s in ("PNB26NOV122CE", "PNB26NOV124CE", "ABB26NOV6800CE", "NIFTY26NOV25500CE")]
+        rows = [row("TCS", "DOWN", "2026-11-16T09:45:00+05:30", 2470, close=2455)]
+        q = {"NFO:TCS26NOV2400PE": 100}                                  # ₹17,500 a lot, cash ₹50,000
+        self.assertEqual(self.run_view(rows, positions=held, quotes=q, day_loss=False)["signals"][0]["why"],
+                         "4 positions already open")                    # live rule
+        s = self.run_view(rows, positions=held, quotes=q, day_loss=False, max_open=float("inf"), max_lots=1)["signals"][0]
+        self.assertEqual((s["verdict"], s["lots"]), ("TAKE", 1))        # the paper main book: cash decides
+
+    def test_stock_options_skipped_on_the_last_2_trading_days_index_options_not(self):
+        mon = NOW.replace(day=23)                                        # Nov options expire Tue 24 in the fixtures
+        rows = [row("TCS", "DOWN", "2026-11-23T09:45:00+05:30", 2470, close=2455),
+                row("NIFTY", "UP", "2026-11-23T09:45:00+05:30", 25400, close=25490)]
+        q = {"NFO:TCS26NOV2400PE": 100, "NFO:NIFTY26NOV25550CE": 90}
+        s = {x["symbol"]: x for x in self.run_view(rows, quotes=q, at=mon, day_loss=False, max_lots=1)["signals"]}
+        self.assertIn("Zerodha blocks out-of-the-money stock option buys", s["TCS"]["why"])
+        self.assertEqual(s["NIFTY"]["verdict"], "TAKE")                  # index: cash-settled, never blocked
+        self.assertIsNone(T.expiry_block(MASTER, "TCS", "2026-11-20"))  # Fri: Mon 23 still trades before Tue 24
+        self.assertIsNotNone(T.expiry_block(MASTER, "TCS", "2026-11-24"))   # expiry day itself
+
+    def test_a_holiday_between_does_not_count_as_a_trading_day(self):
+        m = nfo("TCS", "PE", [2400], lot=175, expiry="2026-11-25")       # 24 Nov 2026 is an NSE holiday (config)
+        self.assertIsNotNone(T.expiry_block(m, "TCS", "2026-11-23"))     # next trading day is the expiry
+        self.assertIsNone(T.expiry_block(m, "TCS", "2026-11-20"))
+
+    def test_zerodha_rejecting_a_stock_option_buy_stops_stock_buys_for_the_day(self):
+        rej = {"exchange": "NFO", "tradingsymbol": "PNB26NOV128CE", "transaction_type": "BUY", "status": "REJECTED",
+               "status_message": "Fresh buy orders are not allowed for OTM stock options due to compulsory physical delivery."}
+        rows = [row("TCS", "DOWN", "2026-11-16T09:45:00+05:30", 2470, close=2455)]
+        s = self.run_view(rows, orders=[rej], quotes={"NFO:TCS26NOV2400PE": 100}, day_loss=False)["signals"][0]
+        self.assertTrue(s["why"].startswith("Zerodha rejected a stock option buy today"))
+
+    def test_no_limits_switch_drops_the_budget_and_open_cap_for_the_real_account_1_lot(self):
+        from dashboard import supertrend_auto as A
+        held = [{"exchange": "NFO", "tradingsymbol": s, "quantity": 500, "average_price": 1.0, "pnl": 0}
+                for s in ("PNB26NOV122CE", "PNB26NOV124CE", "ABB26NOV6800CE", "NIFTY26NOV25500CE")]
+        rows = [row("TCS", "DOWN", "2026-11-16T09:45:00+05:30", 2470, close=2455)]
+        q = {"NFO:TCS26NOV2400PE": 100}                                  # ₹5,250 at risk > the ₹5,000 budget
+        v = self.run_view(rows, positions=held, quotes=q)
+        self.assertFalse(v["no_limits"])
+        self.assertEqual(v["signals"][0]["verdict"], "SKIP")             # default: the live rules
+        A.set_no_limits(True)
+        v = self.run_view(rows, positions=held, quotes=q, cash=100_000)
+        self.assertTrue(v["no_limits"])
+        self.assertEqual((v["signals"][0]["verdict"], v["signals"][0]["lots"]), ("TAKE", 1))   # 5th open, 1 lot
 
     def test_premium_stop_sells_25_percent_below_the_buy(self):
         up = row("PNB", "UP", "2026-11-16T09:15:00+05:30", 124.1)

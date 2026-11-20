@@ -271,6 +271,9 @@ def step(now: Optional[datetime] = None, v: Optional[Dict[str, Any]] = None, not
 
 
 ENTRY_SWITCH, BOUGHT = DATA / "supertrend_auto_entries.json", DATA / "supertrend_auto_buys.json"
+# Owner 2026-11-20: the real account's strategy. Off (default) = the live rules (10 % day loss budget, max 4 open, lots to
+# fit). On = the paper main book's rules: no day loss budget, no 4-open cap, 1 lot; cash and 20 orders a day decide.
+STRATEGY = DATA / "supertrend_strategy.json"
 BUY_WAIT_S = 300      # stage 3: a buy not filled in 5 minutes is cancelled (the price has moved on)
 
 
@@ -284,14 +287,26 @@ def set_entries(on: bool) -> Dict[str, Any]:
     return {"entries": bool(on)}
 
 
+def no_limits() -> bool:
+    return bool(_read(STRATEGY, {}).get("no_limits"))
+
+
+def set_no_limits(on: bool) -> Dict[str, Any]:
+    DATA.mkdir(parents=True, exist_ok=True)
+    STRATEGY.write_text(json.dumps({"no_limits": bool(on), "changed": datetime.now(IST).isoformat(timespec="seconds")}))
+    return {"no_limits": bool(on)}
+
+
 def enter(now: Optional[datetime] = None, v: Optional[Dict[str, Any]] = None, notify: Optional[Callable] = None,
           send: Callable = _send) -> Dict[str, Any]:
     """STAGE 3 AUTO ENTRIES: buy what view() marks TAKE — 1 lot, LIMIT at the ask, tag STREND — and cancel our own buy if
     it is not filled within BUY_WAIT_S. step() then manages the filled buy (GTT stop, exits) like a ticket buy.
     Sends only when BOTH switches are on (an entry without auto exits would have no stop). Off = WOULD BUY in the log.
     Never twice per signal (marked before the send, so a timeout is never resent); one pending buy at a time;
-    nothing on any Kite read error; a failed send switches entries off (kill switch) and alerts the phone."""
+    nothing on any Kite read error; a failed send switches entries off (kill switch) and alerts the phone, except Zerodha's
+    physical-delivery refusal: that stops stock option buys for the day only (index options go on)."""
     from dashboard import supertrend_trades as T
+    from dashboard.option_chain import INDEX_SYM
     now = now or datetime.now(IST)
     v = v or T.view(now)
     out: Dict[str, Any] = {"armed": entries_armed() and is_armed(), "actions": [], "errors": []}
@@ -332,6 +347,8 @@ def enter(now: Optional[datetime] = None, v: Optional[Dict[str, Any]] = None, no
         key = f"{s['symbol']}|{s['signal_at']}"
         if s["verdict"] != "TAKE" or key in book["signals"] or s["option"] in ordered:
             continue                                   # already sent, or you bought / tried it yourself today
+        if book.get("stock_block") and s["symbol"] not in INDEX_SYM:
+            continue                                   # Zerodha refused a stock option buy today (physical delivery)
         if pending and out["armed"]:
             break                                      # one buy at a time; a fresh signal is retried next minute
         # shortcut: always 1 lot (paper sizing, D-80); use s["lots"] once live fills match paper for 10+ days
@@ -350,6 +367,11 @@ def enter(now: Optional[datetime] = None, v: Optional[Dict[str, Any]] = None, no
             pending = [data]
             act(s["option"], "BUY", why, data, order_id=oid)
         except Exception as e:
+            if "physical delivery" in str(e).lower():  # Zerodha's expiry block: stock options only, not a fault
+                book["stock_block"] = str(e)[:160]
+                act(s["option"], "BUY REFUSED", f"Zerodha: {str(e)[:120]}. Stock option buys skipped for the rest of "
+                    "today; index options go on", data)
+                continue
             set_entries(False)
             out["armed"] = False
             act(s["option"], "BUY FAILED", f"{str(e)[:120]}. Auto entries switched OFF: check Kite", data)
@@ -365,5 +387,5 @@ def status(n: int = 50) -> Dict[str, Any]:
         lines = LOG.read_text().splitlines()[-n:]
     except OSError:
         lines = []
-    return {"armed": is_armed(), "entries": entries_armed(), "managed": _read(REG, {}),
+    return {"armed": is_armed(), "entries": entries_armed(), "no_limits": no_limits(), "managed": _read(REG, {}),
             "log": [json.loads(x) for x in reversed(lines)]}

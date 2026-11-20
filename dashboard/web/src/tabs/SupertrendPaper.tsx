@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
    filled on paper at live prices, exits by your rules, net P&L after charges. Nothing is sent to Kite. */
 
 interface Pos { option: string; underlying?: string; qty: number; entry: number; entry_at: string; ltp: number; peak?: number;
-  stock?: number | null; line?: number | null; plan?: string; action?: string; checked?: string }   // plan: the minute job's last exit check
+  stock?: number | null; line?: number | null; plan?: string; action?: string; checked?: string;
+  not_live?: string }   // a buy the real account could not have made (Zerodha's expiry block): its P&L is paper only   // plan: the minute job's last exit check
 interface Closed extends Pos { exit: number; exit_at: string; exit_why: string; net: number; costs: number }
 interface Order { at: string; tradingsymbol: string; transaction_type: string; quantity: number; price: number }
 interface Book { start: number; cash: number; open: Pos[]; closed: Closed[] }
@@ -32,6 +33,8 @@ export function SupertrendPaper() {
   const balance = p.cash + mtm;
   const realised = p.closed.reduce((a, c) => a + c.net, 0);
   const wins = p.closed.filter((c) => c.net > 0).length;
+  const unreal = p.closed.filter((c) => c.not_live);
+  const unrealNet = unreal.reduce((a, c) => a + c.net, 0);
   // shadow book: same buys, sold only when a 5-min candle closes against the trade
   const key = (x: Pos) => x.option + x.entry_at;
   const shClosed = new Map((p.shadow?.closed ?? []).map((c) => [key(c), c]));
@@ -56,10 +59,11 @@ export function SupertrendPaper() {
   return (
     <div className="panel space-y-3 rounded-lg p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-display text-base font-bold text-ink">📝 Paper trading <span className="font-mono text-[10px] font-normal text-muted">— your signals with NO day loss budget and NO 2-losses stop (since 20 Nov 10:08), filled on paper at live prices. Nothing goes to Kite.</span></h2>
+        <h2 className="font-display text-base font-bold text-ink">📝 Paper trading <span className="font-mono text-[10px] font-normal text-muted">— your signals with NO day loss budget, NO 2-losses stop (since 20 Nov 10:08) and NO 4-open cap (since 12:40): cash and 20 orders a day decide, filled on paper at live prices. Nothing goes to Kite.</span></h2>
         <span className="font-mono text-[11px] text-muted">
           balance <span className="text-ink">{inr(balance)}</span> (<span className={tone(balance - p.start)}>{inr(balance - p.start)}</span> on {inr(p.start)}) ·
           booked <span className={tone(realised)}>{inr(realised)}</span> · {p.closed.length} trades, {wins} won
+          {unreal.length > 0 && <span className="text-gold" title="Zerodha blocks out-of-the-money stock option buys on the last 2 trading days before expiry"> · ⚠ {unreal.length} not possible live ({inr(unrealNet)})</span>}
         </span>
       </div>
       <div className="font-mono text-[10px] text-muted">
@@ -100,7 +104,7 @@ export function SupertrendPaper() {
           {b.open.map((x) => (
             <tr key={x.option} className="border-t border-line/50">
               <td className="py-1.5 pr-3 text-muted">{hm(x.entry_at)}</td>
-              <td className="pr-3 font-semibold text-ink">{x.option}</td>
+              <td className="pr-3 font-semibold text-ink">{x.option}{x.not_live && <span className="ml-1 text-gold" title={x.not_live}>⚠ not possible live</span>}</td>
               <td className="pr-3 text-right text-muted">{x.qty} @ ₹{x.entry.toFixed(2)} → ₹{px(x).toFixed(2)}</td>
               <td className={`pr-3 text-right ${tone(px(x) - x.entry)}`}>{inr((px(x) - x.entry) * x.qty)}</td>
               <td className="text-muted" title={x.plan}>
@@ -114,7 +118,7 @@ export function SupertrendPaper() {
           {[...b.closed].reverse().slice(0, 20).map((c) => (
             <tr key={c.option + c.exit_at} className="border-t border-line/50 opacity-80">
               <td className="py-1.5 pr-3 text-muted">{hm(c.entry_at)} → {hm(c.exit_at)}</td>
-              <td className="pr-3 text-ink">{c.option}</td>
+              <td className="pr-3 text-ink">{c.option}{c.not_live && <span className="ml-1 text-gold" title={c.not_live}>⚠ not possible live</span>}</td>
               <td className="pr-3 text-right text-muted">{c.qty} @ ₹{c.entry.toFixed(2)} → ₹{c.exit.toFixed(2)}</td>
               <td className={`pr-3 text-right ${tone(c.net)}`}>{inr(c.net)}</td>
               <td className="text-muted">{c.exit_why} · charges {inr(c.costs)}</td>

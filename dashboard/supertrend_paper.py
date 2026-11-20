@@ -27,7 +27,8 @@ before it). Own cash, 4-open / order / day-loss limits and 2-losses rule, no sha
 (1,310 signals, cut fixed at the top tercile): ₹6.7 -> ₹11.1 per ₹100 trending, -₹0.5 -> +₹3.0 sideways. Paper decides.
 
 NO LIMITS ON THE MAIN BOOK (owner 2026-11-20): the main paper account runs WITHOUT the 10 % day loss budget and the
-2-losses-in-a-row rule (Journal replay NO_DAY_LIMITS); cash, 1 lot, 4 open and 20 orders a day stay. It continues the
+2-losses-in-a-row rule (Journal replay NO_DAY_LIMITS) and, from 12:40 that day, without the 4-open cap: it buys while
+the cash lasts; 1 lot, one position per stock and 20 orders a day (buys + sells) stay. It continues the
 no-limits test account started 10:08 that day; the account run with the rules until then (history from 13 Nov) carries on
 as the RULES BOOK (RULES_STATE): the live rules, own cash, no shadow, no alerts. Paper only: the live rules are unchanged.
 """
@@ -129,7 +130,7 @@ def step(now: Optional[datetime] = None, notify=None, view=None) -> Dict[str, An
 def _book(path: Path, now: datetime, view, notify, shadow: bool, strong_min: Optional[float] = None,
           limits: bool = True) -> Dict[str, Any]:
     """One minute of one paper account: exits, then entries for the TAKE signals (strong_min: see view()).
-    limits=False: no day loss budget, no 2-losses rule (the main book since 2026-11-20)."""
+    limits=False: no day loss budget, no 2-losses rule, no 4-open cap (the main book since 2026-11-20)."""
     today, at = now.date().isoformat(), now.isoformat(timespec="seconds")
     st = load(path)
     if st.get("day") != today:
@@ -139,7 +140,7 @@ def _book(path: Path, now: datetime, view, notify, shadow: bool, strong_min: Opt
             for p in ps if p[k][:10] == today]
     kw = {"strong_min": strong_min} if strong_min is not None else {}     # main book: view() exactly as before
     if not limits:
-        kw["day_loss"] = False
+        kw.update(day_loss=False, max_open=float("inf"))
     v = view(now, account=(st["cash"], _net(st["open"]), buys, st["day_open"]), max_lots=MAX_LOTS,
              peaks={p["option"]: p.get("peak", p["entry"]) for p in st["open"]}, **kw)
     out = {"bought": [], "sold": [], "errors": v["errors"]}

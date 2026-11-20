@@ -28,7 +28,7 @@ offered only for positions already held, never with the BUY, so it can't turn in
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -73,6 +73,23 @@ def _tick(x: float, tick: float, up: bool) -> float:
     n = round(x / tick, 6)                         # 3.6 / 0.05 is 71.99999...: not a reason to move a tick
     n = int(n) + (1 if up and n != int(n) else 0)
     return round(n * tick, 2)
+
+
+def expiry_block(nfo: List[Dict[str, str]], underlying: str, today: str) -> Optional[str]:
+    """Zerodha blocks fresh buys of OTM stock options on their last 2 trading days (expiry day and the trading day
+    before it: compulsory physical delivery; support.zerodha.com, checked 2026-11-20). Owner 2026-11-20: skip stock
+    signals on those days. Index options settle in cash: never blocked. -> the skip reason, or None."""
+    from dashboard.option_chain import INDEX_SYM
+    from dashboard.zerodha_plumbing import _HOLIDAYS          # NSE F&O holidays (engine config, each with its circular)
+    exps = [r["expiry"] for r in nfo if r["name"] == underlying and r["instrument_type"] in ("CE", "PE") and r["expiry"] >= today]
+    if underlying in INDEX_SYM or not exps:
+        return None
+    exp, d = min(exps), date.fromisoformat(today) + timedelta(days=1)
+    while d.isoformat() < exp:
+        if d.weekday() < 5 and d.isoformat() not in _HOLIDAYS:
+            return None                               # a trading day still to come before the expiry
+        d += timedelta(days=1)
+    return f"expiry {exp}: Zerodha blocks out-of-the-money stock option buys on the last 2 trading days"
 
 
 def pick_option(nfo: List[Dict[str, str]], underlying: str, kind: str, spot: float, today: str) -> Optional[Dict[str, str]]:
@@ -151,11 +168,12 @@ def _day_open(balance: float, today: str) -> float:
 
 def view(now: Optional[datetime] = None, account: Optional[tuple] = None, touch: bool = True,
          max_lots: Optional[int] = None, peaks: Optional[Dict[str, float]] = None,
-         strong_min: Optional[float] = None, day_loss: bool = True) -> Dict[str, Any]:
+         strong_min: Optional[float] = None, day_loss: bool = True, max_open: Optional[float] = None) -> Dict[str, Any]:
     """account = (cash, net positions, today's orders, the morning balance) in Kite's shapes; None reads the real Kite account.
     supertrend_paper passes its paper account here, so paper and real go through the very same decisions.
     strong_min (paper strong book only): skip flips whose candle body is under this many ATRs, before cash and slots are shared.
-    day_loss=False (paper main book only, since 2026-11-20): the 10 % day loss budget never limits a buy."""
+    day_loss=False (paper main book only, since 2026-11-20): the 10 % day loss budget never limits a buy.
+    max_open overrides LIMITS["max_open"] (paper main book: no cap, cash and the 20 orders a day decide)."""
     from dashboard import app as core
     from dashboard.option_chain import INDEX_SYM, _instruments, ensure_fresh_config
     spot = lambda u: INDEX_SYM.get(u, f"NSE:{u}")   # noqa: E731  an index quotes as "NSE:NIFTY 50", not "NSE:NIFTY"
@@ -168,6 +186,11 @@ def view(now: Optional[datetime] = None, account: Optional[tuple] = None, touch:
     out: Dict[str, Any] = {"at": now.isoformat(timespec="seconds"), "api_key": api_key, "board_bar": b.get("bar"),
                            "limits": LIMITS, "signals": [], "positions": [], "errors": []}
     blocked = 0.0
+    if account is None:
+        from dashboard import supertrend_auto as A
+        if A.no_limits():                         # owner's strategy switch (Auto tab): the paper main book's rules
+            day_loss, max_open, max_lots = False, float("inf"), max_lots or 1
+        out["no_limits"] = A.no_limits()
     try:
         if account is None:
             eq = _get("/user/margins").get("equity") or {}
@@ -187,6 +210,9 @@ def view(now: Optional[datetime] = None, account: Optional[tuple] = None, touch:
     orders_today = sum(1 for o in orders if o.get("exchange") == "NFO" and o.get("transaction_type") in ("BUY", "SELL")
                        and o.get("status") == "COMPLETE")       # filled only: cancelled / rejected orders are not trades
     pending_sl = {o["tradingsymbol"] for o in orders if o.get("transaction_type") == "SELL" and o.get("status") == "TRIGGER PENDING"}
+    # Zerodha's own answer: a stock option buy rejected today for physical delivery stops stock option buys for the day
+    refused = next((o.get("status_message") for o in orders if o.get("status") == "REJECTED"
+                    and "physical delivery" in (o.get("status_message") or "").lower()), None)
     if account is None:                          # an active SELL GTT is a stop in Zerodha too: never offer a second one
         try:
             pending_sl |= {(g.get("condition") or {}).get("tradingsymbol") for g in (_get("/gtt/triggers") or [])
@@ -229,6 +255,7 @@ def view(now: Optional[datetime] = None, account: Optional[tuple] = None, touch:
             out["errors"].append(f"prices not readable: {e}")
     held_names = {by_sym[p["tradingsymbol"]]["name"] for p in held}
     free, n_open, n_orders = cash, len(held), orders_today
+    cap_open = LIMITS["max_open"] if max_open is None else max_open
     for r, close, kind, opt in sorted(sig, key=lambda x: x[1], reverse=True):
         s = {"symbol": r["symbol"], "trend": r["trend"], "signal_at": close.strftime("%H:%M"),
              "age_min": int((now - close).total_seconds() // 60), "stop_line": r["line"],
@@ -245,14 +272,17 @@ def view(now: Optional[datetime] = None, account: Optional[tuple] = None, touch:
                   "delta": option_delta(r.get("close"), opt, (ask + bid) / 2 if ask and bid else ltp, now)})
         gap = (ask - bid) / ask if ask and bid else 1.0
         lots = int(min(free // (ask * lot), budget // (RISK * ask * lot), at_ask // lot, max_lots or 10 ** 9)) if ask else 0
+        blocked_day = None if r["symbol"] in INDEX_SYM else expiry_block(nfo, r["symbol"], today) or (
+            f"Zerodha rejected a stock option buy today: {refused[:90]}" if refused else None)
         why = ("missed: the signal is more than 15 minutes old" if s["age_min"] > FRESH_MIN else
+               blocked_day if blocked_day else
                f"weak flip candle: {s['strength'] or 0:.2f}x a normal candle, under {strong_min}x"
                if strong_min is not None and (s["strength"] or 0) < strong_min else
                "no seller in the market for this option" if not ask else
                f"bid-ask gap {gap:.1%} is wider than {MAX_SPREAD:.0%}" if gap > MAX_SPREAD else
                f"only {at_ask} qty offered at the ask, less than 1 lot ({lot})" if at_ask < lot else
                "you already hold this stock" if r["symbol"] in held_names else
-               "4 positions already open" if n_open >= LIMITS["max_open"] else
+               f"{cap_open} positions already open" if n_open >= cap_open else
                # a buy needs room for itself, its sell, and the sell still due on every option held
                f"{LIMITS['max_orders_per_day']} orders a day: {n_orders} done, {n_open} sells kept for open positions"
                if n_orders + n_open + 2 > LIMITS["max_orders_per_day"] else

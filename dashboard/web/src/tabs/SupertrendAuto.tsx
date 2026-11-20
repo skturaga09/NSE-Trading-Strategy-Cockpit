@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
    sells on your exit rules and keeps a 25 % stop-loss in Zerodha. OFF = it only logs what it would send. */
 
 interface Act { at: string; option: string; action: string; why: string; armed: boolean; order_id?: string }
-interface Status { armed: boolean; entries: boolean; managed: Record<string, { since: string }>; log: Act[] }
+interface Status { armed: boolean; entries: boolean; no_limits?: boolean; managed: Record<string, { since: string }>; log: Act[] }
 
 export function SupertrendAuto() {
   const [s, setS] = useState<Status | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [confirmBuy, setConfirmBuy] = useState(false);
+  const [confirmRules, setConfirmRules] = useState(false);
   const [err, setErr] = useState("");
   const load = () => fetch(`/api/supertrend/auto?_t=${Date.now()}`).then((r) => r.json()).then(setS).catch(() => {});
   useEffect(() => {
@@ -17,10 +18,11 @@ export function SupertrendAuto() {
     const id = setInterval(load, 20000);
     return () => clearInterval(id);
   }, []);
-  const flip = async (body: { armed: boolean } | { entries: boolean }) => {
+  const flip = async (body: { armed: boolean } | { entries: boolean } | { no_limits: boolean }) => {
     setErr("");
     setConfirming(false);
     setConfirmBuy(false);
+    setConfirmRules(false);
     try {
       const r = await fetch("/api/supertrend/auto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error((await r.json()).error || `switch refused (${r.status})`);
@@ -68,6 +70,23 @@ export function SupertrendAuto() {
           </>
         ) : (
           <button onClick={() => setConfirmBuy(true)} className="rounded border border-line px-3 py-1 text-muted hover:text-ink">Switch on…</button>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
+        <span className="font-bold text-ink">Strategy</span>
+        <span className={`rounded px-2 py-0.5 ${s.no_limits ? "bg-[var(--red)]/15 text-[var(--red)]" : "bg-line/40 text-muted"}`}>
+          {s.no_limits ? "NO LIMITS: no day loss budget, no 4-open cap, 1 lot; cash and 20 orders a day decide"
+            : "YOUR RULES: 10 % day loss budget, max 4 open"}</span>
+        {s.no_limits ? (
+          <button onClick={() => void flip({ no_limits: false })} className="rounded border border-line px-3 py-1 font-bold text-ink hover:bg-line/30">Back to your rules</button>
+        ) : confirmRules ? (
+          <>
+            <span className="text-[var(--red)]">Real tickets and auto entries stop checking the day loss budget and the 4-open limit.</span>
+            <button onClick={() => void flip({ no_limits: true })} className="rounded border border-[var(--red)] px-3 py-1 font-bold text-[var(--red)] hover:bg-[var(--red)]/10">Yes, no limits</button>
+            <button onClick={() => setConfirmRules(false)} className="rounded border border-line px-3 py-1 text-muted hover:text-ink">Cancel</button>
+          </>
+        ) : (
+          <button onClick={() => setConfirmRules(true)} className="rounded border border-line px-3 py-1 text-muted hover:text-ink">Switch to no limits…</button>
         )}
       </div>
       {err && <p className="font-mono text-[11px] text-[var(--red)]">⚠ {err}</p>}
