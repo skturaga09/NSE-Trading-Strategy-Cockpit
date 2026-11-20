@@ -23,7 +23,7 @@ def nfo(name, kind, strikes, lot=500, tick=0.05, expiry="2026-11-24"):
 
 MASTER = nfo("PNB", "CE", [122, 124, 126, 128]) + nfo("PNB", "PE", [122, 124, 126, 128]) + \
     nfo("PNB", "CE", [126], expiry="2026-12-29") + nfo("ABB", "CE", [6800, 6900, 7000], lot=125) + \
-    nfo("TCS", "PE", [2400, 2450, 2500], lot=175)
+    nfo("TCS", "PE", [2400, 2450, 2500], lot=175) + nfo("NIFTY", "CE", [25500, 25550], lot=75)
 
 
 def full_quote(ltp, ask=None, bid=None, qty=1_000_000):
@@ -215,6 +215,15 @@ class View(unittest.TestCase):
         self.assertFalse(self.run_view(rows, positions=held, quotes=q)["positions"][0]["managed"])
         (self.peaks.parent / "reg.json").write_text(json.dumps({"PNB26NOV124CE": {"adopted": True}}))
         self.assertTrue(self.run_view(rows, positions=held, quotes=q)["positions"][0]["managed"])
+
+    def test_held_index_option_reads_the_index_spot_so_its_line_stop_works(self):
+        held = [{"exchange": "NFO", "tradingsymbol": "NIFTY26NOV25550CE", "quantity": 75, "average_price": 100.0, "pnl": 0}]
+        rows = [row("NIFTY", "UP", "2026-11-16T09:15:00+05:30", 25424.21)]
+        p = self.run_view(rows, positions=held, quotes={"NFO:NIFTY26NOV25550CE": 101.0, "NSE:NIFTY 50": 25480.0})["positions"][0]
+        self.assertEqual((p["action"], p["stock_ltp"]), ("HOLD", 25480.0))
+        p = self.run_view(rows, positions=held, quotes={"NFO:NIFTY26NOV25550CE": 90.0, "NSE:NIFTY 50": 25420.0})["positions"][0]
+        self.assertEqual(p["action"], "SELL")
+        self.assertIn("crossed the Supertrend line ₹25,424.21", p["why"])
 
     def test_premium_stop_sells_25_percent_below_the_buy(self):
         up = row("PNB", "UP", "2026-11-16T09:15:00+05:30", 124.1)

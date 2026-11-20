@@ -156,7 +156,8 @@ def view(now: Optional[datetime] = None, account: Optional[tuple] = None, touch:
     supertrend_paper passes its paper account here, so paper and real go through the very same decisions.
     strong_min (paper strong book only): skip flips whose candle body is under this many ATRs, before cash and slots are shared."""
     from dashboard import app as core
-    from dashboard.option_chain import _instruments, ensure_fresh_config
+    from dashboard.option_chain import INDEX_SYM, _instruments, ensure_fresh_config
+    spot = lambda u: INDEX_SYM.get(u, f"NSE:{u}")   # noqa: E731  an index quotes as "NSE:NIFTY 50", not "NSE:NIFTY"
     now = now or datetime.now(IST)
     ensure_fresh_config()
     api_key = core.KITE_CONFIG.get("api_key")
@@ -217,7 +218,7 @@ def view(now: Optional[datetime] = None, account: Optional[tuple] = None, touch:
                 quotes[k], book[k] = q.get("last_price"), q.get("depth") or {}
         except Exception as e:
             out["errors"].append(f"option quotes not readable: {e}")
-    syms = [f"NFO:{p['tradingsymbol']}" for p in held] + [f"NSE:{by_sym[p['tradingsymbol']]['name']}" for p in held]
+    syms = [f"NFO:{p['tradingsymbol']}" for p in held] + [spot(by_sym[p['tradingsymbol']]['name']) for p in held]
     for i in range(0, len(syms), 200):
         try:
             quotes.update({k: v.get("last_price") for k, v in _get("/quote/ltp", [("i", s) for s in syms[i:i + 200]]).items()})
@@ -278,13 +279,13 @@ def view(now: Optional[datetime] = None, account: Optional[tuple] = None, touch:
         ltp = quotes.get(f"NFO:{p['tradingsymbol']}") or p.get("last_price")
         avg = float(p.get("average_price") or 0.0)
         peak = max(avg, float(peaks.get(p["tradingsymbol"]) or 0.0))
-        d = exit_decision(kind, quotes.get(f"NSE:{und}"), rows.get(und), ins["expiry"], now, ltp, avg, touch, peak)
+        d = exit_decision(kind, quotes.get(spot(und)), rows.get(und), ins["expiry"], now, ltp, avg, touch, peak)
         trig = _tick(peak * SL_FRACTION, tick, up=False)
         highs[p["tradingsymbol"]] = max(peak, ltp or 0.0)
         out["positions"].append({
             "option": p["tradingsymbol"], "underlying": und, "qty": qty, "avg": avg, "ltp": ltp,
             "high": highs[p["tradingsymbol"]],
-            "pnl": round(p.get("pnl") or 0.0), "stock_ltp": quotes.get(f"NSE:{und}"), "line": rows.get(und, {}).get("line"),
+            "pnl": round(p.get("pnl") or 0.0), "stock_ltp": quotes.get(spot(und)), "line": rows.get(und, {}).get("line"),
             **d, "sl_in_zerodha": p["tradingsymbol"] in pending_sl,
             "sell": [order(p["tradingsymbol"], "SELL", qty, "LIMIT", _tick(ltp, tick, up=False))] if ltp else [],
             "backstop": [order(p["tradingsymbol"], "SELL", qty, "SL", _tick(trig * (1 - SL_LIMIT_GAP), tick, up=False), trig)]
