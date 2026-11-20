@@ -288,6 +288,16 @@ class EodDashboardChain(unittest.TestCase):
         self.assertFalse(self.eod.failed({"days": {}, "dashboard_chain": out}))
         del live
 
+    def test_evening_job_step_limit_overrides_the_dashboard_default(self):
+        d = self.day("2026-11-06")
+        seen = []
+        run = self.runner()
+        self.eod.dashboard_chain([d], runner=lambda argv, **kw: (seen.append(kw["timeout"]), run(argv, **kw))[1], timeout=7200)
+        self.assertEqual(set(seen), {7200})
+        seen.clear()
+        self.eod.dashboard_chain([d], runner=lambda argv, **kw: (seen.append(kw["timeout"]), run(argv, **kw))[1], rerun={"2026-11-06"})
+        self.assertEqual(set(seen), {1800})                              # the intraday job keeps the dashboard config's limit
+
     def test_done_steps_are_not_rerun(self):
         import sqlite3
         d = self.day("2026-11-06")

@@ -102,17 +102,18 @@ def _done(path: Path, sql: str, args: tuple) -> bool:
 RERUNNABLE = ("chain", "signals", "dashboard")
 
 
-def dashboard_chain(days: list, runner=subprocess.run, rerun=(), only=None, live=False) -> dict:
+def dashboard_chain(days: list, runner=subprocess.run, rerun=(), only=None, live=False, timeout=None) -> dict:
     """-> {day: {step: 'done' | 'ok' | 'skipped: ...' | 'error: ...'}}. A step whose prerequisite is not done is skipped.
     Days named in `rerun` run their RERUNNABLE steps even when a run row exists (the intraday job wrote it mid-session).
     `only` limits the run to those step names (the intraday job: never the paper ledger, which is not re-runnable).
-    `live` passes --live to the signal step (store nothing after the day's last packet; the intraday job)."""
+    `live` passes --live to the signal step (store nothing after the day's last packet; the intraday job).
+    `timeout` (s) overrides the dashboard config's per-step limit (the evening job passes its config's eod.step_timeout_s)."""
     from . import options, paper, signals
     from .dashboard_export import load as load_dashboard
     dcfg = load_dashboard()
     versions = {"chain": options.load().version, "signals": signals.load().version, "paper": paper.load().version,
                 "dashboard": dcfg.version}
-    timeout = dcfg.get("dashboard.eod_step_timeout_s")
+    timeout = timeout or dcfg.get("dashboard.eod_step_timeout_s")
     out = {}
     for d in days:
         has = {"buffer": (d / "buffer.sqlite").exists(),
@@ -231,9 +232,9 @@ def held_days(chain: dict, days: list) -> dict:
             for s, v in r.items() if s in BUFFER_STEPS and str(v).startswith("error")}
 
 
-def _chain_then_trader_test(days: list, today: str) -> dict:
+def _chain_then_trader_test(days: list, today: str, timeout=None) -> dict:
     # a buffer that outlived its evening was held by a failed step: re-run it even though the intraday job wrote a run row
-    out = dashboard_chain(days, rerun={today} | {d.name for d in days if (d / "buffer.sqlite").exists()})
+    out = dashboard_chain(days, rerun={today} | {d.name for d in days if (d / "buffer.sqlite").exists()}, timeout=timeout)
     for d in days:
         if d.name == today and isinstance(out.get(today), dict):
             out[today]["trader_test"] = trader_test(d)
@@ -245,8 +246,9 @@ def main(argv=None) -> int:
     ap.add_argument("--config", default=None)
     a = ap.parse_args(argv)
     now = datetime.now(IST)
-    out = run(load_config(a.config) if a.config else load_config(), now=now,
-              before_compaction=lambda days: _chain_then_trader_test(days, now.date().isoformat()))
+    cfg = load_config(a.config) if a.config else load_config()
+    limit = cfg.values.get("eod", {}).get("step_timeout_s")   # v25+: a full day's signal step takes ~45 min (2026-11-19)
+    out = run(cfg, now=now, before_compaction=lambda days: _chain_then_trader_test(days, now.date().isoformat(), limit))
     print(json.dumps(out, indent=2, default=str))
     return 1 if failed(out) else 0
 
